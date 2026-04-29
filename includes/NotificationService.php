@@ -24,7 +24,7 @@ class NotificationService {
         'VERIFY_PAY'   => 'Your payment has been received and is under verification.',
         'IN_PRODUCTION'=> 'Your payment has been approved. We will now proceed with processing your order.',
         'TO_RECEIVE'   => 'Order Ready! Your order is now ready for pickup. Thank you for choosing Mr. and Mrs. Print!',
-        'COMPLETED'    => 'Order Completed. Your order has been successfully picked up. We hope you are satisfied with our service! Feel free to share your feedback to help us improve even more.',
+        'COMPLETED'    => 'Order Completed. Your order has been successfully picked up. We hope to see you again!',
         'CANCELLED'    => 'Your order has been cancelled. Please contact us for assistance.',
         'FOR REVISION' => 'Revision requested for your order. Reason: {reason}',
     ];

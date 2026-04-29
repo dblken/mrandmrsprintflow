@@ -586,6 +586,8 @@ try {
                 'COMPLETED'     => 'Completed',
                 'REJECTED'      => 'Rejected',
                 'CANCELLED'     => 'Cancelled',
+                'FOR REVISION'  => 'For Revision',
+                'For Revision'  => 'For Revision',
             ];
             $new_status = $status_to_db[$raw_status] ?? $raw_status;
             $rejection_reason = sanitize($_POST['reason'] ?? '');
@@ -649,6 +651,9 @@ try {
             if ($new_status === 'Rejected' && !empty($rejection_reason)) {
                 db_execute('UPDATE customizations SET rejection_reason = ? WHERE customization_id = ?', 'si', [$rejection_reason, $cust_id]);
             }
+            if ($new_status === 'For Revision' && !empty($rejection_reason)) {
+                db_execute('UPDATE customizations SET rejection_reason = ? WHERE customization_id = ?', 'si', [$rejection_reason, $cust_id]);
+            }
 
             if ($price !== null && $linked_order_id) {
                 db_execute('UPDATE orders SET total_amount = ? WHERE order_id = ?', 'di', [$price, $linked_order_id]);
@@ -666,10 +671,15 @@ try {
                     'Completed'            => 'Completed',
                     'Rejected'             => 'Rejected',
                     'Cancelled'            => 'Cancelled',
+                    'For Revision'         => 'For Revision',
                 ];
                 if (isset($order_status_sync[$new_status])) {
-                    if ($new_status === 'Rejected' && $rejection_reason !== '') {
-                        db_execute('UPDATE orders SET status = ?, rejection_reason = ? WHERE order_id = ?', 'ssi', [$order_status_sync[$new_status], $rejection_reason, $linked_order_id]);
+                    if (($new_status === 'Rejected' || $new_status === 'For Revision') && $rejection_reason !== '') {
+                        db_execute(
+                            'UPDATE orders SET status = ?, rejection_reason = ?, design_status = ? WHERE order_id = ?',
+                            'sssi',
+                            [$order_status_sync[$new_status], $rejection_reason, ($new_status === 'For Revision' ? 'Revision Requested' : 'Rejected'), $linked_order_id]
+                        );
                     } else {
                         db_execute('UPDATE orders SET status = ? WHERE order_id = ?', 'si', [$order_status_sync[$new_status], $linked_order_id]);
                     }
@@ -684,10 +694,14 @@ try {
                     'Processing'        => 'in_production',
                     'Ready for Pickup'  => 'ready_to_pickup',
                     'Completed'         => 'completed',
+                    'For Revision'      => 'for_revision',
                 ];
                 if (isset($chat_step_map[$new_status])) {
                     require_once __DIR__ . '/../includes/functions.php';
                     $additional_meta = [];
+                    if ($new_status === 'For Revision' && !empty($rejection_reason)) {
+                        $additional_meta['reason'] = $rejection_reason;
+                    }
                     printflow_send_order_update($linked_order_id, $chat_step_map[$new_status], 'view_status', '', '', $additional_meta);
                 }
             }
@@ -1034,13 +1048,8 @@ try {
             
             if ($status === 'For Revision' && $reason !== '') {
                 db_execute("UPDATE job_orders SET notes = CONCAT(IFNULL(notes, ''), '\n[REVISION REQUEST] ', ?) WHERE id = ?", 'si', [$reason, $id]);
-                $o = db_query("SELECT order_id FROM job_orders WHERE id = ?", 'i', [$id]);
-                if (!empty($o) && !empty($o[0]['order_id'])) {
-                    require_once __DIR__ . '/../includes/functions.php';
-                    add_order_system_message($o[0]['order_id'], "Revision required: " . $reason);
-                    db_execute("UPDATE orders SET status = 'For Revision', design_status = 'Revision Requested', revision_reason = ? WHERE order_id = ?", 'si', [$reason, $o[0]['order_id']]);
-                }
             }
+
             
             $res = JobOrderService::updateStatus($id, $status, $machineId, $reason);
             jo_api_json_response(['success' => $res]);

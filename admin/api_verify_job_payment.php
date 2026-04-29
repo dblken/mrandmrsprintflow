@@ -255,38 +255,15 @@ if ($action === 'verify_payment') {
             $amt_f = format_currency($submitted_amount);
             log_activity($user_id, 'Job payment verified', "Job #{$job_id}: verified {$amt_f} ({$user_name})");
         }
-        if (!empty($job['customer_id'])) {
-            $amt_f = format_currency($submitted_amount);
-            create_notification((int)$job['customer_id'], 'Customer', "Your payment proof for Custom Job #{$job_id} was verified. ({$amt_f})", 'Job Order', true, true);
-        }
+        // The payment status update and JobOrderService::updateStatus already handle customer notifications.
+
 
         if ($new_order_status !== $job['status'] && $user_id > 0) {
             log_activity($user_id, 'Job status update', "Job #{$job_id} moved to {$new_order_status} after payment verification.");
         }
-        if ($new_order_status !== $job['status'] && !empty($job['customer_id'])) {
-            create_notification((int)$job['customer_id'], 'Customer', "Custom Job #{$job_id} payment verified and moved into production!", 'Job Order', true, true);
-        }
-        
-        // Send order update message for approval
-        if (!empty($job['order_id'])) {
-            try {
-                if (!function_exists('printflow_send_order_update')) {
-                    require_once __DIR__ . '/../includes/order_chat_system.php';
-                }
-                $approval_message = "Your payment has been approved. We will now proceed with processing your order.";
-                $meta = [
-                    'order_id' => (int)$job['order_id'],
-                    'job_id' => $job_id,
-                    'order_status' => 'Processing',
-                    'payment_status' => $new_payment_status,
-                    'step' => 'payment_verified'
-                ];
-                printflow_send_order_update((int)$job['order_id'], 'payment_verified', 'view_status', '', '', $meta);
-            } catch (Exception $chatEx) {
-                // Log but don't fail the approval if chat message fails
-                error_log("Failed to send approval chat message for job #{$job_id}: " . $chatEx->getMessage());
-            }
-        }
+        // JobOrderService::updateStatus already sends the required notifications and chat updates.
+        // We avoid calling them again here to prevent duplicate messages.
+
 
         $conn->commit();
         

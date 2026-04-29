@@ -558,6 +558,7 @@ class JobOrderService {
 
             // Sync status back to standard orders table
             if (!empty($order['order_id'])) {
+                // Map job status → orders table status
                 $order_status_map = [
                     'PENDING'       => 'Pending Approval',
                     'APPROVED'      => 'Approved',
@@ -566,22 +567,31 @@ class JobOrderService {
                     'IN_PRODUCTION' => 'In Production',
                     'TO_RECEIVE'    => 'Ready for Pickup',
                     'COMPLETED'     => 'Completed',
-                    'CANCELLED'     => 'Cancelled'
+                    'CANCELLED'     => 'Cancelled',
+                    'FOR REVISION'  => 'For Revision',
                 ];
                 $storeStatus = $order_status_map[strtoupper($newStatus)] ?? $newStatus;
-                
+
                 $sql_parts = ["status = ?", "updated_at = NOW()"];
                 $params = [$storeStatus];
                 $types = "s";
-                
+
                 if (strtoupper($newStatus) === 'APPROVED') {
                     $sql_parts[] = "design_status = 'Approved'";
                     $sql_parts[] = "revision_reason = ''";
                 }
-                
+
+                // When revision is requested, store the reason on the order record
+                if (strtoupper($newStatus) === 'FOR REVISION' && !empty($reason)) {
+                    $sql_parts[] = "design_status = 'Revision Requested'";
+                    $sql_parts[] = "revision_reason = ?";
+                    $params[] = $reason;
+                    $types .= "s";
+                }
+
                 $params[] = $order['order_id'];
                 $types .= "i";
-                
+
                 db_execute("UPDATE orders SET " . implode(', ', $sql_parts) . " WHERE order_id = ?", $types, $params);
             }
 
@@ -606,12 +616,18 @@ class JobOrderService {
                     'to_pay'        => 'send_to_payment',
                     'verify_pay'    => 'view_only',
                     'in_production' => 'in_production',
+                    'for revision'  => 'for_revision',
                     'to_receive'    => 'ready_to_pickup',
                     'completed'     => 'completed',
-                    'cancelled'     => 'cancelled'
+                    'cancelled'     => 'cancelled',
                 ];
                 $notif_step = $step_map[$step] ?? 'view_only';
-                printflow_send_order_update((int)$order['order_id'], $notif_step);
+                $chat_meta = [];
+                if ($notif_step === 'for_revision' && !empty($reason)) {
+                    $chat_meta['reason'] = $reason;
+                }
+                // Signature: printflow_send_order_update($order_id, $message, $action_type, $thumbnail, $action_url, $meta)
+                printflow_send_order_update((int)$order['order_id'], $notif_step, 'view_status', '', '', $chat_meta);
             }
 
             if (!$wasInTransaction) {

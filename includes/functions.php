@@ -1815,12 +1815,18 @@ function customer_notification_target_url(array $notification) {
 
 function customer_notification_image_url(array $notification, string $fallback) {
     $data_id = (int)($notification['data_id'] ?? 0);
+    $type = strtolower((string)($notification['type'] ?? ''));
     if ($data_id <= 0) {
         return $fallback;
     }
-    $preview = printflow_order_notification_preview($data_id);
+    if ($type === 'job order') {
+        $preview = printflow_job_notification_preview($data_id);
+    } else {
+        $preview = printflow_order_notification_preview($data_id);
+    }
     return $preview['image_url'] ?: $fallback;
 }
+
 
 function printflow_push_title_for_notification(string $type, string $message, string $userType): string {
     $type = trim($type);
@@ -1921,9 +1927,14 @@ function staff_admin_notification_image_url(array $notification, string $fallbac
     if (!in_array($type, ['order', 'design', 'payment', 'payment issue', 'message', 'job order'], true)) {
         return $fallback;
     }
-    $preview = printflow_order_notification_preview($data_id);
+    if ($type === 'job order') {
+        $preview = printflow_job_notification_preview($data_id);
+    } else {
+        $preview = printflow_order_notification_preview($data_id);
+    }
     return $preview['image_url'] ?: $fallback;
 }
+
 
 function printflow_notification_order_snapshot(int $order_id): array {
     static $cache = [];
@@ -2122,6 +2133,55 @@ function printflow_notification_item_kind(array $notification): string {
     $preview = printflow_order_notification_preview($data_id);
     return trim((string)($preview['item_kind'] ?? ''));
 }
+
+/**
+ * Resolve display name, image, and kind for a JOB notification.
+ */
+function printflow_job_notification_preview(int $job_id): array {
+    static $cache = [];
+    $job_id = (int)$job_id;
+    if ($job_id <= 0) {
+        return ['display_name' => '', 'image_url' => '', 'item_kind' => 'Job'];
+    }
+    if (isset($cache[$job_id])) return $cache[$job_id];
+
+    $base = defined('BASE_URL') ? BASE_URL : '/printflow';
+    $row = db_query("SELECT id, job_title, service_type, artwork_path FROM job_orders WHERE id = ? LIMIT 1", 'i', [$job_id]);
+    
+    $preview = ['display_name' => '', 'image_url' => '', 'item_kind' => 'Service'];
+    if (empty($row)) {
+        $cache[$job_id] = $preview;
+        return $preview;
+    }
+    $r = $row[0];
+    $preview['display_name'] = trim((string)($r['job_title'] ?? $r['service_type'] ?? 'Job Order'));
+    
+    // Artwork path resolution
+    $artwork = trim((string)($r['artwork_path'] ?? ''));
+    if ($artwork !== '') {
+        if (preg_match('#^https?://#i', $artwork) || $artwork[0] === '/') {
+            $preview['image_url'] = $artwork;
+        } else {
+            // Check if path exists as is
+            if (file_exists(__DIR__ . '/../' . $artwork)) {
+                $preview['image_url'] = $base . '/' . ltrim($artwork, '/');
+            } elseif (file_exists(__DIR__ . '/../uploads/artwork/' . $artwork)) {
+                $preview['image_url'] = $base . '/uploads/artwork/' . $artwork;
+            } elseif (file_exists(__DIR__ . '/../public/serve_design.php')) {
+                $preview['image_url'] = $base . '/public/serve_design.php?type=job_order&id=' . $job_id;
+            }
+        }
+    }
+
+
+    if ($preview['image_url'] === '') {
+        $preview['image_url'] = get_service_image_url($r['service_type'] ?: $preview['display_name']);
+    }
+
+    $cache[$job_id] = $preview;
+    return $preview;
+}
+
 
 function printflow_order_notification_preview(int $order_id): array {
     static $cache = [];
@@ -3436,6 +3496,13 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
             'action_type'  => 'view_status',
             'action_url'   => '',
         ],
+        'for_revision' => [
+            'message'      => "Revision required: {reason}. Please check the requirements and resubmit.",
+            'message_type' => 'order_card',
+            'action_type' => 'view_details',
+            'action_url'  => '',
+        ],
+
         'ready_to_pickup' => [
             'message'      => "Order Ready! Your order is now ready for pickup. Thank you for choosing Mr. and Mrs. Print!",
             'message_type' => 'order_update',
@@ -3443,7 +3510,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'      => "Order Completed. Your order has been successfully picked up. Thank you for choosing Mr. and Mrs. Print!",
+            'message'      => "Order Completed. Your order has been successfully picked up. We hope to see you again!",
             'message_type' => 'order_card',
             'button_label' => 'Leave a Review',
             'action_type' => 'rate',
@@ -3484,9 +3551,10 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
         $config['message'] = "Your order is now ready for payment. Please proceed to complete your transaction.";
     }
 
-    if ($step === 'payment_rejected' && !empty($additional_meta['reason'])) {
+    if (($step === 'payment_rejected' || $step === 'for_revision') && !empty($additional_meta['reason'])) {
         $config['message'] = str_replace('{reason}', $additional_meta['reason'], $config['message']);
     }
+
 
     $message      = $custom_text ?: $config['message'];
     $message_type = $config['message_type'] ?? 'text';
@@ -3501,7 +3569,9 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
         'payment_verified' => 'staff',
         'payment_rejected' => 'staff',
         'in_production' => 'staff',
+        'for_revision' => 'staff',
         'inquiry_rejected' => 'staff',
+
         'ready_to_pickup' => 'staff',
         'completed' => 'staff',
         'rate' => 'staff',

@@ -3398,6 +3398,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     fd.append('action', 'update_customization');
                     fd.append('id', id);
                     fd.append('status', status);
+                    if (reason) fd.append('reason', reason);
                 } else {
                     fd.append('action', 'update_status');
                     fd.append('id', id);
