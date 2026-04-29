@@ -395,7 +395,7 @@ require_once __DIR__ . '/../includes/header.php';
     .detail-order-chip.category { background:#ecfeff; color:#0f766e; text-transform:uppercase; }
     .detail-order-price { min-width:120px; text-align:right; }
     .detail-order-price .pf-spec-key { margin-bottom:2px; font-size:9px; }
-    .detail-order-price strong { display:block; font-size:1.05rem; font-weight:900; color:#0ea5a5; line-height:1.2; word-break:break-word; }
+    .detail-order-price strong { display:block; font-size:1.05rem; font-weight:900; color:#0ea5a5; line-height:1.2; word-break:break-word; overflow-wrap:break-word; white-space:normal; }
     .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid var(--pf-border); display:flex; justify-content:flex-end; gap:12px; }
 
     .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:#fff; border:1px solid var(--pf-border); }
@@ -1986,7 +1986,7 @@ function openOrderDetails(id) {
                                         </div>
                                         <div class="detail-order-price">
                                              <div class="pf-spec-key">Total</div>
-                                             <strong>${it.subtotal || 'TBA'}</strong>
+                                             <strong>${it.subtotal || 'To be finalized'}</strong>
                                         </div>
                                     </div>
                                     <div class="pf-spec-grid" style="margin-top:0; gap:8px;">

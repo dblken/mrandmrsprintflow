@@ -651,7 +651,7 @@ $current_user = get_logged_in_user();
         .detail-order-chip.category { background: #ecfeff; color: #0f766e; text-transform: uppercase; }
         .detail-order-price { min-width: 120px; text-align: right; }
         .detail-order-price .pf-spec-key { margin-bottom: 2px; font-size: 9px; }
-        .detail-order-price strong { display: block; font-size: 1.05rem; font-weight: 900; color: #06A1A1; line-height: 1.2; word-break: break-word; }
+        .detail-order-price strong { display: block; font-size: 1.05rem; font-weight: 900; color: #06A1A1; line-height: 1.2; word-break: break-word; overflow-wrap:break-word; white-space:normal; }
 
         /* Responsive */
         .mobile-chat-header { display: none; }
@@ -2487,7 +2487,7 @@ function openDetails(id) {
                                             </div>
                                             <div class="detail-order-price">
                                                 <div class="pf-spec-key">Total</div>
-                                                <strong>${i.subtotal || 'TBA'}</strong>
+                                                <strong>${i.subtotal || 'To be finalized'}</strong>
                                             </div>
                                         </div>
                                         <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
