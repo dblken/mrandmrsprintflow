@@ -85,14 +85,22 @@ try {
             }
 
             $msg = $isPlainProductOrder 
-                ? "Your payment has been verified. Your order is now ready for pickup!" 
-                : "Your payment has been verified. Your order is now in production!";
+                ? "Your payment has been approved, and your order is now ready for pickup!" 
+                : "Your payment has been approved, and our team is currently working on it.";
             
             if (!empty($order['customer_id'])) {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
-            add_order_system_message($order_id, $msg);
-            printflow_send_order_update($order_id, 'payment_verified');
+            
+            // Send order update chat message
+            require_once __DIR__ . '/../includes/order_chat_system.php';
+            $meta = [
+                'order_id' => $order_id,
+                'order_status' => $new_status,
+                'payment_status' => $payment_status,
+                'step' => 'payment_verified'
+            ];
+            printflow_send_order_update($order_id, $msg, 'view_status', '', '', $meta);
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
@@ -147,12 +155,22 @@ try {
         }
         
         if ($success) {
-            $msg = "Your payment proof was rejected. Reason: " . $reason;
+            $msg = "Your payment proof was rejected. Reason: " . $reason . ". Please resubmit your payment proof.";
             if (!empty($order['customer_id'])) {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
-            add_order_system_message($order_id, "[PAYMENT REJECTION] " . $reason);
-            printflow_send_order_update($order_id, 'payment_rejected');
+            
+            // Send order update chat message for rejection
+            require_once __DIR__ . '/../includes/order_chat_system.php';
+            $meta = [
+                'order_id' => $order_id,
+                'order_status' => $new_status,
+                'payment_status' => 'Rejected',
+                'rejection_reason' => $reason,
+                'step' => 'payment_rejected'
+            ];
+            printflow_send_order_update($order_id, $msg, 'retry_payment', '', '', $meta);
+            
             log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}. Reason: {$reason}");
             db_execute(
                 "UPDATE job_orders SET payment_proof_status = 'REJECTED', status = 'TO_PAY',

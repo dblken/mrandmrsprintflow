@@ -1310,6 +1310,8 @@ function getOrderCardData(m) {
         thumbnail: imagePath,
         image: imagePath,
         messageText: m.message || meta.message || `Status update for ${productName}`,
+        rejectionReason: meta.rejection_reason || '',
+        actionType: m.action_type || 'view_status',
         buttonLabel: m.button_label || meta.button_label || 'View Order',
         actionUrl: meta.action_url || m.action_url || '',
         amount: meta.amount ?? null,
