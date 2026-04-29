@@ -372,6 +372,11 @@ require_once __DIR__ . '/../includes/header.php';
     .details-modal-overlay { display:none !important; position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:3000; align-items:center; justify-content:center; padding:1.5rem; backdrop-filter:blur(8px); }
     .details-modal-overlay.active { display:flex !important; }
     .details-modal-panel { background:#fff; border-radius:32px; width:min(100%, 1100px); max-height:min(88vh, 920px); overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
+    /* Modal font: match app font for cleaner, consistent UI */
+    .details-modal-panel, .details-modal-header, .details-main, .details-sidebar {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: #0f172a;
+    }
     .details-modal-header { padding:1.25rem 2rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fff; flex-shrink:0; }
     .details-modal-content { display:grid; grid-template-columns:minmax(250px, 290px) minmax(0, 1fr); flex:1; overflow:hidden; min-height:0; }
     .details-sidebar { background:linear-gradient(180deg,#f8fbff 0%, #f1f5f9 100%); border-right:1px solid #eef2f7; padding:1.5rem; overflow-y:auto; }
