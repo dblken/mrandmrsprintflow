@@ -925,6 +925,7 @@ require_once __DIR__ . '/../includes/header.php';
         justify-content: space-between;
         gap: 1rem;
         min-height: 4rem;
+        text-align: left !important;
     }
     .im-table td:not(:first-child)::before {
         content: attr(data-label);
@@ -936,6 +937,9 @@ require_once __DIR__ . '/../includes/header.php';
         color: #64748b;
         flex: 0 0 42%;
         max-width: 42%;
+        text-align: left !important;
+        justify-self: flex-start;
+        margin-right: auto;
     }
     .im-table td:last-child {
         border-bottom: none;
@@ -945,7 +949,7 @@ require_once __DIR__ . '/../includes/header.php';
         display: block;
         flex: 1 1 auto;
         font-size: 0.95rem;
-        text-align: right;
+        text-align: right !important;
         margin-left: auto;
         max-width: none;
         white-space: normal;
