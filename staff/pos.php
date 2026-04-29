@@ -59,7 +59,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - PrintFlow</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo htmlspecialchars(BASE_PATH . '/public/assets/css/output.css'); ?>">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
@@ -368,6 +368,7 @@ try {
         }
 
         .pos-card-product-name {
+            font-family: 'Outfit', sans-serif;
             font-size: 14px;
             font-weight: 700;
             color: white;
@@ -726,8 +727,11 @@ try {
             border: 2px solid #e2e8f0;
             padding: 14px 20px;
             border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 13px;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
             text-align: center;
             cursor: pointer;
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1231,7 +1235,7 @@ try {
         <div
             style="background:#ffffff; width:450px; border-radius:20px; padding:28px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.15); border:1px solid #e2e8f0; transform:translateY(0); transition:all 0.3s; margin:16px; color:#1e293b;">
             <h3 id="cm-title"
-                style="margin:0 0 20px 0; font-size:20px; font-weight:800; color:#0f172a; letter-spacing:-0.02em;">
+                style="margin:0 0 20px 0; font-size:18px; font-weight:800; color:#0f172a; letter-spacing:-0.02em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;" title="Product Customization">
                 Product Customization</h3>
 
             <div id="cm-dynamic-fields"
