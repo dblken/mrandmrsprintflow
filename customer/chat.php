@@ -444,12 +444,13 @@ require_once __DIR__ . '/../includes/header.php';
             box-shadow: none;
         }
         .details-modal-overlay { padding:.75rem; align-items:flex-end; }
-        .details-modal-panel { max-height:min(92vh, 920px); border-radius:24px 24px 0 0; }
+        .details-modal-panel { max-height:min(92vh, 920px); border-radius:24px 24px 0 0; overflow:hidden; }
         .details-modal-header,
         .details-main,
         .details-sidebar { padding:1rem; }
-        .details-modal-content { grid-template-columns:1fr; }
-        .details-sidebar { border-right:none; border-bottom:1px solid #eef2f7; }
+        .details-modal-content { grid-template-columns:1fr; overflow-y:auto; overflow-x:hidden; }
+        .details-sidebar { border-right:none; border-bottom:1px solid #eef2f7; overflow:visible; }
+        .details-main { overflow:visible; }
         .details-main-heading { padding-bottom:.75rem; margin-bottom:.85rem; border-bottom:1px solid #f1f5f9; }
         .detail-order-top { grid-template-columns:1fr; }
         .detail-order-thumb { width:100%; max-width:240px; height:auto; aspect-ratio:1 / 1; }
