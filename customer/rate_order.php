@@ -318,12 +318,18 @@ require_once __DIR__ . '/../includes/header.php';
     .rate-shell { border-radius: 16px; }
     .rate-shell-head {
         padding: 1rem;
-        align-items: flex-start;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        justify-content: stretch;
+        column-gap: 0.75rem;
+        row-gap: 0.35rem;
     }
     .rate-shell-copy {
-        order: 2;
-        width: 100%;
+        order: 1;
+        width: auto;
+        min-width: 0;
+        align-self: start;
     }
     .rate-shell-title,
     .rate-shell-head .rate-shell-title,
@@ -338,11 +344,13 @@ require_once __DIR__ . '/../includes/header.php';
         max-width: 18rem;
     }
     .rate-back-link {
-        order: 1;
+        order: 2;
         width: auto;
         margin-left: auto;
         justify-content: flex-end;
         padding-top: 0;
+        align-self: start;
+        white-space: nowrap;
     }
     .rate-body { padding: 0.9rem; }
     .rate-card,
