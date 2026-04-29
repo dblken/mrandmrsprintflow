@@ -537,8 +537,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                         if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) @unlink($item['reference_tmp_path']);
                     }
 
-                    // 4. Clear cart items and redirect
                     $item_keys_to_clear = array_keys($items_to_review);
+                    if (!isset($_SESSION['pending_payment_cart_restore']) || !is_array($_SESSION['pending_payment_cart_restore'])) {
+                        $_SESSION['pending_payment_cart_restore'] = [];
+                    }
+                    $_SESSION['pending_payment_cart_restore'][(string)$order_id] = [
+                        'items' => $items_to_review,
+                        'created_at' => time(),
+                    ];
+
+                    // 4. Clear cart items and redirect
                     foreach ($item_keys_to_clear as $key) {
                         if (isset($_SESSION['cart'][$key])) {
                             unset($_SESSION['cart'][$key]);

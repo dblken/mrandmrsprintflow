@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 $order_id = (int)($_GET['order_id'] ?? 0);
 $customer_id = get_user_id();
 $is_job_order = false;
+$restore_cart_requested = isset($_GET['restore_cart']) && $_GET['restore_cart'] === '1';
 
 // Mark notification as read if parameter present
 if (isset($_GET['mark_read'])) {
@@ -141,6 +142,32 @@ $payment_proof_status = $payment_proof_status ?? '';
 $is_rejected_payment = $is_rejected_payment ?? false;
 $is_paid_ui = $is_paid_ui ?? false;
 $is_verifying_payment = $is_verifying_payment ?? false;
+
+if ($restore_cart_requested) {
+    $restore_entry = $_SESSION['pending_payment_cart_restore'][(string)$order_id] ?? null;
+    $restore_items = is_array($restore_entry) ? ($restore_entry['items'] ?? null) : null;
+
+    if (is_array($restore_items) && !$is_paid_ui && !$is_verifying_payment) {
+        if (!isset($_SESSION['cart']) || !is_array($_SESSION['cart'])) {
+            $_SESSION['cart'] = [];
+        }
+
+        foreach ($restore_items as $cart_key => $cart_item) {
+            if (!is_array($cart_item)) {
+                continue;
+            }
+            $cart_item['selected'] = true;
+            $_SESSION['cart'][(string)$cart_key] = $cart_item;
+        }
+
+        $_SESSION['last_order_item_key'] = implode(',', array_keys($restore_items));
+        unset($_SESSION['pending_payment_cart_restore'][(string)$order_id]);
+        sync_cart_to_db($customer_id);
+    }
+
+    header('Location: cart.php');
+    exit;
+}
 
 $page_title = "Payment - Order #{$order_id}";
 $use_customer_css = true;
@@ -424,8 +451,8 @@ if (!function_exists('pf_payment_qr_url')) {
             <div class="payment-topbar" style="display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 2rem;">
                 <?php 
                 $back_url = 'orders.php';
-                if (!empty($_SESSION['last_order_item_key'])) {
-                    $back_url = 'order_review.php?item=' . urlencode($_SESSION['last_order_item_key']);
+                if (!$is_job_order) {
+                    $back_url = 'payment.php?order_id=' . $order_id . '&restore_cart=1';
                 }
                 ?>
                 <a href="<?php echo $back_url; ?>" style="text-decoration: none; display: flex; align-items: center; gap: 4px; color: #9fc4d4; font-weight: 600; transition: color 0.2s;" onmouseover="this.style.color='#53c5e0'" onmouseout="this.style.color='#9fc4d4'">
