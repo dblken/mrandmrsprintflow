@@ -575,6 +575,7 @@
             this.partnerName = displayName;
             this.partnerAvatar = displayAvatar;
             overlay.className = `pf-call-overlay--${state}`;
+            overlay.classList.toggle('pf-video-call-active', this.callType === 'video' && state === PF_STATE.IN_CALL);
             this.$('pf-call-name').textContent = displayName;
             this.$('pf-call-avatar').src = displayAvatar;
             this.$('pf-video-name').textContent = displayName;
