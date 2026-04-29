@@ -321,7 +321,8 @@ try {
             display: flex;
             flex-direction: column;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            height: 100%;
+            height: auto;
+            min-height: 160px;
         }
 
         .pos-card:hover {
@@ -743,6 +744,7 @@ try {
             gap: 8px;
             position: relative;
             min-width: 0;
+            min-height: 80px;
             overflow: hidden;
         }
 
