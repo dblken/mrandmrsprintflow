@@ -294,7 +294,6 @@ window.PFConfig = {
     logoUrl: <?php echo json_encode($shop_logo_url); ?>, 
     logoutUrl: <?php echo json_encode($base_path . '/logout'); ?>, 
     loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>, 
-    apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>, 
     sessionStatusUrl: <?php echo json_encode($base_path . '/public/api_session_status.php'); ?> 
 };
 (function() {

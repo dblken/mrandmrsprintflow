@@ -551,7 +551,7 @@ $page_title = 'Products & Inventory - Staff';
             <div class="card staff-products-table-card">
                 <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                     <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;">
-                        Inventory List
+                        Product List
                     </h3>
                     <div class="toolbar-group" style="margin-left: auto; display: flex; gap: 10px; align-items: center;">
     

@@ -380,7 +380,6 @@ window.PFConfig = {
     logoUrl: <?php echo json_encode($shop_logo_url); ?>,
     logoutUrl: <?php echo json_encode($logout_url); ?>,
     loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>,
-    apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>,
     // Admin API endpoints
     adminBase: <?php echo json_encode($base_path . '/admin'); ?>,
     publicBase: <?php echo json_encode($base_path . '/public'); ?>,

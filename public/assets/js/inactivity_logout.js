@@ -194,15 +194,16 @@
         document.addEventListener(evt, onActivity, { passive: true });
     });
 
-    // Ping server periodically to refresh session (optional - backend handles this on requests)
-    var apiCartUrl = (window.PFConfig && window.PFConfig.apiCartUrl) || '/public/api_cart.php';
+    // Ping server periodically to refresh session
     setInterval(function() {
         if (document.visibilityState === 'visible' && Date.now() - lastActivity < WARNING_MS) {
-            fetch(apiCartUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'get_count', csrf_token: (document.querySelector('[name="csrf_token"]') || {}).value || '' }),
-                credentials: 'same-origin'
+            fetch(sessionStatusUrl + '?_=' + Date.now(), {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             }).catch(function() {});
         }
     }, 15 * 60 * 1000); // every 15 min when visible
