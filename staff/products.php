@@ -36,6 +36,13 @@ function staff_products_column_exists(string $table, string $column): bool {
     }
 }
 
+// Middle truncation helper
+function middle_truncate($string, $limit = 25) {
+    if (mb_strlen($string) <= $limit) return $string;
+    $half = floor(($limit - 3) / 2);
+    return mb_substr($string, 0, $half) . '...' . mb_substr($string, -$half);
+}
+
 // Get filter parameters
 $category = $_GET['category'] ?? '';
 $search = $_GET['search'] ?? '';
@@ -227,16 +234,16 @@ $page_title = 'Products & Inventory - Staff';
             width: 100%;
         }
         .products-table th:nth-child(1) { width: 90px; }
-        .products-table th:nth-child(2) { width: auto; }
-        .products-table th:nth-child(3) { width: 140px; }
-        .products-table th:nth-child(4) { width: 110px; }
-        .products-table th:nth-child(5) { width: 90px; }
-        .products-table th:nth-child(6) { width: 90px; }
+        .products-table th:nth-child(2) { width: 160px; }
+        .products-table th:nth-child(3) { width: 120px; }
+        .products-table th:nth-child(4) { width: 100px; }
+        .products-table th:nth-child(5) { width: 80px; }
+        .products-table th:nth-child(6) { width: 80px; }
 
         .truncate-ellipsis {
             display: block;
             width: 100%;
-            max-width: 220px;
+            max-width: 150px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -594,12 +601,12 @@ $page_title = 'Products & Inventory - Staff';
                                     <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
                                     <td style="font-weight:500;">
                                         <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['name']); ?>">
-                                            <?php echo htmlspecialchars($product['name']); ?>
+                                            <?php echo htmlspecialchars(middle_truncate($product['name'], 25)); ?>
                                         </div>
                                     </td>
                                     <td>
                                         <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['category']); ?>">
-                                            <?php echo htmlspecialchars($product['category']); ?>
+                                            <?php echo htmlspecialchars(middle_truncate($product['category'], 20)); ?>
                                         </div>
                                     </td>
                                     <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
