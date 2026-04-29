@@ -144,17 +144,6 @@ try {
         $archive_col = $has_archived ? "o.is_archived" : "0";
         $has_activity = !empty(db_query("SHOW COLUMNS FROM customers LIKE 'last_activity'"));
         $activity_sel = $has_activity ? "c.last_activity as partner_last_activity," : "NULL as partner_last_activity,";
-        $branch_clause = '';
-
-        if ($user_type !== 'Admin') {
-            $branch_id = printflow_branch_filter_for_user();
-            if ($branch_id !== null && $branch_id > 0) {
-                $branch_clause = " AND o.branch_id = ? ";
-                $params = array_merge([(int)$branch_id], $params);
-                $types = "i" . $types;
-            }
-        }
-
         $sql = "
         SELECT o.order_id, o.customer_id, o.status, o.order_date, $archive_col as is_archived,
                TRIM(CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))) AS customer_name,
@@ -174,7 +163,7 @@ try {
                (SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(oi.customization_data, '$.service_type')), p.name, 'Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id LIMIT 1) AS product_name
         FROM orders o
         LEFT JOIN customers c ON c.customer_id = o.customer_id
-        WHERE o.status != 'Cancelled' $branch_clause" . ($has_archived ? " AND $archive_col = ?" : "") . " $search_clause
+        WHERE o.status != 'Cancelled'" . ($has_archived ? " AND $archive_col = ?" : "") . " $search_clause
         AND (
             EXISTS (SELECT 1 FROM order_messages m WHERE m.order_id = o.order_id)
             OR o.order_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)
