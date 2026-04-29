@@ -433,7 +433,7 @@ $page_title = 'Notifications - Staff';
                                 Page <?php echo (int)$page; ?> of <?php echo (int)$total_pages; ?> · <?php echo number_format($total_count); ?> total
                             </div>
                         </div>
-                        <div class="toolbar-group">
+                        <div class="toolbar-group" style="margin-left: auto; display: flex; gap: 8px;">
                             <div style="position:relative;">
                                 <button type="button" class="toolbar-btn" :class="{active: filterOpen || hasActiveFilters}" @click="filterOpen = !filterOpen" style="height:38px;">
                                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>

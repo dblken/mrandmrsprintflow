@@ -598,7 +598,7 @@ $page_title = 'Products & Inventory - Staff';
                 </div>
 
                 <!-- Pagination -->
-                <?php echo get_pagination_links($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
+                <?php echo render_pagination($current_page, $total_pages, ['category' => $category, 'search' => $search]); ?>
             </div>
 
             <?php if ($show_branch_inventory): ?>

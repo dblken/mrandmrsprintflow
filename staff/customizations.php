@@ -1040,7 +1040,7 @@ if ($showLatestCustomizationOnly) {
                     <div class="toolbar-group toolbar-group--title">
                         <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;white-space:nowrap;">Customization List</h3>
                     </div>
-                    <div class="toolbar-group toolbar-group--actions">
+                    <div class="toolbar-group toolbar-group--actions" style="margin-left: auto; display: flex; gap: 8px;">
     
                         <!-- Sort Menu -->
                         <div style="position: relative;">

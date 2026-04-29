@@ -363,7 +363,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         }
     }
     $tbody = ob_get_clean();
-    $pagination = get_pagination_links($current_page, $total_pages, $active_filters);
+    $pagination = render_pagination($current_page, $total_pages, $active_filters);
     
     header('Content-Type: application/json');
     echo json_encode([
@@ -1286,9 +1286,13 @@ $page_title = 'Orders - Staff';
             if (overrides.sort && overrides.sort !== 'newest') params.set('sort', overrides.sort);
             else params.delete('sort');
         }
+        if (overrides.page !== undefined) {
+            if (overrides.page && overrides.page > 1) params.set('page', overrides.page);
+            else params.delete('page');
+        }
         if (isAjax) params.set('ajax', '1');
         else params.delete('ajax');
-        params.delete('page');
+        
         return window.location.pathname + '?' + params.toString();
     }
 
@@ -2055,7 +2059,7 @@ $page_title = 'Orders - Staff';
                             </button>
                         </template>
                     </div>
-                    <div class="toolbar-group">
+                    <div class="toolbar-group" style="display: flex; gap: 8px; margin-left: auto;">
 
                             <!-- Sort Button -->
                             <div style="position:relative;">
