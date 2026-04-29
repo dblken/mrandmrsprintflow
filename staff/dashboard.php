@@ -357,7 +357,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
             <div class="toolbar-group" style="display: flex; gap: 12px; align-items: center;">
                 <!-- Timeframe (Sort) -->
                 <div style="position:relative;">
-                    <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false">
+                    <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700;">
                         <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span x-text="getButtonLabel(activeTimeframe)">Today</span>
                     </button>
@@ -370,7 +370,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
 
                 <!-- Status Filter -->
                 <div style="position:relative;">
-                    <button class="toolbar-btn" :class="{ active: filterOpen || activeStatus }" @click="filterOpen = !filterOpen; sortOpen = false">
+                    <button class="toolbar-btn" :class="{ active: filterOpen || activeStatus }" @click="filterOpen = !filterOpen; sortOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                         Status: <span x-text="activeStatus ? activeStatus : 'All'"></span>
                     </button>
@@ -387,7 +387,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
                 <input type="hidden" id="filter-status" :value="activeStatus">
                 <input type="hidden" id="filter-timeframe" :value="activeTimeframe">
 
-                <a href="pos.php" class="toolbar-btn" style="background:#0d9488; border-color:#0d9488; color:#fff;">
+                <a href="pos.php" class="toolbar-btn" style="background: linear-gradient(135deg, #0d9488 0%, #065f46 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2); font-weight: 700;">
                     <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     POS
                 </a>

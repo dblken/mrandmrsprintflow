@@ -1088,7 +1088,7 @@ function loadConvs() {
             const active = activeId === c.order_id ? 'active' : '';
             return `
             <div class="conv-card ${active}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
-                <div class="conv-av">${c.staff_avatar ? `<img src="${resolveProfileUrl(c.staff_avatar)}" onerror="${PROFILE_IMAGE_ONERROR}">` : (name === 'PrintFlow Team' ? `<img src="${BASE}/public/assets/images/favicon.png" style="width:24px;height:24px;object-fit:contain;opacity:0.8;">` : `<span>${name[0].toUpperCase()}</span>`)}</div>
+                <div class="conv-av">${c.staff_avatar ? `<img src="${resolveProfileUrl(c.staff_avatar)}" onerror="${PROFILE_IMAGE_ONERROR}">` : (name === 'PrintFlow Team' ? `<img src="${BASE}/public/assets/uploads/profiles/default.png" style="width:100%;height:100%;object-fit:cover;opacity:0.8;">` : `<span>${name[0].toUpperCase()}</span>`)}</div>
                 <div class="conv-info">
                     <div class="conv-top"><span class="conv-name">${esc(name)}</span><span class="conv-time">${fmtTimeAgo(c.last_message_at)}</span></div>
                     <div class="conv-sub">ORDER #${c.order_id} · ${esc(c.product_name||'Order')}</div>
@@ -1110,7 +1110,7 @@ function openChat(id, name, meta, archived, avatar = '') {
     hAv.innerHTML = avatar 
         ? `<img src="${resolveProfileUrl(avatar)}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` 
         : (name === 'PrintFlow Team' 
-            ? `<img src="${BASE}/public/assets/images/favicon.png" style="width:28px;height:28px;object-fit:contain;opacity:0.9;">`
+            ? `<img src="${BASE}/public/assets/uploads/profiles/default.png" style="width:100%;height:100%;object-fit:cover;opacity:0.9;">`
             : `<span>${name[0].toUpperCase()}</span>`);
     updateArchUI(archived);
     document.getElementById('messagesArea').innerHTML = '';
@@ -1421,7 +1421,7 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system && !isCallLog) {
-        const avHtml = `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end; background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img src="${BASE}/public/assets/images/favicon.png" style="width:20px;height:20px;object-fit:contain;opacity:0.8;"></div>`;
+        const avHtml = `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end; background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img src="${BASE}/public/assets/uploads/profiles/default.png" style="width:100%;height:100%;object-fit:cover;opacity:0.8;"></div>`;
         row.innerHTML = `${avHtml}<div class="b-col"><div class="bubble">${esc(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
