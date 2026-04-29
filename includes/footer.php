@@ -308,15 +308,23 @@ function _ft_detect_social(string $url): array {
             </div>
 
             <!-- Questions Area -->
-            <div id="chatbot-questions" style="padding: 12px 16px; border-top: 1px solid #e5e5e5; overflow-y: auto; max-height: 140px; background: #f9f9fb;">
-                <style>
-                    #chatbot-questions::-webkit-scrollbar { width: 5px; }
-                    #chatbot-questions::-webkit-scrollbar-track { background: rgba(83,197,224,0.08); border-radius: 10px; }
-                    #chatbot-questions::-webkit-scrollbar-thumb { background: #b0d4e3; border-radius: 10px; }
-                    #chatbot-questions::-webkit-scrollbar-thumb:hover { background: #8ec5d5; }
-                    #chatbot-questions { scrollbar-width: thin; scrollbar-color: #b0d4e3 rgba(83,197,224,0.08); }
-                </style>
-                <!-- Questions loaded here -->
+            <div id="chatbot-suggested-section" style="display: none; border-top: 1px solid #e5e5e5; background: #f9f9fb; flex-shrink: 0;">
+                <button id="chatbot-suggested-toggle" type="button" aria-expanded="true" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: none; background: transparent; color: #1f2937; cursor: pointer; font-size: 13px; font-weight: 700; letter-spacing: 0.2px; text-align: left; transition: background 0.2s ease;">
+                    <span>Suggested Questions</span>
+                    <span id="chatbot-suggested-arrow" aria-hidden="true" style="font-size: 14px; line-height: 1; color: #4b5563; transition: transform 0.25s ease; transform-origin: center;">&#9654;</span>
+                </button>
+                <div id="chatbot-suggested-panel" style="overflow: hidden; max-height: 140px; transition: max-height 0.3s ease;">
+                    <div id="chatbot-questions" style="padding: 0 16px 12px 16px; overflow-y: auto; max-height: 140px; background: #f9f9fb;">
+                        <style>
+                            #chatbot-questions::-webkit-scrollbar { width: 5px; }
+                            #chatbot-questions::-webkit-scrollbar-track { background: rgba(83,197,224,0.08); border-radius: 10px; }
+                            #chatbot-questions::-webkit-scrollbar-thumb { background: #b0d4e3; border-radius: 10px; }
+                            #chatbot-questions::-webkit-scrollbar-thumb:hover { background: #8ec5d5; }
+                            #chatbot-questions { scrollbar-width: thin; scrollbar-color: #b0d4e3 rgba(83,197,224,0.08); }
+                        </style>
+                        <!-- Questions loaded here -->
+                    </div>
+                </div>
             </div>
 
             <!-- Input Area -->
@@ -459,11 +467,17 @@ function _ft_detect_social(string $url): array {
         var win = document.getElementById('chatbot-window');
         var close = document.getElementById('chatbot-close');
         var msgs = document.getElementById('chatbot-messages');
+        var suggestedSection = document.getElementById('chatbot-suggested-section');
+        var suggestedToggle = document.getElementById('chatbot-suggested-toggle');
+        var suggestedPanel = document.getElementById('chatbot-suggested-panel');
+        var suggestedArrow = document.getElementById('chatbot-suggested-arrow');
         var ques = document.getElementById('chatbot-questions');
         var input = document.getElementById('chatbot-input');
         var sendBtn = document.getElementById('chatbot-send');
         var loaded = false;
         var isOpen = false;
+        var areSuggestedQuestionsExpanded = true;
+        var SUGGESTED_QUESTIONS_MAX_HEIGHT = 140;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
         <?php
         $chatbot_customer_id = null;
@@ -535,6 +549,39 @@ function _ft_detect_social(string $url): array {
             um.innerHTML = '<div style="background: #53C5E0; color: white; padding: 12px 14px; border-radius: 14px 4px 14px 14px; margin: 0; max-width: 85%; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 3px rgba(83,197,224,0.25); word-wrap: break-word;">' + escapeHtml(text) + '</div>';
             msgs.appendChild(um);
             msgs.scrollTop = msgs.scrollHeight;
+        }
+
+        function getSuggestedQuestionsPanelHeight() {
+            if (!ques) return 0;
+            return Math.min(ques.scrollHeight, SUGGESTED_QUESTIONS_MAX_HEIGHT);
+        }
+
+        function updateSuggestedQuestionsScrollState() {
+            if (!ques) return;
+            ques.style.overflowY = ques.scrollHeight > SUGGESTED_QUESTIONS_MAX_HEIGHT ? 'auto' : 'hidden';
+        }
+
+        function updateSuggestedQuestionsPanel(forceExpandedState) {
+            if (!suggestedSection || !suggestedPanel || !suggestedToggle || !suggestedArrow || !ques) return;
+            if (typeof forceExpandedState === 'boolean') {
+                areSuggestedQuestionsExpanded = forceExpandedState;
+            }
+
+            var hasQuestions = ques.children.length > 0;
+            suggestedSection.style.display = hasQuestions ? 'block' : 'none';
+            if (!hasQuestions) {
+                suggestedPanel.style.maxHeight = '0px';
+                suggestedToggle.setAttribute('aria-expanded', 'false');
+                suggestedArrow.innerHTML = '&#9654;';
+                suggestedArrow.style.transform = 'rotate(0deg)';
+                return;
+            }
+
+            updateSuggestedQuestionsScrollState();
+            suggestedToggle.setAttribute('aria-expanded', areSuggestedQuestionsExpanded ? 'true' : 'false');
+            suggestedArrow.innerHTML = '&#9654;';
+            suggestedArrow.style.transform = areSuggestedQuestionsExpanded ? 'rotate(90deg)' : 'rotate(0deg)';
+            suggestedPanel.style.maxHeight = areSuggestedQuestionsExpanded ? (getSuggestedQuestionsPanelHeight() + 'px') : '0px';
         }
 
         function appendBotMessage(html) {
@@ -907,6 +954,19 @@ function _ft_detect_social(string $url): array {
         });
         }
 
+        if (suggestedToggle) {
+        suggestedToggle.addEventListener('click', function() {
+            areSuggestedQuestionsExpanded = !areSuggestedQuestionsExpanded;
+            updateSuggestedQuestionsPanel();
+        });
+        suggestedToggle.addEventListener('mouseover', function() {
+            this.style.background = 'rgba(255,255,255,0.45)';
+        });
+        suggestedToggle.addEventListener('mouseout', function() {
+            this.style.background = 'transparent';
+        });
+        }
+
         // Load FAQs and populate questions
         function loadFAQs() {
             loaded = true;
@@ -971,7 +1031,8 @@ function _ft_detect_social(string $url): array {
                     ques.innerHTML = allQuestions.map((item, idx) => 
                         '<button style="display: block; width: 100%; text-align: left; padding: 12px 14px; margin: 6px 0; background: white; border: 1px solid #d5e8f0; border-radius: 8px; cursor: pointer; font-size: 13px; color: #333; transition: all 0.2s ease; font-weight: 500; line-height: 1.4; animation: slideInLeft 0.3s ease-out ' + (idx * 0.05) + 's both;" data-q="' + escapeHtml(item.text) + '" data-a="' + escapeHtml(item.answer) + '">' + escapeHtml(item.text) + '</button>'
                     ).join('');
-                    
+
+                    updateSuggestedQuestionsPanel(true);
                     ques.querySelectorAll('button').forEach(b => {
                         b.addEventListener('click', function() {
                             handleQuestion(this.dataset.q, this.dataset.a);
@@ -993,9 +1054,16 @@ function _ft_detect_social(string $url): array {
                             }
                         });
                     });
+                } else {
+                    ques.innerHTML = '';
+                    updateSuggestedQuestionsPanel(false);
                 }
             })
-            .catch(e => console.error('Load error:', e));
+            .catch(e => {
+                ques.innerHTML = '';
+                updateSuggestedQuestionsPanel(false);
+                console.error('Load error:', e);
+            });
         }
 
         // Handle question click or manual input
@@ -1075,6 +1143,12 @@ function _ft_detect_social(string $url): array {
             }, 1000);
         }
         setTimeout(tryResumePendingChatbotMessage, 300);
+        updateSuggestedQuestionsPanel(false);
+        window.addEventListener('resize', function() {
+            if (areSuggestedQuestionsExpanded) {
+                updateSuggestedQuestionsPanel(true);
+            }
+        });
 
         function escapeHtml(t) {
             var d = document.createElement('div');
