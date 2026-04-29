@@ -2367,7 +2367,7 @@ function togglePicker(msgId, e) {
         if (row) row.classList.add('has-active-menu');
 
         const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || picker.parentElement;
-        positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 });
+        requestAnimationFrame(() => positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 }));
     }
 }
 
@@ -2382,7 +2382,7 @@ function toggleMoreMenu(msgId, e) {
         const row = document.getElementById(`ms-${msgId}`);
         if (row) row.classList.add('has-active-menu');
         const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || menu.parentElement;
-        positionFloatingMenu(menu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 });
+        requestAnimationFrame(() => positionFloatingMenu(menu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 }));
     }
 }
 
@@ -2455,7 +2455,12 @@ function closeAllMenus() {
     document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
 }
 
-document.addEventListener('click', () => closeAllMenus());
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.msg-action-bar, .m-action-btn, .reaction-picker, .m-more-menu, .reaction-display, .reaction-display-container')) {
+        return;
+    }
+    closeAllMenus();
+});
 
 async function pinMessage(msgId) {
     const fd = new FormData();
