@@ -1436,6 +1436,7 @@ $current_user = get_logged_in_user();
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css?v=<?php echo time(); ?>">
 <script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js?v=<?php echo time(); ?>" defer></script>
+<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo time(); ?>"></script>
 <script>
 window.onerror = function(msg, url, line) {
     console.error("[PrintFlow][JS] Error:", msg, "at", url, ":", line);
