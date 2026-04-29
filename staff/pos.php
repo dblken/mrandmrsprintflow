@@ -1209,7 +1209,7 @@ try {
             style="background:#fff;width:100%;max-width:680px;border-radius:20px;padding:0;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid #e2e8f0;display:flex;flex-direction:column;max-height:90vh;overflow:hidden;">
             <div
                 style="padding:20px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-                <h3 id="sm-title" style="margin:0;font-size:18px;font-weight:800;color:#0f172a;"></h3>
+                <h3 id="sm-title" style="margin:0;font-size:18px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 40px);"></h3>
                 <button onclick="closeServiceModal()"
                     style="background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;padding:4px;"
                     onmouseover="this.style.color='#1e293b'" onmouseout="this.style.color='#94a3b8'">&times;</button>

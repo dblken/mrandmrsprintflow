@@ -224,11 +224,11 @@ $page_title = 'Products & Inventory - Staff';
         }
         .truncate-ellipsis {
             display: block;
-            min-width: 0;
+            width: 100%;
+            max-width: 250px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            max-width: 300px;
         }
         .inventory-chip {
             display: inline-flex;
@@ -576,8 +576,16 @@ $page_title = 'Products & Inventory - Staff';
                                     data-product="<?php echo htmlspecialchars(json_encode($viewPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>"
                                     onclick="openViewModal(this)">
                                     <td style="font-family:monospace; font-size:12px;"><?php echo htmlspecialchars($product['sku']); ?></td>
-                                    <td style="font-weight:500;" class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['name']); ?>"><?php echo htmlspecialchars($product['name']); ?></td>
-                                    <td class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['category']); ?>"><?php echo htmlspecialchars($product['category']); ?></td>
+                                    <td style="font-weight:500;">
+                                        <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['name']); ?>">
+                                            <?php echo htmlspecialchars($product['name']); ?>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="truncate-ellipsis" title="<?php echo htmlspecialchars($product['category']); ?>">
+                                            <?php echo htmlspecialchars($product['category']); ?>
+                                        </div>
+                                    </td>
                                     <td style="font-weight:600;"><?php echo format_currency($product['price']); ?></td>
                                     <td>
                                         <?php $productLowLevel = (int)($product['low_stock_level'] ?? 10); ?>
