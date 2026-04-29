@@ -332,13 +332,17 @@ $page_title = 'Staff Dashboard - PrintFlow';
         [x-cloak] { display: none !important; }
 
         .truncate-ellipsis {
-            max-width: 200px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            display: block;
         }
-        .service-item .truncate-ellipsis {
-            max-width: none;
+        
+        .truncate-table-cell {
+            max-width: 180px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             display: block;
         }
     </style>
@@ -510,8 +514,8 @@ $page_title = 'Staff Dashboard - PrintFlow';
                                     <?php foreach ($recent_orders as $order): ?>
                                         <tr>
                                             <td style="font-weight:700;">#<?php echo $order['order_id']; ?></td>
-                                            <td style="font-weight:600;" class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?>"><?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?></td>
-                                            <td style="font-weight:500;" class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?>"><?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?></td>
+                                            <td style="font-weight:600;"><div class="truncate-table-cell" title="<?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?>"><?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?></div></td>
+                                            <td style="font-weight:500;"><div class="truncate-table-cell" title="<?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?>"><?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?></div></td>
                                             <td style="color:#64748b; font-size:13px;"><?php echo date('M d, Y', strtotime($order['order_date'])); ?></td>
                                             <td style="font-weight:800; color:#013a3a;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                                              <td>
@@ -612,8 +616,8 @@ async function refreshDashboard(page = 1, status = null, timeframe = null) {
                 tbody.innerHTML = data.orders.map(o => `
                     <tr>
                         <td style="font-weight:700;">#${o.order_id}</td>
-                        <td style="font-weight:600;" class="truncate-ellipsis" title="${o.customer_name || 'Guest'}">${o.customer_name || 'Guest'}</td>
-                        <td style="font-weight:500;" class="truncate-ellipsis" title="${o.service_type || 'General'}">${o.service_type || 'General'}</td>
+                        <td style="font-weight:600;"><div class="truncate-table-cell" title="${o.customer_name || 'Guest'}">${o.customer_name || 'Guest'}</div></td>
+                        <td style="font-weight:500;"><div class="truncate-table-cell" title="${o.service_type || 'General'}">${o.service_type || 'General'}</div></td>
                         <td style="color:#64748b; font-size:13px;">${o.formatted_date}</td>
                         <td style="font-weight:800; color:#013a3a;">${o.formatted_total}</td>
                         <td>${o.status_html}</td>
