@@ -5,6 +5,7 @@
  */
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
+require_once __DIR__ . '/../../../includes/push_debug_helper.php';
 
 header('Content-Type: application/json');
 
@@ -23,11 +24,13 @@ db_execute("CREATE TABLE IF NOT EXISTS push_subscriptions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 if (!is_logged_in()) {
+    printflow_push_debug_log('subscribe_rejected_unauthenticated', []);
     echo json_encode(['success' => false, 'error' => 'Unauthenticated']);
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    printflow_push_debug_log('subscribe_rejected_method', ['method' => (string)($_SERVER['REQUEST_METHOD'] ?? '')]);
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
@@ -36,6 +39,7 @@ $raw = file_get_contents('php://input');
 $data = json_decode($raw, true);
 
 if (empty($data)) {
+    printflow_push_debug_log('subscribe_rejected_invalid_json', []);
     echo json_encode(['success' => false, 'error' => 'Invalid JSON body']);
     exit;
 }
@@ -50,6 +54,7 @@ if ($action === 'unsubscribe') {
     if ($endpoint) {
         db_execute('DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?', 'si', [$endpoint, $user_id]);
     }
+    printflow_push_debug_log('unsubscribe_saved', ['has_endpoint' => $endpoint !== ''], $user_id, (string)$user_type, $endpoint);
     echo json_encode(['success' => true]);
     exit;
 }
@@ -60,6 +65,11 @@ $p256dh   = trim($data['keys']['p256dh'] ?? '');
 $auth     = trim($data['keys']['auth']   ?? '');
 
 if (!$endpoint || !$p256dh || !$auth) {
+    printflow_push_debug_log('subscribe_rejected_missing_fields', [
+        'has_endpoint' => $endpoint !== '',
+        'has_p256dh' => $p256dh !== '',
+        'has_auth' => $auth !== '',
+    ], $user_id, (string)$user_type, $endpoint);
     echo json_encode(['success' => false, 'error' => 'Missing subscription fields']);
     exit;
 }
@@ -86,9 +96,15 @@ if (!empty($existing)) {
 }
 
 if ($ok === false) {
+    printflow_push_debug_log('subscribe_save_failed', ['existing' => !empty($existing)], $user_id, (string)$user_type, $endpoint);
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Could not save this device for notifications.']);
     exit;
 }
+
+printflow_push_debug_log('subscribe_saved', [
+    'existing' => !empty($existing),
+    'user_agent_present' => !empty($_SERVER['HTTP_USER_AGENT']),
+], $user_id, (string)$user_type, $endpoint);
 
 echo json_encode(['success' => true, 'message' => 'Subscription saved.']);

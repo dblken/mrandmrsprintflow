@@ -55,6 +55,8 @@
     var API_VAPID_PUB          = buildAppUrl('public/api/push/vapid_public_key.php');
     var API_SUBSCRIBE          = buildAppUrl('public/api/push/subscribe.php');
     var API_PUSH_TEST          = buildAppUrl('public/api/push/test.php');
+    var API_PUSH_DEBUG         = buildAppUrl('public/api/push/debug_log.php');
+    var API_PUSH_STATUS        = buildAppUrl('public/api/push/status.php');
     var API_POLL               = buildAppUrl('public/api/push/poll.php');
     var API_LIST               = buildAppUrl('public/api/notifications/list.php');
     var PUSH_CLIENT_VERSION    = 'v16';
@@ -85,7 +87,12 @@
         loadDropdown: loadDropdown,
         subscribeToPush: subscribeToPush,
         unsubscribeFromPush: unsubscribeFromPush,
-        handlePushToggleClick: handlePushToggleClick
+        handlePushToggleClick: handlePushToggleClick,
+        getPushStatus: function() {
+            return fetch(API_PUSH_STATUS, { credentials: 'include' }).then(function(res) {
+                return res.ok ? res.json() : null;
+            });
+        }
     };
 
     /* -- Helpers ----------------------------------------------------------- */
@@ -251,6 +258,11 @@
             }
             return navigator.serviceWorker.ready;
         }).then(function(reg) {
+            logPushClientEvent('client_sw_ready', {
+                has_installing: !!(reg && reg.installing),
+                has_waiting: !!(reg && reg.waiting),
+                has_active: !!(reg && reg.active)
+            });
             return waitForActiveServiceWorker(reg);
         });
     }
@@ -360,6 +372,20 @@
         }
     }
 
+    function logPushClientEvent(eventType, payload) {
+        payload = payload || {};
+        return fetch(API_PUSH_DEBUG, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            keepalive: true,
+            body: JSON.stringify({
+                event_type: eventType,
+                payload: payload
+            })
+        }).catch(function() { return null; });
+    }
+
     function sendSubscription(sub, action) {
         var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
         payload = payload || {};
@@ -381,6 +407,7 @@
     }
 
     function triggerTestPush() {
+        logPushClientEvent('client_push_test_requested', {});
         return fetch(API_PUSH_TEST, {
             method: 'POST',
             credentials: 'include',
@@ -396,8 +423,14 @@
         })
         .then(function(data) {
             if (!data) {
+                logPushClientEvent('client_push_test_empty_response', {});
                 return { ok: false, error: 'No response from push test.' };
             }
+            logPushClientEvent('client_push_test_result', {
+                success: !!data.success,
+                error: data.error || '',
+                dispatch: data.dispatch || null
+            });
             return {
                 ok: !!data.success,
                 error: data.error || '',
@@ -405,6 +438,9 @@
             };
         })
         .catch(function(err) {
+            logPushClientEvent('client_push_test_failed', {
+                error: (err && err.message) ? err.message : 'Push test failed.'
+            });
             return {
                 ok: false,
                 error: (err && err.message) ? err.message : 'Push test failed.'
@@ -456,12 +492,18 @@
                 }).then(function(sub) {
                     return sendSubscription(sub, 'subscribe').then(function() {
                         rememberPushVapidKey(pubKey);
+                        logPushClientEvent('client_subscription_created', {
+                            endpoint_present: !!(sub && sub.endpoint)
+                        });
                         return sub;
                     });
                 }).catch(function(err) {
                     var msg = String((err && err.message) || '').toLowerCase();
                     var shouldRetry = !didRetry && (msg.indexOf('registration failed') !== -1 || msg.indexOf('push service error') !== -1);
                     if (!shouldRetry) {
+                        logPushClientEvent('client_subscription_create_failed', {
+                            error: String((err && err.message) || 'subscribe failed')
+                        });
                         throw err;
                     }
                     return listServiceWorkerRegistrations()
@@ -700,12 +742,19 @@
                         }
 
                         if (requiresRefresh) {
+                            logPushClientEvent('client_subscription_refresh_required', {
+                                version_mismatch: getStoredPushVersion() !== PUSH_CLIENT_VERSION,
+                                vapid_mismatch: !!serverPublicKey
+                            });
                             return refreshSubscription(reg, isUserAction);
                         }
 
                         return sendSubscription(existing, 'subscribe').then(function() {
                             rememberPushVersion();
                             if (serverPublicKey) rememberPushVapidKey(serverPublicKey);
+                            logPushClientEvent('client_subscription_confirmed', {
+                                endpoint_present: !!(existing && existing.endpoint)
+                            });
                             return existing;
                         }).catch(function() {
                             return refreshSubscription(reg, isUserAction);
@@ -723,6 +772,9 @@
                 if (isUserAction) {
                     alert('Notification setup failed: ' + (err && err.message ? err.message : 'Please try again.'));
                 }
+                logPushClientEvent('client_subscribe_failed', {
+                    error: (err && err.message) ? err.message : 'unknown'
+                });
                 return null;
             });
     }
@@ -1196,6 +1248,12 @@
     function init() {
         if (initStarted) return;
         initStarted = true;
+        logPushClientEvent('client_notifications_init', {
+            permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+            secure: !!window.isSecureContext,
+            standalone: isStandaloneDisplay(),
+            ios_family: isIosFamily()
+        });
         bindPushMessages();
         initPushToggle();
         autoRestorePushSubscription();

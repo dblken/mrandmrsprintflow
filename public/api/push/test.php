@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/functions.php';
 require_once __DIR__ . '/../../../includes/push_helper.php';
+require_once __DIR__ . '/../../../includes/push_debug_helper.php';
 
 header('Content-Type: application/json');
 
@@ -38,6 +39,11 @@ $payload = [
 $dispatch = push_dispatch_user($user_id, $user_type, $payload);
 
 $success = ((int)($dispatch['sent'] ?? 0) > 0);
+
+printflow_push_debug_log('push_test_requested', [
+    'success' => $success,
+    'dispatch' => $dispatch,
+], $user_id, $user_type);
 
 echo json_encode([
     'success' => $success,

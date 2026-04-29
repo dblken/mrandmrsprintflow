@@ -31,6 +31,7 @@ const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
 const API_VAPID_PUB = BASE_PATH + '/public/api/push/vapid_public_key.php';
 const API_SUBSCRIBE = BASE_PATH + '/public/api/push/subscribe.php';
+const API_PUSH_DEBUG = BASE_PATH + '/public/api/push/debug_log.php';
 
 // App shell - cached immediately on install so the app opens instantly
 const APP_SHELL = [
@@ -107,11 +108,35 @@ async function sendSubscriptionToServer(subscription, action = 'subscribe') {
     return response.ok;
 }
 
+function safeDebugValue(value, maxLength = 300) {
+    if (value === null || value === undefined) return '';
+    return String(value).slice(0, maxLength);
+}
+
+async function debugLog(eventType, payload = {}, endpoint = '') {
+    try {
+        await fetch(API_PUSH_DEBUG, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            keepalive: true,
+            body: JSON.stringify({
+                event_type: eventType,
+                endpoint: endpoint || '',
+                payload,
+            })
+        });
+    } catch (error) {
+        // Keep diagnostics non-blocking.
+    }
+}
+
 // -- Install: cache shell + pages immediately ---------------------------------
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing...');
     event.waitUntil(
         Promise.all([
+            debugLog('sw_install', { cache_version: CACHE_VERSION }),
             caches.open(SHELL_CACHE).then((cache) => {
                 console.log('[SW] Caching app shell');
                 return cache.addAll(APP_SHELL).catch(err => console.log('[SW] Cache failed:', err));
@@ -139,14 +164,15 @@ self.addEventListener('activate', (event) => {
     const KEEP = [SHELL_CACHE, PAGE_CACHE, IMG_CACHE];
     event.waitUntil(
         caches.keys().then((keys) =>
-            Promise.all(
-                keys.map((key) => {
+            Promise.all([
+                debugLog('sw_activate', { cache_version: CACHE_VERSION, cache_count: keys.length }),
+                ...keys.map((key) => {
                     if (!KEEP.includes(key)) {
                         console.log('[SW] Removing old cache:', key);
                         return caches.delete(key);
                     }
                 })
-            )
+            ])
         )
     );
     return self.clients.claim();
@@ -274,6 +300,14 @@ self.addEventListener('push', (event) => {
 
     event.waitUntil(
         (async () => {
+            await debugLog('sw_push_received', {
+                has_data: !!event.data,
+                title: safeDebugValue(payload.title, 120),
+                body: safeDebugValue(payload.body, 160),
+                tag: safeDebugValue(payload.tag, 80),
+                url: safeDebugValue(payload.url, 180),
+            });
+
             const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
             const targetUrl = new URL(normalizeTargetUrl(payload.url), self.location.origin).href;
             let matchingVisibleClient = null;
@@ -309,6 +343,11 @@ self.addEventListener('push', (event) => {
 
             try {
                 await self.registration.showNotification(payload.title, primaryOptions);
+                await debugLog('sw_notification_shown', {
+                    title: safeDebugValue(payload.title, 120),
+                    tag: safeDebugValue(resolvedTag, 80),
+                    target: safeDebugValue(primaryOptions.data && primaryOptions.data.url ? primaryOptions.data.url : '', 180),
+                });
             } catch (error) {
                 const fallbackOptions = {
                     ...primaryOptions,
@@ -316,7 +355,15 @@ self.addEventListener('push', (event) => {
                     badge: defaults.badge,
                     image: undefined,
                 };
+                await debugLog('sw_notification_show_failed', {
+                    error: safeDebugValue(error && error.message ? error.message : 'showNotification failed', 180),
+                    title: safeDebugValue(payload.title, 120),
+                });
                 await self.registration.showNotification(payload.title, fallbackOptions);
+                await debugLog('sw_notification_shown_fallback', {
+                    title: safeDebugValue(payload.title, 120),
+                    tag: safeDebugValue(resolvedTag, 80),
+                });
             }
         })()
     );
@@ -335,8 +382,14 @@ self.addEventListener('pushsubscriptionchange', (event) => {
                 });
 
                 await sendSubscriptionToServer(subscription, 'subscribe');
+                await debugLog('sw_pushsubscriptionchange_success', {
+                    endpoint_present: !!(subscription && subscription.endpoint),
+                }, subscription && subscription.endpoint ? subscription.endpoint : '');
             } catch (error) {
                 console.error('[SW] Failed to refresh push subscription', error);
+                await debugLog('sw_pushsubscriptionchange_failed', {
+                    error: safeDebugValue(error && error.message ? error.message : 'subscription refresh failed', 180),
+                });
             }
         })()
     );
@@ -348,6 +401,10 @@ self.addEventListener('notificationclick', (event) => {
 
     event.waitUntil(
         (async () => {
+            await debugLog('sw_notification_click', {
+                target: safeDebugValue(target, 180),
+                title: safeDebugValue(event.notification && event.notification.title ? event.notification.title : '', 120),
+            });
             const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
 
             let bestClient = null;

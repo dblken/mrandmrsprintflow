@@ -8,6 +8,7 @@ if (!class_exists('WebPush')) {
     require_once __DIR__ . '/WebPush.php';
 }
 require_once __DIR__ . '/vapid_bootstrap.php';
+require_once __DIR__ . '/push_debug_helper.php';
 
 /**
  * Return a WebPush instance using the stored VAPID config.
@@ -178,8 +179,16 @@ function push_notify_user(int $user_id, string $user_type, array $payload, int $
  */
 function push_dispatch_user(int $user_id, string $user_type, array $payload, int $ttl = 86400): array
 {
+    printflow_push_debug_log('push_dispatch_start', [
+        'ttl' => $ttl,
+        'payload_title' => (string)($payload['title'] ?? ''),
+        'payload_tag' => (string)($payload['tag'] ?? ''),
+        'payload_url' => (string)($payload['url'] ?? ''),
+    ], $user_id, $user_type);
+
     $wp = get_webpush();
     if (!$wp) {
+        printflow_push_debug_log('push_dispatch_no_webpush', [], $user_id, $user_type);
         return [
             'user_id' => $user_id,
             'user_type' => $user_type,
@@ -198,6 +207,7 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
         [$user_id, $user_type]
     );
     if (empty($rows)) {
+        printflow_push_debug_log('push_dispatch_no_subscription', [], $user_id, $user_type);
         return [
             'user_id' => $user_id,
             'user_type' => $user_type,
@@ -229,48 +239,72 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
     $failed = 0;
     $lastError = '';
     foreach ($rows as $row) {
+        $subscriptionId = (int)($row['id'] ?? 0);
+        $endpoint = (string)($row['endpoint'] ?? '');
         try {
             $ok = $wp->send(
-                ['endpoint' => $row['endpoint'], 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key']],
+                ['endpoint' => $endpoint, 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key']],
                 $payload,
                 $ttl
             );
             if ($ok) {
                 $sent++;
+                printflow_push_debug_log('push_dispatch_sent', [
+                    'subscription_id' => $subscriptionId,
+                ], $user_id, $user_type, $endpoint);
             } else {
                 // One immediate retry helps with intermittent push gateway failures.
                 $okRetry = $wp->send(
-                    ['endpoint' => $row['endpoint'], 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key']],
+                    ['endpoint' => $endpoint, 'p256dh' => $row['p256dh'], 'auth' => $row['auth_key']],
                     $payload,
                     $ttl
                 );
                 if ($okRetry) {
                     $sent++;
+                    printflow_push_debug_log('push_dispatch_sent_retry', [
+                        'subscription_id' => $subscriptionId,
+                    ], $user_id, $user_type, $endpoint);
                 } else {
                     $failed++;
                     $lastError = 'push_send_failed';
+                    printflow_push_debug_log('push_dispatch_failed', [
+                        'subscription_id' => $subscriptionId,
+                        'error' => $lastError,
+                    ], $user_id, $user_type, $endpoint);
                 }
             }
         } catch (RuntimeException $e) {
             if ($e->getMessage() === 'subscription_expired' || $e->getMessage() === 'subscription_invalid_auth') {
-                db_execute('DELETE FROM push_subscriptions WHERE id = ?', 'i', [(int)$row['id']]);
+                db_execute('DELETE FROM push_subscriptions WHERE id = ?', 'i', [$subscriptionId]);
                 $expired++;
                 if ($e->getMessage() === 'subscription_invalid_auth') {
                     $lastError = 'subscription_invalid_auth';
                 }
+                printflow_push_debug_log('push_dispatch_subscription_removed', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $e->getMessage(),
+                ], $user_id, $user_type, $endpoint);
             } else {
                 error_log('[push_notify_user] Unexpected error: ' . $e->getMessage());
                 $failed++;
                 $lastError = $e->getMessage();
+                printflow_push_debug_log('push_dispatch_runtime_exception', [
+                    'subscription_id' => $subscriptionId,
+                    'error' => $lastError,
+                ], $user_id, $user_type, $endpoint);
             }
         } catch (Throwable $e) {
             error_log('[push_notify_user] Fatal push error: ' . $e->getMessage());
             $failed++;
             $lastError = $e->getMessage();
+            printflow_push_debug_log('push_dispatch_fatal', [
+                'subscription_id' => $subscriptionId,
+                'error' => $lastError,
+            ], $user_id, $user_type, $endpoint);
         }
     }
 
-    return [
+    $result = [
         'user_id' => $user_id,
         'user_type' => $user_type,
         'subscriptions' => count($rows),
@@ -279,6 +313,10 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
         'failed' => $failed,
         'last_error' => $lastError,
     ];
+
+    printflow_push_debug_log('push_dispatch_result', $result, $user_id, $user_type);
+
+    return $result;
 }
 
 /**
