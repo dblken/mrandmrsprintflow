@@ -375,6 +375,46 @@ $current_user = get_logged_in_user();
             object-fit: cover; 
             display: block; 
         }
+        .order-card {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid #d9e6ee;
+            background: #ffffff;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        .order-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .order-img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #f1f5f9;
+            flex-shrink: 0;
+            border: 1px solid #e2e8f0;
+        }
+        .order-info {
+            min-width: 0;
+        }
+        .order-info strong {
+            display: block;
+            color: #0f172a;
+            font-size: 0.95rem;
+            line-height: 1.25;
+        }
+        .order-info p {
+            margin: 4px 0 0;
+            color: #64748b;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
 
         /* --- Premium Toast System --- */
         #staff-toast-container {
@@ -1872,13 +1912,32 @@ function getOrderCardData(message) {
     let meta = {};
     try { meta = JSON.parse(message.meta_json || '{}'); } catch (e) {}
 
+    let imagePath = orderUpdate.thumbnail || message.image || message.image_path || message.file_path || message.thumbnail || meta.image || meta.thumbnail || '';
+    if (imagePath) {
+        imagePath = resolveAppUrl(imagePath);
+    }
+    if (!imagePath) {
+        imagePath = '/public/default.png';
+    }
+
+    const serviceName = orderUpdate.product_name || meta.product_name || message.service_name || message.message || 'Order update';
+    const customerName = message.customer_name || meta.customer_name || message.sender_name || 'Customer';
+
     return {
         orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
-        productName: orderUpdate.product_name || meta.product_name || 'Order update',
+        productName: serviceName,
         statusLabel: orderUpdate.status || meta.order_status || orderUpdate.payment_status || meta.payment_status || 'Status updated',
-        thumbnail: orderUpdate.thumbnail || message.thumbnail || '',
-        messageText: orderUpdate.description || message.message || '',
+        thumbnail: imagePath,
+        image: imagePath,
+        service_name: serviceName,
+        customer_name: customerName,
+        messageText: `${customerName} sent an inquiry for ${serviceName}`,
     };
+}
+
+function openOrderModal(orderId) {
+    if (!orderId) return;
+    openDetails(orderId);
 }
 
 function appendMsgUI(m) {
@@ -1898,30 +1957,24 @@ function appendMsgUI(m) {
     const isSelf = rowClass === 'self';
 
     if (m.message_type === 'order_update') {
-        const orderCard = getOrderCardData(m);
-        const statusTone = getOrderStatusTone(orderCard.statusLabel);
+        const data = getOrderCardData(m);
+        if (!data.image) {
+            data.image = '/public/default.png';
+        }
+        console.log("Order Card Rendered:", data);
+        console.log("Image path:", data.image);
         const row = document.createElement('div');
         row.id = `ms-${m.id}`;
         row.className = `bubble-row order-update staff-view ${rowSide === 'system' ? 'other' : rowSide}`;
         row.setAttribute('data-sender', senderKey);
         row.setAttribute('data-time', messageTimeKey);
         row.innerHTML = `
-            <div class="msg-content-col">
-                <div class="order-update-bubble staff" onclick="openDetails(${orderCard.orderId})" onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();openDetails(${orderCard.orderId});}" role="button" tabindex="0" title="Open order details">
-                    <div class="order-thumb-wrap">
-                        <img src="${resolveAppUrl(orderCard.thumbnail || `${window.baseUrl}/public/assets/images/services/default.png`, DEFAULT_PROFILE_IMAGE)}" class="order-thumb" onerror="this.onerror=null;this.src='${window.baseUrl}/public/assets/images/services/default.png'" />
-                    </div>
-                    <div class="order-text">
-                        <div class="order-update-head">
-                            <div class="order-update-badge">Order update</div>
-                            <div class="order-status-pill tone-${statusTone}">${escapeHtml(orderCard.statusLabel)}</div>
-                        </div>
-                        <div class="order-title">${escapeHtml(orderCard.productName)}</div>
-                        <div class="order-message">${escapeHtml(orderCard.messageText)}</div>
-                        <div class="order-update-meta">
-                            <span class="order-update-time">${m.created_at || formatTime(messageTimeKey)}</span>
-                            <span class="order-update-cta">${getOrderUpdateActionLabel()}</span>
-                        </div>
+            <div class="chat-message left">
+                <div class="order-card" data-order-id="${data.orderId}">
+                    <img src="${data.image}" class="order-img" onerror="this.onerror=null;this.src='/public/default.png'">
+                    <div class="order-info">
+                        <strong>${escapeHtml(data.service_name)}</strong>
+                        <p>${escapeHtml(data.customer_name)} sent an inquiry</p>
                     </div>
                 </div>
             </div>
@@ -1997,6 +2050,25 @@ function appendMsgUI(m) {
     `;
 
     if (m.message_type === 'order_card') {
+        const data = getOrderCardData(m);
+        data.order_id = m.order_id || m.orderId || m.order || data.orderId || null;
+        if (!data.image) {
+            data.image = '/public/default.png';
+        }
+        console.log("Order Card Rendered:", data);
+        console.log("Image path:", data.image);
+        colHtml += `
+            <div class="chat-message left">
+                <div class="order-card" data-order-id="${data.order_id}">
+                    <img src="${data.image}" class="order-img" onerror="this.onerror=null;this.src='/public/default.png'">
+                    <div class="order-info">
+                        <strong>${escapeHtml(data.service_name)}</strong>
+                        <p>${escapeHtml(data.customer_name)} sent an inquiry</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (false && m.message_type === 'order_card') {
         const orderIdForCard = m.order_id || m.orderId || m.order || null;
         const thumb = m.image_path || m.file_path || '';
         colHtml += `
@@ -3382,24 +3454,13 @@ if (document.readyState === 'loading') {
 
 // Global click handler for clickable order cards in chat
 document.addEventListener('click', function(e) {
-    try {
-        var el = e.target;
-        while (el && el !== document) {
-            if (el.classList && el.classList.contains('order-card')) {
-                var orderId = el.dataset ? el.dataset.orderId : el.getAttribute('data-order-id');
-                if (orderId) {
-                    if (typeof openDetails === 'function') {
-                        openDetails(orderId);
-                    } else if (typeof fetch === 'function') {
-                        fetch('/public/api/chat/order_details.php?order_id=' + encodeURIComponent(orderId))
-                            .then(r => r.json()).then(data => { if (data.success) console.log('Order details:', data); });
-                    }
-                }
-                return;
-            }
-            el = el.parentNode;
-        }
-    } catch (err) { console.error('order-card click handler error', err); }
+    const card = e.target.closest('.order-card');
+    if (!card) return;
+
+    const orderId = card.dataset.orderId;
+    console.log("Clicked order:", orderId);
+
+    openOrderModal(orderId);
 });
 </script>
 </body>

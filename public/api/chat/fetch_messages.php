@@ -251,6 +251,19 @@ try {
                 ];
             }
 
+            $order_card_service_name = '';
+            $order_card_customer_name = '';
+            $order_card_image = '';
+            if ($m_type === 'order_card') {
+                $preview = printflow_order_notification_preview((int) $order_id);
+                $order_card_service_name = trim((string) ($preview['display_name'] ?? '')) ?: 'Order update';
+                $order_card_customer_name = trim((string) ($msg['sender_name'] ?? '')) ?: 'Customer';
+                $order_card_image = trim((string) ($preview['image_url'] ?? ''));
+                if ($order_card_image === '') {
+                    $order_card_image = $default_order_thumbnail;
+                }
+            }
+
             $messages[] = [
                 'id' => $msg['message_id'],
                 'sender' => $msg['sender'],
@@ -283,6 +296,9 @@ try {
                 'action_url' => $msg['action_url'] ?? null,
                 'meta_json' => $msg['meta_json'] ?? null,
                 'order_update' => $order_update,
+                'service_name' => $order_card_service_name,
+                'customer_name' => $order_card_customer_name,
+                'image' => $order_card_image,
             ];
         }
     }

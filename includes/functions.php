@@ -552,10 +552,7 @@ function notify_staff_new_order(int $order_id, string $customer_first_name, int 
     $service_name = $preview['display_name'] ?? 'Product Order';
     $kind_label = trim((string)($preview['item_kind'] ?? ''));
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
-    // Format: "Customer Name placed an order for Service Name"
-    $msg = $kind_label !== ''
-        ? "{$name} placed a {$kind_label} order for {$service_name}"
-        : "{$name} placed an order for {$service_name}";
+    $msg = "{$name} sent an inquiry for {$service_name}";
 
     // Notify shop users (existing notification system)
     notify_shop_users($msg, 'Order', false, false, $order_id);
