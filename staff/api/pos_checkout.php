@@ -251,14 +251,6 @@ try {
             $has_service = true;
             break;
         }
-        // Fallback: check products_cache for product_type
-        $pid = (int)($item['id'] ?? 0);
-        if ($pid > 0 && isset($products_cache[$pid])) {
-            if (($products_cache[$pid]['product_type'] ?? 'fixed') === 'custom') {
-                $has_service = true;
-                break;
-            }
-        }
     }
     $order_type = $has_service ? 'custom' : 'product';
     $reference_id = $items[0]['id'] ?? null;
@@ -290,11 +282,6 @@ try {
         
         // Detect if this specific item is a service or customized product
         $is_service = (isset($item['is_service']) && $item['is_service']);
-        if (!$is_service && $product_id > 0 && isset($products_cache[$product_id])) {
-            if (($products_cache[$product_id]['product_type'] ?? 'fixed') === 'custom') {
-                $is_service = true;
-            }
-        }
         
         // Determine if we should keep the product_id (only for actual products in the DB)
         $is_actual_product = isset($products_cache[$product_id]);

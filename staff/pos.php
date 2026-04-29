@@ -1932,19 +1932,9 @@ try {
             const name = overrideName || p.product_name;
             const price = overridePrice !== null ? overridePrice : parseFloat(p.price);
 
-            // Determine if this is a custom product that needs the modal
-            const requirements = getRequirementsForProduct(name, p.category);
-            const isCustom = (p.product_type === 'custom' || requirements !== null);
-
-            // If it's a custom product and we're not coming back from a modal/price set
-            if (isCustom && overridePrice === null && overrideName === null) {
-                if (requirements) {
-                    openCustomModal(p, requirements);
-                    return;
-                } else if (p.price == 0) {
-                    openPriceModal(p);
-                    return;
-                }
+            if (p.price == 0 && overridePrice === null) {
+                openPriceModal(p);
+                return;
             }
 
             await syncedCartAction('add', {
@@ -1952,7 +1942,7 @@ try {
                 name: name,
                 price: price,
                 qty: 1,
-                is_service: isCustom
+                is_service: false
             });
         }
 
@@ -2355,7 +2345,7 @@ try {
                 price: price,
                 qty: 1,
                 customization: customization,
-                is_service: true
+                is_service: (customization !== null)
             });
         }
 
