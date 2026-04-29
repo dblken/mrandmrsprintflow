@@ -1256,13 +1256,15 @@ function recalculateTotal() {
     let subtotal = 0;
     let hasProduct = false;
     let hasService = false;
+    let selectedCount = 0;
     
     const rows = document.querySelectorAll('.cart-row');
     rows.forEach(row => {
         const checkbox = row.querySelector('.item-checkbox');
         if (checkbox.checked) {
+            selectedCount += 1;
             const isCustom = row.dataset.custom === '1';
-            const itemOrigin = row.querySelector('[style*="text-transform:uppercase"]')?.textContent?.trim();
+            const itemOrigin = (row.dataset.itemOrigin || '').trim();
             
             // Track if we have products or services
             if (itemOrigin === 'Product') {
@@ -1294,8 +1296,14 @@ function recalculateTotal() {
             checkoutBtn.style.pointerEvents = 'none';
             checkoutBtn.style.cursor = 'not-allowed';
             if (mixedWarning) mixedWarning.style.display = 'flex';
-        } else if (subtotal <= 0) {
-            // Disable if no priced items selected
+        } else if (selectedCount === 0) {
+            // Disable if no items are selected
+            checkoutBtn.style.opacity = '0.5';
+            checkoutBtn.style.pointerEvents = 'none';
+            checkoutBtn.style.cursor = 'not-allowed';
+            if (mixedWarning) mixedWarning.style.display = 'none';
+        } else if (subtotal <= 0 && !hasService) {
+            // Disable only if the selection has no payable products and no services to inquire about
             checkoutBtn.style.opacity = '0.5';
             checkoutBtn.style.pointerEvents = 'none';
             checkoutBtn.style.cursor = 'not-allowed';
@@ -1327,7 +1335,7 @@ function proceedToReview() {
     let hasService = false;
     selectedRows.forEach(checkbox => {
         const row = checkbox.closest('.cart-row');
-        const itemOrigin = row.querySelector('[style*="text-transform:uppercase"]')?.textContent?.trim();
+        const itemOrigin = (row.dataset.itemOrigin || '').trim();
         if (itemOrigin === 'Product') hasProduct = true;
         if (itemOrigin === 'Service') hasService = true;
     });
@@ -1362,7 +1370,7 @@ function handleCartRowClick(row, event) {
     
     if (itemOrigin === 'Service') {
         if (serviceId && serviceId !== '' && serviceId !== '0') {
-            const url = '/printflow/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
+            const url = 'order_service_dynamic.php?service_id=' + encodeURIComponent(serviceId) + '&edit_item=' + encodeURIComponent(cartKey);
             console.log('✓ Redirecting to:', url);
             window.location.href = url;
         } else {
@@ -1370,7 +1378,7 @@ function handleCartRowClick(row, event) {
             const match = cartKey.match(/^service_(\d+)_/);
             if (match && match[1]) {
                 const extractedId = match[1];
-                const url = '/printflow/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
+                const url = 'order_service_dynamic.php?service_id=' + encodeURIComponent(extractedId) + '&edit_item=' + encodeURIComponent(cartKey);
                 console.log('✓ Extracted service_id:', extractedId, '- Redirecting to:', url);
                 window.location.href = url;
             } else {

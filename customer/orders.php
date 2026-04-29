@@ -638,6 +638,7 @@ require_once __DIR__ . '/../includes/header.php';
 .im-dashboard { display: grid; grid-template-columns: 1fr 340px; gap: 2rem; }
 .im-main { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
 .im-sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+.im-table-shell { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
 .im-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .im-table th { text-align: left; padding: 0.85rem 1rem; font-size: 0.72rem; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
 .im-table td { padding: 1rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; color: #0f172a; }
@@ -815,15 +816,167 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 @media (max-width: 640px) {
+    #itemsModal {
+        align-items: stretch;
+        padding: 0;
+        background: rgba(8, 12, 15, 0.72);
+    }
+    .im-panel {
+        max-width: 100%;
+        max-height: 100dvh;
+        height: 100dvh;
+        border-radius: 18px 18px 0 0 !important;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        transform: translateY(18px);
+    }
+    #itemsModal.open .im-panel { transform: translateY(0); }
+    .im-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 0.9rem 1rem;
+    }
+    .im-title { font-size: 1.05rem; }
+    .im-subtitle {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        max-width: 18rem;
+    }
+    .im-close {
+        width: 40px;
+        height: 40px;
+        flex-shrink: 0;
+    }
+    .im-body {
+        padding: 1rem;
+    }
     .im-dashboard { grid-template-columns: 1fr; }
+    .im-main,
+    .im-sidebar { gap: 1rem; }
     .orders-page-container { padding: 0 0.75rem; }
     .unified-dashboard { margin-bottom: 2rem; }
+    .im-table-shell {
+        border: none;
+        background: transparent;
+        overflow: visible;
+    }
+    .im-table,
+    .im-table thead,
+    .im-table tbody,
+    .im-table tr,
+    .im-table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .im-table colgroup {
+        display: none;
+    }
+    .im-table th:first-child,
+    .im-table td:first-child,
     .im-table th:nth-child(2),
-    .im-table td:nth-child(2) { width: 84px; }
+    .im-table td:nth-child(2),
     .im-table th:nth-child(3),
-    .im-table td:nth-child(3) { width: 110px; }
-    .im-table th,
-    .im-table td { padding-left: 0.85rem; padding-right: 0.85rem; }
+    .im-table td:nth-child(3),
+    .im-table th:nth-child(4),
+    .im-table td:nth-child(4) {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .im-table {
+        table-layout: auto;
+        border-collapse: separate;
+    }
+    .im-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+    .im-table tbody {
+        display: grid;
+        gap: 0.9rem;
+    }
+    .im-table tr {
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #ffffff;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+    .im-table td {
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid #eef2f7;
+    }
+    .im-table td:first-child {
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .im-table td:not(:first-child) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        min-height: 4rem;
+        text-align: left !important;
+    }
+    .im-table td:not(:first-child)::before {
+        content: attr(data-label);
+        font-size: 0.72rem;
+        line-height: 1.3;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #64748b;
+        flex: 0 0 42%;
+        max-width: 42%;
+        text-align: left !important;
+        justify-self: flex-start;
+        margin-right: auto;
+    }
+    .im-table td:last-child {
+        border-bottom: none;
+    }
+    .im-qty-value,
+    .im-total-value {
+        display: block;
+        flex: 1 1 auto;
+        font-size: 0.95rem;
+        text-align: right !important;
+        margin-left: auto;
+        max-width: none;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+    .im-item-title {
+        font-size: 0.92rem;
+        line-height: 1.5;
+        margin-bottom: 0.35rem;
+    }
+    .im-spec-grid {
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+    }
+    .im-spec-card {
+        padding: 0.8rem 0.9rem;
+        border-radius: 10px;
+    }
+    .im-thumb {
+        width: 82px;
+        height: 82px;
+    }
+    .im-note-card,
+    .im-sec-card,
+    .im-reject-card {
+        border-radius: 12px;
+    }
 }
 
 .capitalize-first { display: inline-block; }
@@ -1245,12 +1398,13 @@ function openItemsModal(orderId, event) {
                     .join('');
                 if (specItems) specs = `<div class="im-spec-grid">${specItems}</div>`;
             }
-            
+
             const design = item.has_design ? `<a class="im-asset-trigger" href="${item.design_url}" target="_blank" rel="noopener noreferrer" onclick="event.preventDefault(); event.stopPropagation(); window.open(this.href, '_blank', 'noopener,noreferrer'); return false;"><span class="im-asset-thumb-wrap"><img src="${item.design_url}" class="im-thumb hover:scale-105 transition-transform" alt="Design"></span></a>` : '';
             const reference = item.has_reference ? `<a class="im-asset-trigger" href="${item.reference_url}" target="_blank" rel="noopener noreferrer" onclick="event.preventDefault(); event.stopPropagation(); window.open(this.href, '_blank', 'noopener,noreferrer'); return false;"><span class="im-asset-thumb-wrap"><img src="${item.reference_url}" class="im-thumb hover:scale-105 transition-transform" alt="Reference"></span></a>` : '';
+            const descLabel = data.is_service_order ? 'Service Description' : 'Item Description';
 
             return `<tr>
-                <td style="min-width: 250px;">
+                <td data-label="${descLabel}" style="min-width: 250px;">
                     <div class="im-item-title">${escIM(item.product_name)}</div>
                     ${specs}
                     
@@ -1261,18 +1415,18 @@ function openItemsModal(orderId, event) {
                         </div>
                     ` : ''}
                 </td>
-                <td style="text-align: center; vertical-align: middle;">
+                <td data-label="Quantity" style="text-align: center; vertical-align: middle;">
                     <div class="im-qty-value">${item.quantity}</div>
                 </td>
                 ${data.is_service_order ? `
-                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                    <td data-label="Estimated Price" style="text-align: right; vertical-align: middle; white-space: nowrap;">
                         <div class="im-total-value">${escIM(item.estimated_price || item.subtotal)}</div>
                     </td>
-                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                    <td data-label="Final Price" style="text-align: right; vertical-align: middle; white-space: nowrap;">
                         <div class="im-total-value">${escIM(item.final_price || data.total_amount)}</div>
                     </td>
                 ` : `
-                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                    <td data-label="Total Price" style="text-align: right; vertical-align: middle; white-space: nowrap;">
                         <div class="im-total-value">${escIM(item.subtotal)}</div>
                     </td>
                 `}
@@ -1282,7 +1436,7 @@ function openItemsModal(orderId, event) {
         document.getElementById('imBody').innerHTML = `
             <div class="im-dashboard">
                 <div class="im-main">
-                    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                    <div class="im-table-shell">
                         <table class="im-table">
                             <colgroup>
                                 <col style="width:auto;">

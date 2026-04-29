@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/runtime_config.php';
 
 require_role('Customer');
 
@@ -194,7 +195,7 @@ require_once __DIR__ . '/../includes/header.php';
             <!-- Payment Instructions -->
             <?php
             $pm_path = __DIR__ . '/../public/assets/uploads/qr/payment_methods.json';
-            $payment_methods = file_exists($pm_path) ? json_decode(file_get_contents($pm_path), true) : [];
+            $payment_methods = printflow_load_runtime_config('payment_methods', $pm_path);
             $active_pms = array_filter($payment_methods ?: [], fn($p) => !empty($p['enabled']));
             if (!empty($active_pms)):
             ?>

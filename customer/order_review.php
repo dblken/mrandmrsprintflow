@@ -254,6 +254,21 @@ if (empty($items_to_review)) {
     redirect('products.php');
 }
 
+$review_has_product = false;
+$review_has_service = false;
+foreach ($items_to_review as $item) {
+    if (review_item_is_product($item)) {
+        $review_has_product = true;
+    } else {
+        $review_has_service = true;
+    }
+}
+
+if ($review_has_product && $review_has_service) {
+    $_SESSION['error'] = 'Products and services must be checked out separately.';
+    redirect('cart.php');
+}
+
 $customer_id = get_user_id();
 $customer    = db_query("SELECT * FROM customers WHERE customer_id = ?", 'i', [$customer_id])[0] ?? [];
 $customer_type = $customer['customer_type'] ?? 'new';
@@ -522,8 +537,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                         if (!empty($item['reference_tmp_path']) && file_exists($item['reference_tmp_path'])) @unlink($item['reference_tmp_path']);
                     }
 
-                    // 4. Clear cart items and redirect
                     $item_keys_to_clear = array_keys($items_to_review);
+                    if (!isset($_SESSION['pending_payment_cart_restore']) || !is_array($_SESSION['pending_payment_cart_restore'])) {
+                        $_SESSION['pending_payment_cart_restore'] = [];
+                    }
+                    $_SESSION['pending_payment_cart_restore'][(string)$order_id] = [
+                        'items' => $items_to_review,
+                        'created_at' => time(),
+                    ];
+
+                    // 4. Clear cart items and redirect
                     foreach ($item_keys_to_clear as $key) {
                         if (isset($_SESSION['cart'][$key])) {
                             unset($_SESSION['cart'][$key]);
@@ -706,6 +729,50 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .review-policy-title { font-size: 0.82rem; font-weight: 700; color: #0c4a6e !important; margin-bottom: 3px; }
     .review-policy-text { font-size: 0.75rem; color: #075985 !important; line-height: 1.5; margin: 0; }
+    .order-review-page-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        margin-bottom: 2rem;
+        gap: 1rem;
+    }
+    .order-review-back-link {
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #374151;
+        font-weight: 600;
+        transition: color 0.2s;
+        flex-shrink: 0;
+    }
+    .order-review-page-title {
+        margin: 0;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+    .review-total-banner {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .review-total-banner-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+    }
+    .review-actions-bar {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
     .review-buy-btn {
         width: auto;
         font-weight: 700;
@@ -1128,6 +1195,161 @@ require_once __DIR__ . '/../includes/header.php';
             grid-template-columns: 1fr !important;
         }
     }
+    @media (max-width: 640px) {
+        .order-container {
+            max-width: 100%;
+        }
+        .order-review-page-header {
+            align-items: flex-start !important;
+            justify-content: flex-start !important;
+            flex-wrap: wrap !important;
+            margin-bottom: 1.5rem !important;
+        }
+        .order-review-page-title {
+            position: static !important;
+            transform: none !important;
+            width: 100% !important;
+            text-align: left !important;
+            font-size: 1.3rem !important;
+            line-height: 1.3 !important;
+        }
+        .review-order-item .order-item-header {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 1rem !important;
+            padding: 1rem !important;
+        }
+        .review-order-item .order-item-image {
+            width: min(100%, 220px) !important;
+            height: auto !important;
+            aspect-ratio: 1 / 1 !important;
+            margin: 0 auto 1rem !important;
+        }
+        .review-order-item .order-item-content {
+            width: 100% !important;
+            padding-top: 0 !important;
+            align-items: center !important;
+            text-align: center !important;
+        }
+        .review-order-item .order-item-content h3 {
+            font-size: 1rem !important;
+            line-height: 1.45 !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            width: 100% !important;
+            max-width: 18rem !important;
+            margin: 0 auto 0.85rem !important;
+            text-align: center !important;
+        }
+        .review-order-item .order-item-category-badge {
+            align-self: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            margin: 0 auto 1rem !important;
+            padding: 0.4rem 0.95rem !important;
+            line-height: 1.35 !important;
+        }
+        .review-order-item .order-item-details {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+            gap: 0.75rem !important;
+            margin-top: 0 !important;
+            width: 100% !important;
+        }
+        .review-order-item .review-detail-row,
+        .review-order-item .review-total-row {
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
+            width: 100% !important;
+            min-width: 0 !important;
+            padding: 0.8rem 0.9rem !important;
+            border: 1px solid rgba(83, 197, 224, 0.18) !important;
+            border-radius: 12px !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+        }
+        .review-order-item .review-total-row {
+            background: rgba(83, 197, 224, 0.08) !important;
+            border-color: rgba(83, 197, 224, 0.28) !important;
+        }
+        .review-order-item .review-detail-label,
+        .review-order-item .review-total-label {
+            font-size: 0.76rem !important;
+            line-height: 1.3 !important;
+            margin-bottom: 0 !important;
+        }
+        .review-order-item .review-detail-value,
+        .review-order-item .review-total-value {
+            font-size: 1rem !important;
+            line-height: 1.35 !important;
+            text-align: right !important;
+            margin-bottom: 0 !important;
+            overflow-wrap: anywhere !important;
+        }
+        .review-order-item .review-total-value {
+            max-width: 10rem !important;
+        }
+        .review-order-item .order-item-spec-grid {
+            grid-template-columns: 1fr !important;
+            row-gap: 1.1rem !important;
+            column-gap: 0 !important;
+            padding-inline: 0.5rem !important;
+        }
+        .review-order-item .order-item-specs {
+            padding: 1rem 0.85rem 1.1rem !important;
+        }
+        .review-order-item .order-item-specs h4 {
+            margin-bottom: 0.85rem !important;
+            padding-bottom: 0.75rem !important;
+        }
+        .review-order-item .order-item-spec-tile {
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 0.8rem 0.9rem !important;
+            min-height: auto !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(83, 197, 224, 0.18) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            margin: 0 !important;
+        }
+        .review-order-item .order-item-spec-tile > div:first-child {
+            margin-bottom: 0 !important;
+            font-size: 0.76rem !important;
+            line-height: 1.3 !important;
+            max-width: 42% !important;
+            padding-top: 0.1rem !important;
+            text-align: left !important;
+        }
+        .review-order-item .order-item-spec-tile > div:last-child {
+            font-size: 1rem !important;
+            line-height: 1.35 !important;
+            max-width: 58% !important;
+            text-align: right !important;
+            padding-left: 0.5rem !important;
+        }
+        .review-total-banner-row {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 0.35rem !important;
+        }
+        .review-actions-bar {
+            flex-direction: column-reverse !important;
+            gap: 0.75rem !important;
+        }
+    }
+    @media (max-width: 480px) {
+        .order-review-page-title {
+            font-size: 1.15rem !important;
+        }
+    }
 </style>
 
 <!-- Success Modal -->
@@ -1170,12 +1392,12 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="min-h-screen py-8">
     <?php if (!isset($order_placed_id)): ?>
     <div class="container mx-auto px-4 order-container">
-        <div style="display: flex; align-items: center; justify-content: space-between; position: relative; margin-bottom: 2rem;">
-            <a href="cart.php" style="text-decoration: none; display: flex; align-items: center; gap: 4px; color: #374151; font-weight: 600; transition: color 0.2s;" onmouseover="this.style.color='#111827'" onmouseout="this.style.color='#374151'">
+        <div class="order-review-page-header">
+            <a href="cart.php" class="order-review-back-link" onmouseover="this.style.color='#111827'" onmouseout="this.style.color='#374151'">
                 <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                 Back
             </a>
-            <h1 class="text-2xl font-bold text-gray-800" style="margin: 0; position: absolute; left: 50%; transform: translateX(-50%);">Review Your Order</h1>
+            <h1 class="text-2xl font-bold text-gray-800 order-review-page-title">Review Your Order</h1>
         </div>
 
         <form method="POST" action="order_review.php?item=<?php echo urlencode($item_key); ?>" novalidate data-pf-skip-guard>
@@ -1221,8 +1443,8 @@ require_once __DIR__ . '/../includes/header.php';
                 
                 <!-- Grand Total -->
                 <?php if (count($items_to_review) > 1): ?>
-                <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="review-total-banner">
+                    <div class="review-total-banner-row">
                         <span style="font-size: 1rem; font-weight: 700; color: #0c4a6e;">Total Amount:</span>
                         <span style="font-size: 1.25rem; font-weight: 800; color: #0369a1;">₱ <?php echo number_format($grand_total, 2); ?></span>
                     </div>
@@ -1296,7 +1518,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <?php endif; ?>
 
                 <!-- 4. Final Actions -->
-                <div style="display: flex; justify-content: flex-end; gap: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <div class="review-actions-bar">
                     <a href="cart.php" 
                        class="shopee-btn-outline" style="width: 150px; text-align: center; padding: 0.75rem; text-decoration: none; white-space: nowrap;">
                         Back to Cart

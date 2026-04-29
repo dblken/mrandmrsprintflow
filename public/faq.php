@@ -5,11 +5,12 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/runtime_config.php';
 
 $faqs = db_query("SELECT * FROM faq WHERE status = 'Activated' ORDER BY faq_id ASC");
 
 $shop_cfg_path = __DIR__ . '/assets/uploads/shop_config.json';
-$shop_cfg = file_exists($shop_cfg_path) ? (json_decode(file_get_contents($shop_cfg_path), true) ?: []) : [];
+$shop_cfg = printflow_load_runtime_config('shop', $shop_cfg_path);
 $support_email = htmlspecialchars($shop_cfg['email'] ?? 'support@printflow.com');
 
 $page_title = 'FAQ - PrintFlow';

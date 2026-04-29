@@ -5,13 +5,15 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
+require_once __DIR__ . '/../../includes/runtime_config.php';
+
 try {
     // Load configs from footer
     $shop_path   = __DIR__ . '/../assets/uploads/shop_config.json';
     $footer_path = __DIR__ . '/../assets/uploads/footer_config.json';
     
-    $shop   = file_exists($shop_path)   ? (json_decode(file_get_contents($shop_path),   true) ?: []) : [];
-    $footer = file_exists($footer_path) ? (json_decode(file_get_contents($footer_path), true) ?: []) : [];
+    $shop   = printflow_load_runtime_config('shop', $shop_path);
+    $footer = printflow_load_runtime_config('footer', $footer_path);
     
     $name     = !empty($shop['name'])               ? htmlspecialchars($shop['name'])              : 'PrintFlow';
     $email    = !empty($footer['email'])            ? htmlspecialchars($footer['email'])           : (!empty($shop['email'])  ? htmlspecialchars($shop['email'])  : 'contact@printflow.com');

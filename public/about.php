@@ -25,28 +25,17 @@ require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/db.php';
 
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/runtime_config.php';
 
 
 
 // Load about config
-
 $about_cfg_path = __DIR__ . '/../public/assets/uploads/about_config.json';
-
-if (!file_exists($about_cfg_path)) {
-
-    $about_cfg_path = __DIR__ . '/assets/uploads/about_config.json';
-
-}
-
-$about_cfg = file_exists($about_cfg_path) ? (json_decode(file_get_contents($about_cfg_path), true) ?: []) : [];
-
-
+$about_cfg = printflow_load_runtime_config('about', $about_cfg_path);
 
 // Load shop config for name
-
-$shop_cfg_path = __DIR__ . '/assets/uploads/shop_config.json';
-
-$shop_cfg = file_exists($shop_cfg_path) ? (json_decode(file_get_contents($shop_cfg_path), true) ?: []) : [];
+$shop_cfg_path = __DIR__ . '/../public/assets/uploads/shop_config.json';
+$shop_cfg = printflow_load_runtime_config('shop', $shop_cfg_path);
 
 $shop_name = htmlspecialchars($shop_cfg['name'] ?? 'PrintFlow');
 

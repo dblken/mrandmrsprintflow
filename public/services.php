@@ -21,7 +21,10 @@ require_once __DIR__ . '/../includes/functions.php';
 function public_services_store_image_url(string $base_path): string
 {
     $base_path = rtrim($base_path, '/');
-    return $base_path . '/uploads/store_pict.jpg?v=' . time();
+    $public_asset_path = __DIR__ . '/assets/uploads/profiles/store.jpg';
+    $cache_buster = is_file($public_asset_path) ? (string) filemtime($public_asset_path) : (string) time();
+
+    return $base_path . '/public/assets/uploads/profiles/store.jpg?v=' . $cache_buster;
 }
 
 $store_image_url = public_services_store_image_url($base_path ?? '');

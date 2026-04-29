@@ -22,6 +22,12 @@ if (!function_exists('printflow_send_order_update')) {
 function printflow_send_order_update($order_id, $message, $action_type = 'view_status', $thumbnail = '', $action_url = '', $meta = []) {
     if (!$order_id) return false;
 
+    // Handle step name aliases (backward compatibility with legacy callers)
+    $known_steps = ['pending', 'approved', 'send_to_payment', 'payment_submitted', 'payment_verified', 'payment_rejected', 'in_production', 'ready_to_pickup', 'completed', 'cancelled'];
+    if (in_array($message, $known_steps) && function_exists('printflow_send_order_update_legacy')) {
+        return printflow_send_order_update_legacy($order_id, $message);
+    }
+
     // Resolve base path for relative thumbnails
     $base = (defined('BASE_PATH')) ? BASE_PATH : '';
 

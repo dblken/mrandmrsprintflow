@@ -22,7 +22,7 @@ class NotificationService {
         'APPROVED'     => 'Your customization order has been reviewed and approved.',
         'TO_PAY'       => 'Your order is ready. Please proceed to payment of ₱{amount}. {order_no}',
         'VERIFY_PAY'   => 'Your payment has been received and is under verification.',
-        'IN_PRODUCTION'=> 'Payment verified! Your order is now being processed.',
+        'IN_PRODUCTION'=> 'Your payment has been approved. We will now proceed with processing your order.',
         'TO_RECEIVE'   => 'Great news! Your order is ready for pickup.',
         'COMPLETED'    => 'Thank you! Your order has been marked as completed.',
         'CANCELLED'    => 'Your order has been cancelled. Please contact us for assistance.',

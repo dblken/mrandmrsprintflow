@@ -3418,7 +3418,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
             'action_url'  => '',
         ],
         'payment_verified' => [
-            'message'      => "Payment Approved! We’re now processing your order. You’ll be notified once it’s ready.",
+            'message'      => "Your payment has been approved. We will now proceed with processing your order.",
             'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
