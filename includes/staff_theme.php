@@ -544,8 +544,22 @@
         html.printflow-staff .btn-action-primary,
         html.printflow-staff .btn-action-secondary,
         html.printflow-staff .btn-action-danger,
-        html.printflow-staff .btn-staff-action,
-        html.printflow-staff .table-action-btn {
+        html.printflow-staff .btn-staff-action {
+            min-height: 34px !important;
+            width: 100% !important;
+        }
+
+        /* .table-action-btn inside .action-cell must share width equally (View + Message) */
+        html.printflow-staff .action-cell .table-action-btn {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            width: auto !important;
+            max-width: 50% !important;
+            min-height: 34px !important;
+        }
+
+        /* standalone .table-action-btn outside action-cell stays full-width */
+        html.printflow-staff .table-action-btn:not(.action-cell *) {
             min-height: 34px !important;
             width: 100% !important;
         }

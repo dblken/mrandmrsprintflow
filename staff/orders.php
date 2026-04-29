@@ -1018,13 +1018,17 @@ $page_title = 'Orders - Staff';
                 border-bottom: none !important;
             }
 
-            /* Force every text element inside td to clip with ellipsis */
-            .orders-table td * {
+            /* Force every text/span element inside td to clip — NOT divs used as flex containers */
+            html.printflow-staff .orders-table td > span,
+            html.printflow-staff .orders-table td > .order-info-cell > .order-id-wrap > span:first-child,
+            html.printflow-staff .orders-table td .table-text-sub,
+            html.printflow-staff .orders-table td .order-items-sub {
                 min-width: 0 !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 white-space: nowrap !important;
                 max-width: 100% !important;
+                display: block !important;
             }
 
             /* ── Row 0: Order ID (header bar of card) ── */
@@ -1054,15 +1058,21 @@ $page_title = 'Orders - Staff';
                 opacity: 1 !important;
             }
 
-            /* ── Row 1: Product name – show with ellipsis ── */
+            /* ── Row 1: Product name – single line with ellipsis ── */
+            html.printflow-staff .orders-table td:nth-child(2),
             .orders-table td:nth-child(2) {
                 order: 1 !important;
-                padding: 9px 12px !important;
+                padding: 8px 12px !important;
                 border-bottom: 1px solid #f1f5f9 !important;
+                overflow: hidden !important;
+                white-space: nowrap !important;
+                max-width: 100% !important;
             }
+            html.printflow-staff .orders-table td:nth-child(2)::before,
             .orders-table td:nth-child(2)::before {
                 display: none !important;
             }
+            html.printflow-staff .orders-table td:nth-child(2) .table-text-main,
             .orders-table td:nth-child(2) .table-text-main {
                 font-size: 13px !important;
                 font-weight: 700 !important;
@@ -1070,17 +1080,21 @@ $page_title = 'Orders - Staff';
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                max-width: calc(100vw - 50px) !important;
+                max-width: 100% !important;
+                width: 100% !important;
                 display: block !important;
             }
 
             /* ── Row 2: Customer name ── */
-            .orders-table td:nth-child(3) { order: 2 !important; }
+            html.printflow-staff .orders-table td:nth-child(3),
+            .orders-table td:nth-child(3) { order: 2 !important; overflow: hidden !important; }
+            html.printflow-staff .orders-table td:nth-child(3) .table-text-main,
             .orders-table td:nth-child(3) .table-text-main {
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                max-width: 55vw !important;
+                max-width: 100% !important;
+                width: 100% !important;
                 display: block !important;
             }
 
