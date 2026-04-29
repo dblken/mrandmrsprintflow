@@ -2190,22 +2190,22 @@ function appendMsgUI(m) {
 
     colHtml += `
         <div class="msg-action-bar">
-            <div class="m-action-btn" onclick="togglePicker(${m.id}, event)" style="position:relative;">
+            <div class="m-action-btn" onclick="togglePicker(${m.id}, event, this); return false;" style="position:relative;" role="button" tabindex="0">
                 <i class="bi bi-emoji-smile"></i>
                 <div class="reaction-picker" id="picker-${m.id}">
-                    ${Object.entries(REACTION_EMOJIS).map(([type, emoji]) => `<button class="reaction-btn" onclick="toggleReaction(${m.id}, '${type}')">${emoji}</button>`).join('')}
+                    ${Object.entries(REACTION_EMOJIS).map(([type, emoji]) => `<button type="button" class="reaction-btn" onclick="toggleReaction(${m.id}, '${type}'); return false;">${emoji}</button>`).join('')}
                 </div>
             </div>
             <div class="m-action-btn" onclick="initReply(${m.id}, '${msgB64}', '${hasImg}')">
                 <i class="bi bi-reply-fill"></i>
             </div>
-            <div class="m-action-btn" onclick="toggleMoreMenu(${m.id}, event)" style="position:relative;">
+            <div class="m-action-btn" onclick="toggleMoreMenu(${m.id}, event, this); return false;" style="position:relative;" role="button" tabindex="0">
                 <i class="bi bi-three-dots"></i>
                 <div class="m-more-menu" id="more-${m.id}">
-                    <div class="m-menu-item" onclick="pinMessage(${m.id})">
+                    <div class="m-menu-item" onclick="pinMessage(${m.id}); return false;">
                         <i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}
                     </div>
-                    <div class="m-menu-item" onclick="initForward(${m.id}, '${msgB64}', '${m.message_type}')">
+                    <div class="m-menu-item" onclick="initForward(${m.id}, '${msgB64}', '${m.message_type}'); return false;">
                         <i class="bi bi-arrow-right-short"></i> Forward
                     </div>
                 </div>
@@ -2355,8 +2355,11 @@ function renderAllReactions() {
     });
 }
 
-function togglePicker(msgId, e) {
-    if (e) e.stopPropagation();
+function togglePicker(msgId, e, triggerEl) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
     const picker = document.getElementById('picker-'+msgId);
     if (!picker) return;
     const isActive = picker.classList.contains('active');
@@ -2366,13 +2369,16 @@ function togglePicker(msgId, e) {
         const row = document.getElementById(`ms-${msgId}`);
         if (row) row.classList.add('has-active-menu');
 
-        const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || picker.parentElement;
+        const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.m-action-btn') || picker.parentElement;
         requestAnimationFrame(() => positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 }));
     }
 }
 
-function toggleMoreMenu(msgId, e) {
-    if (e) e.stopPropagation();
+function toggleMoreMenu(msgId, e, triggerEl) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
     const menu = document.getElementById('more-'+msgId);
     if (!menu) return;
     const isActive = menu.classList.contains('active');
@@ -2381,7 +2387,7 @@ function toggleMoreMenu(msgId, e) {
         menu.classList.add('active');
         const row = document.getElementById(`ms-${msgId}`);
         if (row) row.classList.add('has-active-menu');
-        const trigger = e?.currentTarget || e?.target?.closest('.m-action-btn') || menu.parentElement;
+        const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.m-action-btn') || menu.parentElement;
         requestAnimationFrame(() => positionFloatingMenu(menu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 }));
     }
 }
