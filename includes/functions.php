@@ -318,7 +318,10 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
                 $push_payload = [
                     'title' => $push_title,
                     'body' => $message,
-                    'tag'  => 'pf-' . strtolower($type) . '-' . ($data_id ?? $result),
+                    // Use the notification row id so every new event can surface as a
+                    // distinct system notification instead of replacing older ones for
+                    // the same order/chat thread while the app is inactive.
+                    'tag'  => 'pf-' . strtolower($type) . '-notif-' . (int)$result,
                     'url'  => $push_url,
                     'icon' => $push_media['icon'],
                     'image' => $push_media['image'],
