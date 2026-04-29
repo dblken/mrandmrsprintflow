@@ -2471,7 +2471,7 @@ function setActiveMessageRow(row) {
         return;
     }
 
-    const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble');
+    const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble, .order-update-bubble.staff');
     menu.style.position = 'fixed';
     menu.style.left = '50%';
     menu.style.right = 'auto';

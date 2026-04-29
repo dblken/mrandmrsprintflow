@@ -644,6 +644,7 @@ require_once __DIR__ . '/../includes/header.php';
 
         .b-col {
             max-width: 88%;
+            overflow: visible;
         }
 
         .bubble {
@@ -684,22 +685,28 @@ require_once __DIR__ . '/../includes/header.php';
         }
 
         .b-actions {
-            position: static;
-            transform: none;
-            margin-top: 6px;
-            align-self: flex-start;
+            position: fixed;
+            top: 0;
+            transform: translateY(-50%);
+            margin: 0;
             opacity: 0;
             pointer-events: none;
+            flex-wrap: nowrap;
+            z-index: 1300;
+            padding: 2px 4px;
+            gap: 2px;
+            left: 12px;
+            right: auto;
         }
 
-        .brow.self .b-actions,
         .brow.other .b-actions {
-            left: auto;
+            left: 12px;
             right: auto;
         }
 
         .brow.self .b-actions {
-            align-self: flex-end;
+            right: 12px;
+            left: auto;
         }
 
         .brow.has-active-menu .b-actions {
@@ -708,24 +715,38 @@ require_once __DIR__ . '/../includes/header.php';
         }
 
         .react-picker {
+            position: fixed;
             left: 50%;
             right: auto;
-            transform: translateX(-50%);
             top: auto !important;
-            bottom: calc(100% + 8px) !important;
+            bottom: auto !important;
+            transform: translateX(-50%) !important;
             margin: 0 !important;
-            padding: 8px 10px;
-            gap: 6px;
+            padding: 10px 12px;
+            gap: 8px;
             height: auto;
-            max-width: min(260px, calc(100vw - 48px));
-            flex-wrap: wrap;
-            border-radius: 20px;
+            width: min(300px, calc(100vw - 24px));
+            max-width: calc(100vw - 24px);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            border-radius: 22px;
+            -webkit-overflow-scrolling: touch;
         }
 
         .more-menu {
-            left: auto;
-            right: 0;
-            width: 148px;
+            position: fixed;
+            left: 50%;
+            right: auto;
+            top: auto;
+            bottom: auto;
+            transform: translateX(-50%) !important;
+            width: min(190px, calc(100vw - 32px));
+            max-width: calc(100vw - 32px);
+            border-radius: 18px;
+            padding: 8px 0;
+            margin-top: 0;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
         }
 
         #welcome {
@@ -1501,9 +1522,9 @@ function appendMsgUI(m) {
         ${avHtml}
         <div class="b-col">
             <div class="b-actions">
-                <div class="ab" onclick="toggleReact(${m.id},event)" style="position:relative;"><i class="bi bi-emoji-smile"></i><div class="react-picker" id="rp-${m.id}">${Object.entries(EMOJIS).map(([k,v])=>`<span onclick="react(${m.id},'${k}')">${v}</span>`).join('')}</div></div>
+                <div class="ab" onclick="toggleReact(${m.id},event,this)" style="position:relative;"><i class="bi bi-emoji-smile"></i><div class="react-picker" id="rp-${m.id}">${Object.entries(EMOJIS).map(([k,v])=>`<span onclick="react(${m.id},'${k}')">${v}</span>`).join('')}</div></div>
                 <div class="ab" onclick="initReply(${m.id},'${msgB64}')"><i class="bi bi-reply-fill"></i></div>
-                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}','${m.message_type}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
+                <div class="ab" style="position:relative;" onclick="toggleMore(${m.id},event,this)"><i class="bi bi-three-dots"></i><div class="more-menu" id="mm-${m.id}"><div class="mi" onclick="pinMsg(${m.id})"><i class="bi ${m.is_pinned == 1 ? 'bi-pin-angle-fill' : 'bi-pin-angle'}"></i> ${m.is_pinned == 1 ? 'Unpin' : 'Pin'}</div><div class="mi" onclick="initFwd(${m.id},'${msgB64}','${m.message_type}')"><i class="bi bi-arrow-right"></i> Forward</div></div></div>
             </div>
             <div class="bubble" style="position:relative;">
                 ${m.is_pinned == 1 ? `<div class="pinned-badge" title="Pinned Message"><i class="bi bi-pin-fill"></i></div>` : ''}
@@ -1941,9 +1962,129 @@ function onImgSelected() {
     input.value = '';
 }
 
-function toggleReact(id, e) { e.stopPropagation(); const el = document.getElementById('rp-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
+function toggleReact(id, e, triggerEl) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const el = document.getElementById('rp-' + id);
+    if (!el) return;
+    const cur = el.classList.contains('show');
+    closeAllMenus();
+    if (!cur) {
+        el.classList.add('show');
+        const row = document.getElementById(`ms-${id}`);
+        setActiveMessageRow(row);
+        const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.ab') || el.parentElement;
+        requestAnimationFrame(() => positionFloatingMenu(el, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 }));
+    }
+}
 function react(id, type) { const fd = new FormData(); fd.append('message_id',id); fd.append('reaction_type',type); api('/public/api/chat/react_message.php','POST',fd).then(r=>loadMsgs()); closeAllMenus(); }
-function toggleMore(id, e) { e.stopPropagation(); const el = document.getElementById('mm-'+id); const cur = el.classList.contains('show'); closeAllMenus(); if(!cur) el.classList.add('show'); }
+function toggleMore(id, e, triggerEl) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const el = document.getElementById('mm-' + id);
+    if (!el) return;
+    const cur = el.classList.contains('show');
+    closeAllMenus();
+    if (!cur) {
+        el.classList.add('show');
+        const row = document.getElementById(`ms-${id}`);
+        setActiveMessageRow(row);
+        const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.ab') || el.parentElement;
+        requestAnimationFrame(() => positionFloatingMenu(el, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 }));
+    }
+}
+function positionMobileActionBar(row) {
+    if (!row || !window.matchMedia('(max-width: 768px)').matches) return;
+    const actionBar = row.querySelector('.b-actions');
+    const bubble = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
+    if (!actionBar || !bubble) return;
+
+    const bubbleRect = bubble.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const actionRect = actionBar.getBoundingClientRect();
+    const actionWidth = actionRect.width || 116;
+    const actionHeight = actionRect.height || 38;
+    const rowIsSelf = row.classList.contains('self');
+    const gap = 10;
+
+    let top = bubbleRect.top + (bubbleRect.height / 2);
+    top = Math.max((actionHeight / 2) + 12, Math.min(top, viewportHeight - (actionHeight / 2) - 12));
+
+    if (rowIsSelf) {
+        const right = Math.max(12, viewportWidth - bubbleRect.left + gap);
+        actionBar.style.left = 'auto';
+        actionBar.style.right = `${right}px`;
+    } else {
+        const left = Math.min(viewportWidth - actionWidth - 12, bubbleRect.right + gap);
+        actionBar.style.left = `${Math.max(12, left)}px`;
+        actionBar.style.right = 'auto';
+    }
+
+    actionBar.style.top = `${top}px`;
+    actionBar.style.bottom = 'auto';
+    actionBar.style.transform = 'translateY(-50%)';
+    actionBar.style.visibility = 'visible';
+    actionBar.style.opacity = '1';
+    actionBar.style.pointerEvents = 'auto';
+}
+function setActiveMessageRow(row) {
+    if (!row) return;
+    document.querySelectorAll('.brow').forEach(r => r.classList.remove('has-active-menu'));
+    row.classList.add('has-active-menu');
+    requestAnimationFrame(() => positionMobileActionBar(row));
+}
+function positionFloatingMenu(menu, trigger, options = {}) {
+    if (!menu || !trigger) return;
+    const gap = options.gap ?? 10;
+    const preferred = options.preferred || 'bottom';
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
+    if (!isMobile) {
+        menu.style.position = 'absolute';
+        menu.style.left = '';
+        menu.style.right = preferred === 'bottom' ? '0' : '';
+        menu.style.top = preferred === 'bottom' ? '100%' : '';
+        menu.style.bottom = preferred === 'top' ? 'calc(100% + 10px)' : '';
+        menu.style.transform = '';
+        return;
+    }
+
+    const bubble = trigger.closest('.b-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
+    menu.style.position = 'fixed';
+    menu.style.left = '50%';
+    menu.style.right = 'auto';
+    menu.style.top = '0';
+    menu.style.bottom = 'auto';
+    menu.style.transform = 'translateX(-50%)';
+    menu.style.visibility = 'hidden';
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuHeight = menuRect.height || 56;
+    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
+    let left = anchorRect.left + (anchorRect.width / 2);
+    left = Math.max((menuWidth / 2) + 12, Math.min(left, viewportWidth - (menuWidth / 2) - 12));
+
+    const spaceAbove = anchorRect.top;
+    const spaceBelow = viewportHeight - anchorRect.bottom;
+    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    const top = shouldOpenAbove
+        ? Math.max(12, anchorRect.top - menuHeight - gap)
+        : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.transform = 'translateX(-50%)';
+    menu.style.visibility = 'visible';
+}
 function bindMobileMessageHold(row) {
     if (!row || row.dataset.mobileHoldBound === '1' || !window.matchMedia('(max-width: 768px)').matches) return;
     row.dataset.mobileHoldBound = '1';
@@ -1959,7 +2100,7 @@ function bindMobileMessageHold(row) {
         holdTimer = setTimeout(() => {
             holdTriggered = true;
             closeAllMenus();
-            row.classList.add('has-active-menu');
+            setActiveMessageRow(row);
         }, 450);
     };
 
@@ -1972,7 +2113,17 @@ function bindMobileMessageHold(row) {
     target.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         closeAllMenus();
-        row.classList.add('has-active-menu');
+        setActiveMessageRow(row);
+    });
+
+    target.addEventListener('click', (event) => {
+        if (event.target.closest('a, button, audio, video')) return;
+        if (!window.matchMedia('(max-width: 768px)').matches) return;
+        if (row.classList.contains('has-active-menu')) return;
+        closeAllMenus();
+        setActiveMessageRow(row);
+        event.preventDefault();
+        event.stopPropagation();
     });
 
     row.addEventListener('click', (event) => {
@@ -1983,6 +2134,16 @@ function bindMobileMessageHold(row) {
         }
     }, true);
 }
+window.addEventListener('resize', () => {
+    const activeRow = document.querySelector('.brow.has-active-menu');
+    if (!activeRow) return;
+    positionMobileActionBar(activeRow);
+});
+document.getElementById('messagesArea')?.addEventListener('scroll', () => {
+    const activeRow = document.querySelector('.brow.has-active-menu');
+    if (!activeRow) return;
+    positionMobileActionBar(activeRow);
+}, { passive: true });
 function pinMsg(id) { 
     const fd = new FormData(); 
     fd.append('message_id', id); 
@@ -2255,11 +2416,32 @@ function openGallery() {
 function closeGallery() { document.getElementById('galleryPanel').classList.remove('show'); }
 function toggleArchive() { const fd = new FormData(); fd.append('order_id',activeId); fd.append('archive',isConvArch?0:1); api('/public/api/chat/set_archived.php','POST',fd).then(res=>{ if(res.success) { isConvArch=!isConvArch; updateArchUI(isConvArch); loadConvs(); }}); }
 function toggleHMenu(e) { e.stopPropagation(); document.getElementById('hDropdown').classList.toggle('show'); }
-function closeAllMenus() { document.querySelectorAll('.react-picker,.more-menu,.h-dropdown').forEach(el=>el.classList.remove('show')); }
+function closeAllMenus() {
+    document.querySelectorAll('.react-picker,.more-menu,.h-dropdown').forEach(el => {
+        el.classList.remove('show');
+        el.style.left = '';
+        el.style.right = '';
+        el.style.top = '';
+        el.style.bottom = '';
+        el.style.transform = '';
+        el.style.visibility = '';
+    });
+    document.querySelectorAll('.brow').forEach(row => row.classList.remove('has-active-menu'));
+    document.querySelectorAll('.b-actions').forEach(bar => {
+        bar.style.left = '';
+        bar.style.right = '';
+        bar.style.top = '';
+        bar.style.bottom = '';
+        bar.style.transform = '';
+        bar.style.visibility = '';
+        bar.style.opacity = '';
+        bar.style.pointerEvents = '';
+    });
+}
 if (!window.__pfCustomerChatCloseMenusBound) {
     window.__pfCustomerChatCloseMenusBound = true;
-    window.addEventListener('click', () => {
-        document.querySelectorAll('.brow').forEach(row => row.classList.remove('has-active-menu'));
+    window.addEventListener('click', (event) => {
+        if (event.target.closest('.b-actions, .ab, .react-picker, .more-menu, .react-display, .h-dropdown')) return;
         closeAllMenus();
     });
 }
