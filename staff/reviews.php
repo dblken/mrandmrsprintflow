@@ -1153,9 +1153,9 @@ $page_title = 'Review Management - Staff';
 
                 <!-- Standardized Toolbar -->
                 <div class="card overflow-visible pf-reviews-table-card">
-                    <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div class="toolbar-container" style="display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 16px !important; width: 100% !important;">
                         <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Reviews Feed</h3>
-                        <div class="toolbar-group" style="margin-left: auto; display: flex; gap: 8px;">
+                        <div class="toolbar-group" style="display: flex !important; gap: 8px !important; margin-left: auto !important; justify-content: flex-end !important;">
 
 
                             <!-- Sort Button -->

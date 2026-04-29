@@ -412,8 +412,10 @@ $page_title = 'Orders - Staff';
             white-space: nowrap !important;
         }
         .toolbar-group {
-            width: 100% !important;
-            overflow: visible !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
         }
         .pill-tab { 
             position: relative;
@@ -482,11 +484,7 @@ $page_title = 'Orders - Staff';
             margin-bottom: 16px;
             flex-wrap: wrap;
         }
-        .toolbar-group {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: nowrap;
+        .toolbar-group--actions {
             margin-left: auto;
         }
         .pf-pill {
@@ -2046,11 +2044,11 @@ $page_title = 'Orders - Staff';
 
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
-                <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                    <div class="toolbar-group toolbar-group--title">
+                <div class="toolbar-container" style="display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 16px !important; width: 100% !important;">
+                    <div class="toolbar-group toolbar-group--title" style="flex: 0 1 auto !important;">
                         <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
                     </div>
-                    <div class="toolbar-group toolbar-group--actions" style="display: flex; gap: 8px; margin-left: auto;">
+                    <div class="toolbar-group toolbar-group--actions" style="display: flex !important; gap: 8px !important; margin-left: auto !important; flex: 0 1 auto !important; justify-content: flex-end !important;">
 
                             <!-- Sort Button -->
                             <div style="position:relative;">

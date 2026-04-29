@@ -225,13 +225,13 @@ $page_title = 'Visual Reports & Analytics';
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
     <div class="main-content" x-data="{ filterOpen: false, activeStatus: '<?php echo $_GET['status'] ?? 'ALL'; ?>', activeRange: '<?php echo $range; ?>', hasActiveFilters: <?php echo (($_GET['status']??'ALL') !== 'ALL' || $range !== 'week') ? 'true' : 'false'; ?> }">
-        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
-            <div>
+        <header style="display: flex !important; justify-content: space-between !important; align-items: center !important; margin-bottom: 24px !important; flex-wrap: wrap !important; gap: 16px !important; width: 100% !important;">
+            <div style="flex: 0 1 auto !important;">
                 <h1 class="page-title">Visual Reports & Analytics</h1>
                 <p class="page-subtitle">A quick overview of business performance and metrics.</p>
             </div>
             
-            <div class="toolbar-group" style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
+            <div class="toolbar-group" style="display: flex !important; gap: 10px !important; align-items: center !important; margin-left: auto !important; justify-content: flex-end !important;">
                 <!-- Filter Button -->
                 <div style="position:relative;">
                     <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen" style="height: 38px;">
