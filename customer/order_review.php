@@ -1201,7 +1201,7 @@ require_once __DIR__ . '/../includes/header.php';
             width: min(100%, 220px) !important;
             height: auto !important;
             aspect-ratio: 1 / 1 !important;
-            margin: 0 auto !important;
+            margin: 0 auto 1rem !important;
         }
         .review-order-item .order-item-content {
             width: 100% !important;
@@ -1217,7 +1217,7 @@ require_once __DIR__ . '/../includes/header.php';
             text-overflow: clip !important;
             width: 100% !important;
             max-width: 18rem !important;
-            margin: 0 auto 0.55rem !important;
+            margin: 0 auto 0.85rem !important;
             text-align: center !important;
         }
         .review-order-item .order-item-category-badge {
@@ -1271,17 +1271,18 @@ require_once __DIR__ . '/../includes/header.php';
         }
         .review-order-item .order-item-spec-grid {
             grid-template-columns: 1fr !important;
-            gap: 0.8rem !important;
+            gap: 0.95rem !important;
+            padding-inline: 0.35rem !important;
         }
         .review-order-item .order-item-specs {
-            padding: 1rem !important;
+            padding: 1rem 0.85rem 1.1rem !important;
         }
         .review-order-item .order-item-specs h4 {
             margin-bottom: 0.85rem !important;
             padding-bottom: 0.75rem !important;
         }
         .review-order-item .order-item-spec-tile {
-            padding: 0.95rem 1rem !important;
+            padding: 1rem 1.1rem !important;
             border-radius: 12px !important;
             background: rgba(255, 255, 255, 0.05) !important;
         }
