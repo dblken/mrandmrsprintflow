@@ -65,6 +65,17 @@
     var recentToastMap = {};
     var lastPollTs  = Math.floor(Date.now() / 1000) - 30;
 
+    function isIosFamily() {
+        var ua = String(window.navigator.userAgent || '').toLowerCase();
+        var platform = String(window.navigator.platform || '').toLowerCase();
+        return /iphone|ipad|ipod/.test(ua) || (platform === 'macintel' && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandaloneDisplay() {
+        return !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+            || window.navigator.standalone === true;
+    }
+
     /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
     window.PFNotifications = {
@@ -214,6 +225,10 @@
         var isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
         if (!window.isSecureContext && !isLocalhost) {
             return 'Background push requires HTTPS on this device. HTTP works only on true localhost.';
+        }
+
+        if (isIosFamily() && !isStandaloneDisplay()) {
+            return 'On iPhone and iPad, background notifications only work after installing PrintFlow to the Home Screen and opening it as an app.';
         }
 
         return '';
@@ -544,6 +559,15 @@
             };
         }
 
+        if (isIosFamily() && !isStandaloneDisplay()) {
+            return {
+                title: 'Install PrintFlow first',
+                body: 'On iPhone and iPad, background notifications only work from the installed Home Screen app, not from a regular browser tab.',
+                primaryLabel: 'Close',
+                secondaryLabel: 'Later'
+            };
+        }
+
         return {
             title: 'Enable device notifications',
             body: 'Get order approvals, payment updates, and status changes even when PrintFlow is in the background.',
@@ -554,6 +578,10 @@
 
     function openBrowserNotificationHelp() {
         try {
+            if (isIosFamily() && !isStandaloneDisplay()) {
+                alert('On iPhone and iPad, open Share > Add to Home Screen, launch PrintFlow from the Home Screen, then enable notifications there.');
+                return;
+            }
             alert('Notifications are blocked. Please enable them from your browser site settings, then refresh this page.');
         } catch (e) {}
     }
@@ -633,6 +661,11 @@
 
             if (enableBtn) {
                 enableBtn.onclick = function() {
+                    if (isIosFamily() && !isStandaloneDisplay()) {
+                        openBrowserNotificationHelp();
+                        return;
+                    }
+
                     if (promptState.state === 'blocked') {
                         openBrowserNotificationHelp();
                         return;
