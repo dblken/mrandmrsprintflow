@@ -254,7 +254,8 @@
         width: 104px;
         height: 150px;
         right: 12px;
-        bottom: calc(110px + env(safe-area-inset-bottom));
+        top: calc(72px + env(safe-area-inset-top));
+        bottom: auto;
         border-radius: 16px;
     }
     #pf-call-overlay.pf-call-overlay--in-call .pf-call-card {

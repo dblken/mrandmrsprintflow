@@ -345,6 +345,13 @@ $page_title = 'Staff Dashboard - PrintFlow';
             text-overflow: ellipsis;
             display: block;
         }
+
+        .page-subtitle {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
     </style>
 </head>
 <body>
