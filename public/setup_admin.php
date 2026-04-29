@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/ensure_account_creation_guard.php';
+printflow_ensure_account_creation_guard();
 
 // First, clear rate limits
 db_execute("DELETE FROM rate_limit_log WHERE action = 'login'");
@@ -22,10 +24,12 @@ $last_name = 'User';
 $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
 // Insert admin user
-$sql = "INSERT INTO users (first_name, last_name, email, password_hash, role, status, created_at) 
-        VALUES (?, ?, ?, ?, 'Admin', 'Activated', NOW())";
+$sql = "INSERT INTO users (first_name, last_name, email, password_hash, role, status, created_by_system, created_at) 
+        VALUES (?, ?, ?, ?, 'Admin', 'Activated', 1, NOW())";
 
-$result = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+$result = printflow_run_guarded_account_insert(function() use ($sql, $first_name, $last_name, $email, $password_hash) {
+    return db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+});
 
 ?>
 <!DOCTYPE html>

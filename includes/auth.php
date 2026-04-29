@@ -23,6 +23,8 @@ require_once __DIR__ . '/rate_limiter.php';
 SessionManager::start();
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/ensure_account_creation_guard.php';
+printflow_ensure_account_creation_guard();
 
 // Try to include functions.php
 $functions_path = __DIR__ . '/functions.php';
@@ -842,8 +844,10 @@ function login_customer_by_google($email, $first_name, $last_name) {
         return ['success' => true, 'message' => 'Login successful', 'redirect' => AUTH_REDIRECT_BASE . '/customer/services.php'];
     }
     $password_hash = password_hash(bin2hex(random_bytes(16)), PASSWORD_BCRYPT);
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?, 'google')";
-    $cid = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider, created_by_system) VALUES (?, '', ?, NULL, NULL, ?, NULL, ?, 'google', 1)";
+    $cid = printflow_run_guarded_account_insert(function() use ($sql, $first_name, $last_name, $email, $password_hash) {
+        return db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+    });
     if (!$cid) {
         return ['success' => false, 'message' => 'Could not create account. Please try again.'];
     }
@@ -932,19 +936,21 @@ function register_customer($data) {
     $password_hash = password_hash($data['password'], PASSWORD_BCRYPT);
     
     // Insert customer
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'password')";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, auth_provider, created_by_system) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'password', 1)";
     
-    $result = db_execute($sql, 'ssssssss', [
-        $data['first_name'],
-        $data['middle_name'] ?? null,
-        $data['last_name'],
-        $data['dob'] ?? null,
-        $data['gender'] ?? null,
-        $data['email'],
-        $data['contact_number'] ?? null,
-        $password_hash
-    ]);
+    $result = printflow_run_guarded_account_insert(function() use ($sql, $data, $password_hash) {
+        return db_execute($sql, 'ssssssss', [
+            $data['first_name'],
+            $data['middle_name'] ?? null,
+            $data['last_name'],
+            $data['dob'] ?? null,
+            $data['gender'] ?? null,
+            $data['email'],
+            $data['contact_number'] ?? null,
+            $password_hash
+        ]);
+    });
     
     if ($result) {
         // Auto-login after registration
@@ -1007,16 +1013,18 @@ function register_customer_direct($type, $identifier, $password) {
 
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, is_profile_complete, email_verified) 
-            VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0, 0)";
+    $sql = "INSERT INTO customers (first_name, middle_name, last_name, dob, gender, email, contact_number, password_hash, is_profile_complete, email_verified, created_by_system) 
+            VALUES (?, '', ?, NULL, NULL, ?, ?, ?, 0, 0, 1)";
 
-    $result = db_execute($sql, 'sssss', [
-        '',           // placeholder first_name
-        '',           // placeholder last_name
-        $email,
-        $contact_number,
-        $password_hash
-    ]);
+    $result = printflow_run_guarded_account_insert(function() use ($sql, $email, $contact_number, $password_hash) {
+        return db_execute($sql, 'sssss', [
+            '',           // placeholder first_name
+            '',           // placeholder last_name
+            $email,
+            $contact_number,
+            $password_hash
+        ]);
+    });
 
     if ($result) {
         // Generate OTP
@@ -1317,4 +1325,3 @@ function csrf_field() {
     $token = generate_csrf_token();
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
 }
-

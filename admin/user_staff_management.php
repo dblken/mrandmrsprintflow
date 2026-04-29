@@ -6,6 +6,8 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/ensure_account_creation_guard.php';
+printflow_ensure_account_creation_guard();
 
 require_role('Admin');
 // Ensure $base_path is defined
@@ -134,12 +136,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && ve
             $token = bin2hex(random_bytes(32));
             $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
 
-            db_execute(
-                "INSERT INTO users (first_name, middle_name, last_name, birthday, email, password_hash, profile_completion_token, profile_completion_expires, role, status, branch_id, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, NOW(), NOW())",
-                'sssssssssi',
-                [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $token, $expires, $role, $branch_id]
-            );
+            printflow_run_guarded_account_insert(function() use ($first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $token, $expires, $role, $branch_id) {
+                return db_execute(
+                    "INSERT INTO users (first_name, middle_name, last_name, birthday, email, password_hash, profile_completion_token, profile_completion_expires, role, status, branch_id, created_by_system, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, 1, NOW(), NOW())",
+                    'sssssssssi',
+                    [$first_name, $middle_name, $last_name, $bday_val, $email, $password_hash, $token, $expires, $role, $branch_id]
+                );
+            });
 
             $site_url = defined('SITE_URL')
                 ? SITE_URL

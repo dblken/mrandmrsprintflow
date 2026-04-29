@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/ensure_account_creation_guard.php';
+printflow_ensure_account_creation_guard();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? 'admin@printflow.com';
@@ -11,10 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
     
     // Insert admin user
-    $sql = "INSERT INTO users (first_name, last_name, email, password_hash, role, status) 
-            VALUES (?, ?, ?, ?, 'Admin', 'Activated')";
+    $sql = "INSERT INTO users (first_name, last_name, email, password_hash, role, status, created_by_system) 
+            VALUES (?, ?, ?, ?, 'Admin', 'Activated', 1)";
     
-    $result = db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+    $result = printflow_run_guarded_account_insert(function() use ($sql, $first_name, $last_name, $email, $password_hash) {
+        return db_execute($sql, 'ssss', [$first_name, $last_name, $email, $password_hash]);
+    });
     
     if ($result) {
         echo "<!DOCTYPE html>
