@@ -330,6 +330,17 @@ $page_title = 'Staff Dashboard - PrintFlow';
         }
         .metric-pulse { animation: kpiPulse 0.4s ease-in-out; }
         [x-cloak] { display: none !important; }
+
+        .truncate-ellipsis {
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .service-item .truncate-ellipsis {
+            max-width: none;
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -583,7 +594,7 @@ async function refreshDashboard(page = 1, status = null, timeframe = null) {
                 if (data.top_services && data.top_services.length > 0) {
                     servicesList.innerHTML = data.top_services.map(s => `
                         <div class="service-item">
-                            <span class="service-info">${s.name}</span>
+                            <span class="service-info truncate-ellipsis" title="${s.name}">${s.name}</span>
                             <span class="service-count">${s.order_count} Orders</span>
                         </div>
                     `).join('');
@@ -601,8 +612,8 @@ async function refreshDashboard(page = 1, status = null, timeframe = null) {
                 tbody.innerHTML = data.orders.map(o => `
                     <tr>
                         <td style="font-weight:700;">#${o.order_id}</td>
-                        <td style="font-weight:600;">${o.customer_name || 'Guest'}</td>
-                        <td style="font-weight:500;">${o.service_type || 'General'}</td>
+                        <td style="font-weight:600;" class="truncate-ellipsis" title="${o.customer_name || 'Guest'}">${o.customer_name || 'Guest'}</td>
+                        <td style="font-weight:500;" class="truncate-ellipsis" title="${o.service_type || 'General'}">${o.service_type || 'General'}</td>
                         <td style="color:#64748b; font-size:13px;">${o.formatted_date}</td>
                         <td style="font-weight:800; color:#013a3a;">${o.formatted_total}</td>
                         <td>${o.status_html}</td>
