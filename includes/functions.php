@@ -3467,7 +3467,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     $action_url  = $config['action_url'];
     $origin_actor_map = [
         'inquiry' => 'customer',
-        'payment_submitted' => 'customer',
+        'payment_submitted' => 'staff',
         'approved' => 'staff',
         'send_to_payment' => 'staff',
         'payment_verified' => 'staff',
@@ -3479,12 +3479,20 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     ];
     $origin_actor = $origin_actor_map[$step] ?? 'staff';
     $session_user_type = function_exists('get_user_type') ? (string) get_user_type() : '';
-    $sender_type = $origin_actor;
-    if ($session_user_type === 'Customer') {
-        $sender_type = 'customer';
-    } elseif (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true)) {
-        $sender_type = 'staff';
+
+    // Prefer the mapped origin actor (authoritative). Only fall back to the
+    // current session user type if origin actor is not specified.
+    $sender_type = $origin_actor ?: '';
+    if (empty($sender_type)) {
+        if ($session_user_type === 'Customer') {
+            $sender_type = 'customer';
+        } elseif (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true)) {
+            $sender_type = 'staff';
+        } else {
+            $sender_type = 'staff';
+        }
     }
+
     $db_sender = $sender_type === 'customer' ? 'Customer' : 'Staff';
     $sender_id = 0;
     if ($sender_type === 'customer') {
@@ -3492,8 +3500,13 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         if ($session_user_type === 'Customer' && function_exists('get_user_id')) {
             $sender_id = (int) get_user_id();
         }
-    } elseif ($session_user_type !== '' && function_exists('get_user_id')) {
-        $sender_id = max(0, (int) get_user_id());
+    } elseif ($sender_type === 'staff') {
+        // Only attach a specific staff sender_id when the session user is a staff member.
+        if (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true) && function_exists('get_user_id')) {
+            $sender_id = max(0, (int) get_user_id());
+        } else {
+            $sender_id = 0; // system/staff generic
+        }
     }
 
     // 5. meta_json for extra context
