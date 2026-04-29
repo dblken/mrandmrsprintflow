@@ -589,12 +589,24 @@ $current_user = get_logged_in_user();
 
         .reaction-display-container { margin-top: 6px; display: none; }
         .reaction-display {
+            display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .reaction-bubble {
             display: inline-flex; align-items: center; gap: 4px;
             background: #fff; border: 1px solid #e2e8f0;
-            border-radius: 999px; padding: 3px 10px; font-size: 0.85rem; cursor: default;
+            border-radius: 999px; padding: 4px 10px; font-size: 1rem;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); color: #334155;
+            cursor: pointer; transition: all 0.2s;
+            line-height: 1;
         }
-        .reaction-display span { line-height: 1; }
+        .reaction-bubble:hover {
+            transform: scale(1.1); background: #f8fafc; border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .reaction-count {
+            font-size: 0.75rem; font-weight: 700; color: #64748b;
+            margin-left: 2px;
+        }
 
         /* Seen Indicators (Messenger Style) */
         .seen-wrapper { display:flex; width:100%; margin-top:2px; min-height:16px; align-items:center; }
@@ -2353,19 +2365,23 @@ function renderAllReactions() {
         }
 
         const counts = {};
+        const reactorsByType = {};
         rx.forEach(r => {
             counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+            if (!reactorsByType[r.reaction_type]) reactorsByType[r.reaction_type] = [];
+            reactorsByType[r.reaction_type].push(r.reactor_name);
         });
 
-        const emojis = Object.keys(counts).map(k => REACTION_EMOJIS[k] || k).join('');
-        const total = rx.length;
+        const reactionBubbles = Object.entries(counts).map(([type, count]) => {
+            const emoji = REACTION_EMOJIS[type] || type;
+            const reactors = reactorsByType[type].join(', ');
+            return `<span class="reaction-bubble" title="${reactors}" onclick="toggleReaction(${msgId}, '${type}')">
+                ${emoji}
+                ${count > 1 ? `<span class="reaction-count">${count}</span>` : ''}
+            </span>`;
+        }).join('');
         
-        let displayHtml = `<div class="reaction-display" title="${rx.map(x => x.reactor_name + ': ' + x.reaction_type).join(', ')}">
-            <span>${emojis}</span>
-            <span style="font-weight:700; opacity:0.8; margin-left:4px;">${total > 1 ? total : ''}</span>
-        </div>`;
-        
-        el.innerHTML = displayHtml;
+        el.innerHTML = `<div class="reaction-display">${reactionBubbles}</div>`;
         el.style.display = 'block';
     });
 }
