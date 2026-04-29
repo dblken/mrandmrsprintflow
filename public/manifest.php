@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/shop_config.php';
 $base_path = defined('BASE_PATH') ? BASE_PATH : '/printflow';
 $asset_path = $base_path . '/public/assets/images';
 $logo_version = rawurlencode(printflow_logo_version());
-$png_logo_src = $base_path . '/public/app-icon.php?v=' . $logo_version;
+$png_logo_src = $base_path . '/public/assets/images/icon-512.png?v=' . $logo_version;
 header('Content-Type: application/json');
 
 $manifest_icons = [

@@ -32,7 +32,6 @@ if (!$order_id) {
 if ($user_type === 'Customer') {
     $order_result = db_query("SELECT * FROM orders WHERE order_id = ? AND customer_id = ?", 'ii', [$order_id, $user_id]);
 } else {
-    printflow_assert_order_branch_access($order_id);
     $order_result = db_query("SELECT * FROM orders WHERE order_id = ?", 'i', [$order_id]);
 }
 

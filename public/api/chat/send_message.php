@@ -36,6 +36,56 @@ if ($user_type !== 'Customer') {
 $db_sender = ($user_type === 'Customer') ? 'Customer' : 'Staff';
 $messages_sent = 0;
 
+$file_signatures = [];
+if (isset($_FILES['image'])) {
+    $files = $_FILES['image'];
+    $is_array = is_array($files['name']);
+    $count = $is_array ? count($files['name']) : 1;
+
+    for ($i = 0; $i < $count; $i++) {
+        $error = $is_array ? $files['error'][$i] : $files['error'];
+        if ($error !== UPLOAD_ERR_OK) {
+            continue;
+        }
+
+        $file_signatures[] = [
+            'name' => (string)($is_array ? $files['name'][$i] : $files['name']),
+            'size' => (int)($is_array ? $files['size'][$i] : $files['size']),
+        ];
+    }
+}
+
+$dedupe_payload = [
+    'order_id' => $order_id,
+    'sender' => $db_sender,
+    'sender_id' => (int)$user_id,
+    'reply_id' => $reply_id,
+    'message' => $message,
+    'files' => $file_signatures,
+];
+$dedupe_hash = hash('sha256', json_encode($dedupe_payload));
+$dedupe_guard = $_SESSION['chat_submit_guard'] ?? null;
+
+if (
+    is_array($dedupe_guard)
+    && ($dedupe_guard['hash'] ?? '') === $dedupe_hash
+    && isset($dedupe_guard['time'])
+    && (microtime(true) - (float)$dedupe_guard['time']) < 2.5
+) {
+    ob_end_clean();
+    echo json_encode([
+        'success' => true,
+        'messages_sent' => 0,
+        'duplicate_ignored' => true,
+    ]);
+    exit();
+}
+
+$_SESSION['chat_submit_guard'] = [
+    'hash' => $dedupe_hash,
+    'time' => microtime(true),
+];
+
 // 1. Handle text message
 if ($message !== '') {
     $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt, reply_id)

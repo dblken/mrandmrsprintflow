@@ -68,6 +68,13 @@ try {
         $isPlainProductOrder = (($order['order_type'] ?? '') === 'product') && !$hasProductionJobs;
         $new_status = $isPlainProductOrder ? 'Ready for Pickup' : 'Processing';
         $payment_status = 'Paid';
+        
+        // Get product name for better message context
+        $product_name = 'your order';
+        $items = db_query("SELECT service_type FROM order_items WHERE order_id = ? LIMIT 1", "i", [$order_id]);
+        if (!empty($items)) {
+            $product_name = $items[0]['service_type'];
+        }
 
         $conn->begin_transaction();
         try {
@@ -85,14 +92,23 @@ try {
             }
 
             $msg = $isPlainProductOrder 
-                ? "Your payment has been verified. Your order is now ready for pickup!" 
-                : "Your payment has been verified. Your order is now in production!";
+                ? "Your payment has been approved, and your order is now ready for pickup!" 
+                : "Your payment has been approved. We will now proceed with processing your order.";
             
             if (!empty($order['customer_id'])) {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
-            add_order_system_message($order_id, $msg);
-            printflow_send_order_update($order_id, 'payment_verified');
+            
+            // Send order update chat message
+            require_once __DIR__ . '/../includes/order_chat_system.php';
+            $meta = [
+                'order_id' => $order_id,
+                'product_name' => $product_name,
+                'order_status' => $new_status,
+                'payment_status' => $payment_status,
+                'step' => 'payment_verified'
+            ];
+            printflow_send_order_update($order_id, $msg, 'view_status', '', '', $meta);
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
@@ -137,6 +153,13 @@ try {
         $new_status = 'To Pay';
         $reason = $_POST['reason'] ?? 'Payment proof rejected by staff.';
         
+        // Get product name for better message context
+        $product_name = 'your order';
+        $items = db_query("SELECT service_type FROM order_items WHERE order_id = ? LIMIT 1", "i", [$order_id]);
+        if (!empty($items)) {
+            $product_name = $items[0]['service_type'];
+        }
+        
         // Clear proof so they can re-upload
         if ($staffBranchId !== null) {
             $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ? AND branch_id = ?";
@@ -147,12 +170,23 @@ try {
         }
         
         if ($success) {
-            $msg = "Your payment proof was rejected. Reason: " . $reason;
+            $msg = "Your payment proof was rejected. Reason: " . $reason . ". Please resubmit your payment proof.";
             if (!empty($order['customer_id'])) {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
-            add_order_system_message($order_id, "[PAYMENT REJECTION] " . $reason);
-            printflow_send_order_update($order_id, 'payment_rejected');
+            
+            // Send order update chat message for rejection
+            require_once __DIR__ . '/../includes/order_chat_system.php';
+            $meta = [
+                'order_id' => $order_id,
+                'product_name' => $product_name,
+                'order_status' => $new_status,
+                'payment_status' => 'Rejected',
+                'rejection_reason' => $reason,
+                'step' => 'payment_rejected'
+            ];
+            printflow_send_order_update($order_id, $msg, 'retry_payment', '', '', $meta);
+            
             log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}. Reason: {$reason}");
             db_execute(
                 "UPDATE job_orders SET payment_proof_status = 'REJECTED', status = 'TO_PAY',

@@ -7,9 +7,7 @@ require_once __DIR__ . '/../includes/shop_config.php';
 
 $base_path = defined('BASE_PATH') ? BASE_PATH : '';
 $logo_version = rawurlencode(printflow_logo_version());
-$app_icon = !empty($shop_logo_url)
-    ? ($shop_logo_url . '?v=' . $logo_version)
-    : ($base_path . '/public/app-icon.php?v=' . $logo_version);
+$app_icon = $base_path . '/public/assets/images/icon-512.png?v=' . $logo_version;
 $app_badge = $base_path . '/public/assets/images/icon-72.png';
 
 header('Content-Type: application/javascript');

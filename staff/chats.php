@@ -3,7 +3,8 @@
  * Staff Chat Dashboard - Professional Enterprise UI (Fixed)
  * High-end communication interface for staff members.
  */
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php'; // Test
+
 require_once __DIR__ . '/../includes/functions.php';
 // Load environment config first so BASE_URL/BASE_PATH are correct for production
 if (!defined('BASE_URL') && file_exists(__DIR__ . '/../config.php')) {
@@ -375,6 +376,46 @@ $current_user = get_logged_in_user();
             object-fit: cover; 
             display: block; 
         }
+        .order-card {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid #d9e6ee;
+            background: #ffffff;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        .order-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .order-img {
+            width: 64px;
+            height: 64px;
+            object-fit: cover;
+            border-radius: 12px;
+            background: #f1f5f9;
+            flex-shrink: 0;
+            border: 1px solid #e2e8f0;
+        }
+        .order-info {
+            min-width: 0;
+        }
+        .order-info strong {
+            display: block;
+            color: #0f172a;
+            font-size: 0.95rem;
+            line-height: 1.25;
+        }
+        .order-info p {
+            margin: 4px 0 0;
+            color: #64748b;
+            font-size: 0.82rem;
+            line-height: 1.35;
+        }
 
         /* --- Premium Toast System --- */
         #staff-toast-container {
@@ -637,6 +678,21 @@ $current_user = get_logged_in_user();
         }
         .btn-send:hover { opacity: 0.9; transform: scale(1.05); box-shadow: 0 4px 12px rgba(10,37,48,0.2); }
         .btn-send:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+        .details-main-heading { position: sticky; top: 0; z-index: 2; background: #fff; padding: 0 0 1rem; font-size: 9px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 1rem; }
+        .details-items { display: flex; flex-direction: column; gap: 1rem; }
+        .detail-order-card { background: #fff; border: 1px solid #f1f5f9; border-radius: 20px; padding: 1rem; box-shadow: 0 12px 32px rgba(15,23,42,0.04); }
+        .detail-order-top { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 1rem; align-items: start; }
+        .detail-order-thumb { width: 112px; height: 112px; border-radius: 16px; background: #f8fafc; border: 1px solid #f1f5f9; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .detail-order-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .detail-order-body { min-width: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+        .detail-order-summary { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+        .detail-order-title { font-size: 1.05rem; font-weight: 900; color: #1e293b; line-height: 1.2; word-break: break-word; }
+        .detail-order-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .detail-order-chip { background: #f1f5f9; color: #475569; border-radius: 999px; padding: 0.35rem 0.7rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.02em; }
+        .detail-order-chip.category { background: #ecfeff; color: #0f766e; text-transform: uppercase; }
+        .detail-order-price { min-width: 120px; text-align: right; }
+        .detail-order-price .pf-spec-key { margin-bottom: 2px; font-size: 9px; }
+        .detail-order-price strong { display: block; font-size: 1.05rem; font-weight: 900; color: #06A1A1; line-height: 1.2; word-break: break-word; overflow-wrap:break-word; white-space:normal; }
 
         /* Responsive */
         .mobile-chat-header { display: none; }
@@ -791,6 +847,7 @@ $current_user = get_logged_in_user();
             .details-modal-panel {
                 max-height: calc(100dvh - 1.5rem);
                 border-radius: 24px;
+                overflow: hidden;
             }
             .details-modal-header {
                 padding: 1rem 1.1rem;
@@ -798,16 +855,51 @@ $current_user = get_logged_in_user();
                 gap: 12px;
             }
             .details-modal-content {
+                display: flex;
+                flex-direction: column;
                 grid-template-columns: 1fr;
                 overflow-y: auto;
+                overflow-x: hidden;
             }
             .details-sidebar {
+                width: 100%;
                 border-right: none;
                 border-bottom: 1px solid #f1f5f9;
                 padding: 1rem;
+                overflow: visible;
             }
             .details-main {
+                width: 100%;
                 padding: 1rem;
+                overflow: visible;
+            }
+            .details-main-heading {
+                padding-bottom: 0.75rem;
+                margin-bottom: 0.85rem;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            .detail-order-top {
+                grid-template-columns: 1fr;
+            }
+            .detail-order-thumb {
+                width: 100%;
+                max-width: 240px;
+                height: auto;
+                aspect-ratio: 1 / 1;
+            }
+            .detail-order-price {
+                min-width: 0;
+                width: 100%;
+                text-align: left;
+            }
+            .details-modal-content,
+            .details-sidebar,
+            .details-main,
+            .detail-order-card,
+            .detail-order-body,
+            .detail-order-summary,
+            .pf-spec-grid {
+                min-width: 0;
             }
             .gallery-panel {
                 position: fixed !important;
@@ -818,12 +910,31 @@ $current_user = get_logged_in_user();
             }
             .m-toggle { display: flex !important; margin-right: 0.5rem; }
         }
+
+        /* Ensure single-column order details on small mobile (match customer view) */
+        @media (max-width: 768px) {
+            .details-modal-overlay { padding: .75rem; align-items: flex-end; }
+            .details-modal-panel { max-height: calc(100dvh - 1.5rem); border-radius: 24px; overflow: hidden; }
+            .details-modal-content { display: flex !important; flex-direction: column !important; grid-template-columns: 1fr !important; flex: 1 1 auto !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; }
+            .details-modal-content > .details-sidebar, .details-modal-content > .details-main { min-height: 0; overflow: visible !important; }
+            .details-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid #eef2f7 !important; padding: 1rem !important; overflow: visible !important; }
+            .details-main { width: 100% !important; padding: 1rem !important; overflow: visible !important; }
+            .details-main-heading { padding-bottom: .75rem; margin-bottom: .85rem; border-bottom: 1px solid #f1f5f9; }
+            .detail-order-top { grid-template-columns: 1fr !important; }
+            .detail-order-thumb { width: 100% !important; max-width: 240px !important; height: auto !important; aspect-ratio: 1 / 1; }
+            .detail-order-price { min-width: 0 !important; width: 100% !important; text-align: left !important; }
+        }
         /* Modal Explicit States & Premium Layout */
         .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
         .details-modal-overlay.active { display: flex !important; }
-        .details-modal-panel { background: #fff; border-radius: 32px; width: 100%; max-width: 840px; max-height: 85vh; overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+        .details-modal-panel { background: #fff; border-radius: 32px; width: min(100%, 1100px); max-height: min(88vh, 920px); overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+        /* Modal font: match app font for cleaner, consistent UI */
+        .details-modal-panel, .details-modal-header, .details-main, .details-sidebar {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #0f172a;
+        }
         .details-modal-header { padding: 1.25rem 2rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; background: #fff; z-index: 10; flex-shrink: 0; }
-        .details-modal-content { display: grid; grid-template-columns: 260px 1fr; flex: 1; overflow: hidden; }
+        .details-modal-content { display: grid; grid-template-columns: 260px minmax(0, 1fr); flex: 1; overflow: hidden; }
         .details-sidebar { background: #f8fafc; border-right: 1px solid #f1f5f9; padding: 1.25rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; padding-bottom: 2.5rem; }
         .details-main { padding: 1.5rem; overflow-y: auto; background: #fff; }
         
@@ -998,7 +1109,119 @@ $current_user = get_logged_in_user();
             0% { background: rgba(0, 35, 43, 0.1); transform: scale(1.02); }
             100% { background: transparent; transform: scale(1); }
         }
+            /* Rich Order Card V2 (Messenger Style) */
+        .order-card-v2 {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            width: min(100%, 300px);
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(15,23,42,0.06);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            margin: 4px 0;
+            text-align: left;
+        }
+        .order-card-v2:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(15,23,42,0.12);
+            border-color: #cbd5e1;
+        }
+        .oc-header {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fbff;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .oc-badge {
+            font-size: 0.6rem;
+            font-weight: 900;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .oc-status {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 999px;
+            text-transform: capitalize;
+        }
+        .oc-body {
+            padding: 12px 14px;
+            display: flex;
+            gap: 12px;
+        }
+        .oc-thumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: #f1f5f9;
+            flex-shrink: 0;
+            border: 1px solid #f1f5f9;
+        }
+        .oc-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .oc-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .oc-desc {
+            font-size: 0.78rem;
+            color: #475569;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .oc-footer {
+            padding: 8px 12px 12px;
+        }
+        .oc-btn {
+            width: 100%;
+            padding: 9px;
+            background: #0a2530;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(10,37,48,0.15);
+        }
+        .oc-btn:hover {
+            background: #0f172a;
+            transform: scale(1.02);
+        }
+        
+        .oc-status.tone-pending { background: #fff7ed; color: #c2410c; }
+        .oc-status.tone-approved { background: #eff6ff; color: #1d4ed8; }
+        .oc-status.tone-payment { background: #eef2ff; color: #4338ca; }
+        .oc-status.tone-production { background: #ecfeff; color: #0f766e; }
+        .oc-status.tone-ready { background: #ecfccb; color: #3f6212; }
+        .oc-status.tone-complete { background: #dcfce7; color: #166534; }
+        .oc-status.tone-alert { background: #fef2f2; color: #b91c1c; }
+        .oc-status.tone-neutral { background: #f1f5f9; color: #475569; }
     </style>
+
 </head>
 <body class="bg-slate-50" data-turbo="false">
 
@@ -1213,6 +1436,7 @@ $current_user = get_logged_in_user();
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/printflow_call.css?v=<?php echo time(); ?>">
 <script src="<?php echo BASE_URL; ?>/public/assets/js/printflow_call.js?v=<?php echo time(); ?>" defer></script>
+<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo time(); ?>"></script>
 <script>
 window.onerror = function(msg, url, line) {
     console.error("[PrintFlow][JS] Error:", msg, "at", url, ":", line);
@@ -1322,8 +1546,17 @@ function initCallSystem() {
     window.PFCallState.activeId = activeId;
 
     // Real-time status updates
+    const pfCallDebug = (...args) => {
+        if (!window.PF_CALL_DEBUG || !window.console || typeof console.log !== 'function') return;
+        console.log(...args);
+    };
+    const pfCallWarn = (...args) => {
+        if (!window.PF_CALL_DEBUG || !window.console || typeof console.warn !== 'function') return;
+        console.warn(...args);
+    };
+
     window.PFCall.socket.on('user-status-change', (data) => {
-        console.log('[PFCall][UI] Status changed:', data);
+        pfCallDebug('[PFCall][UI] Status changed:', data);
         // Find the conversation card and update the dot
         const cards = document.querySelectorAll('.conv-card');
         cards.forEach(card => {
@@ -1338,7 +1571,9 @@ function initCallSystem() {
 
 // Enable/Disable call buttons based on connection
 window.addEventListener('PFCallConnected', () => {
-    console.log('[PFCall][UI] Socket connected, enabling call UI');
+    if (window.PF_CALL_DEBUG && window.console && typeof console.log === 'function') {
+        console.log('[PFCall][UI] Socket connected, enabling call UI');
+    }
     document.querySelectorAll('.call-btns').forEach(btn => {
         btn.classList.remove('pf-not-ready');
         btn.disabled = false;
@@ -1347,7 +1582,11 @@ window.addEventListener('PFCallConnected', () => {
 });
 
 window.addEventListener('PFCallDisconnected', () => {
-    console.warn('[PFCall][UI] Socket disconnected, disabling call UI');
+    if (typeof window.pfCallWarn === 'function') {
+        window.pfCallWarn('[PFCall][UI] Socket disconnected, disabling call UI');
+    } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+        console.warn('[PFCall][UI] Socket disconnected, disabling call UI');
+    }
     document.querySelectorAll('.call-btns').forEach(btn => {
         btn.classList.add('pf-not-ready');
         btn.disabled = true;
@@ -1363,7 +1602,11 @@ function initiateCall(type) {
 
     // Check if system is ready
     if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
-        console.warn('[PFCall] System not ready, waiting for initialization before starting call...');
+        if (typeof window.pfCallWarn === 'function') {
+            window.pfCallWarn('[PFCall] System not ready, waiting for initialization before starting call...');
+        } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+            console.warn('[PFCall] System not ready, waiting for initialization before starting call...');
+        }
         
         // Attempt manual recovery if possible
         if (window.PFCall && typeof initCallSystem === 'function') {
@@ -1371,7 +1614,7 @@ function initiateCall(type) {
         }
 
         const handler = () => {
-            console.log('[PFCall] System ready, retrying call...');
+            pfCallDebug('[PFCall] System ready, retrying call...');
             initiateCall(type);
         };
         window.addEventListener('PFCallGlobalReady', handler, { once: true });
@@ -1742,6 +1985,13 @@ function getOrderUpdateActionLabel() {
     return 'Open order';
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function normalizeSenderType(value) {
     const senderType = String(value || '').toLowerCase();
     return senderType === 'customer' || senderType === 'staff' ? senderType : '';
@@ -1750,9 +2000,13 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        const alignment = (senderType === CURRENT_USER_TYPE) ? 'self' : 'other';
+        console.log('Current User:', CURRENT_USER_TYPE);
+        console.log('Sender:', senderType);
+        console.log('Alignment:', alignment);
+        return alignment;
     }
-    return (message?.is_system && message?.message_type !== 'order_update') ? 'system' : (message?.is_self ? 'self' : 'other');
+    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }
 
 function getMessageSenderKey(message) {
@@ -1778,18 +2032,63 @@ function getOrderStatusTone(statusText) {
     return 'neutral';
 }
 
-function getOrderCardData(message) {
-    const orderUpdate = message.order_update || {};
+function getOrderCardData(m) {
+    const orderUpdate = m.order_update || {};
     let meta = {};
-    try { meta = JSON.parse(message.meta_json || '{}'); } catch (e) {}
+    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
+
+    let imagePath = orderUpdate.thumbnail || m.image || m.image_path || m.file_path || m.thumbnail || meta.image || meta.thumbnail || '';
+    if (imagePath) imagePath = resolveAppUrl(imagePath);
+    if (!imagePath) imagePath = '/public/default.png';
+
+    const serviceName = orderUpdate.product_name || meta.product_name || m.service_name || m.message || 'Order update';
+    const customerName = m.customer_name || meta.customer_name || m.sender_name || 'Customer';
 
     return {
         orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
-        productName: orderUpdate.product_name || meta.product_name || 'Order update',
+        productName: serviceName,
         statusLabel: orderUpdate.status || meta.order_status || orderUpdate.payment_status || meta.payment_status || 'Status updated',
-        thumbnail: orderUpdate.thumbnail || message.thumbnail || '',
-        messageText: orderUpdate.description || message.message || '',
+        thumbnail: imagePath,
+        image: imagePath,
+        service_name: serviceName,
+        customer_name: customerName,
+        messageText: m.message || meta.message || `${customerName} sent an inquiry for ${serviceName}`,
+        buttonLabel: m.button_label || meta.button_label || 'Manage Order',
+        actionUrl: (meta.action_url ?? '') || (m.action_url ?? ''),
+        amount: (meta.amount ?? null) || (orderUpdate.amount ?? null),
+        step: meta.step || ''
     };
+}
+
+function renderOrderCard(m) {
+    const data = getOrderCardData(m);
+    const statusTone = getOrderStatusTone(data.statusLabel);
+    
+    return `
+        <div class="msg-content-col">
+            <div class="order-card-v2" onclick="openOrderModal(${data.orderId})">
+                <div class="oc-header">
+                    <div class="oc-badge">Order Update</div>
+                    <div class="oc-status tone-${statusTone}">${escapeHtml(data.statusLabel)}</div>
+                </div>
+                <div class="oc-body">
+                    ${data.thumbnail ? `<img src="${resolveAppUrl(data.thumbnail)}" class="oc-thumb" onerror="this.src='/public/default.png'">` : `<div class="oc-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:#f8fafc;">📦</div>`}
+                    <div class="oc-content">
+                        <div class="oc-title">${escapeHtml(data.productName)}</div>
+                        <div class="oc-desc">${escapeHtml(data.messageText)}</div>
+                    </div>
+                </div>
+                <div class="oc-footer">
+                    ${data.amount ? `<div class="oc-price">Final price: ${formatCurrency ? formatCurrency(data.amount) : ('$' + Number(data.amount).toFixed(2))}</div>` : ''}
+                    ${data.actionUrl ? `<a href="${data.actionUrl}" class="oc-btn" onclick="event.stopPropagation();">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></a>` : `<button class="oc-btn">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></button>`}
+                </div>
+            </div>
+        </div>`;
+}
+
+function openOrderModal(orderId) {
+    if (!orderId) return;
+    openDetails(orderId);
 }
 
 function appendMsgUI(m) {
@@ -1808,35 +2107,13 @@ function appendMsgUI(m) {
     const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
     const isSelf = rowClass === 'self';
 
-    if (m.message_type === 'order_update') {
-        const orderCard = getOrderCardData(m);
-        const statusTone = getOrderStatusTone(orderCard.statusLabel);
+    if (m.message_type === 'order_update' || m.message_type === 'order_card') {
         const row = document.createElement('div');
         row.id = `ms-${m.id}`;
         row.className = `bubble-row order-update staff-view ${rowSide === 'system' ? 'other' : rowSide}`;
         row.setAttribute('data-sender', senderKey);
         row.setAttribute('data-time', messageTimeKey);
-        row.innerHTML = `
-            <div class="msg-content-col">
-                <div class="order-update-bubble staff" onclick="openDetails(${orderCard.orderId})" onkeydown="if(event.key==='Enter' || event.key===' '){event.preventDefault();openDetails(${orderCard.orderId});}" role="button" tabindex="0" title="Open order details">
-                    <div class="order-thumb-wrap">
-                        <img src="${resolveAppUrl(orderCard.thumbnail || `${window.baseUrl}/public/assets/images/services/default.png`, DEFAULT_PROFILE_IMAGE)}" class="order-thumb" onerror="this.onerror=null;this.src='${window.baseUrl}/public/assets/images/services/default.png'" />
-                    </div>
-                    <div class="order-text">
-                        <div class="order-update-head">
-                            <div class="order-update-badge">Order update</div>
-                            <div class="order-status-pill tone-${statusTone}">${escapeHtml(orderCard.statusLabel)}</div>
-                        </div>
-                        <div class="order-title">${escapeHtml(orderCard.productName)}</div>
-                        <div class="order-message">${escapeHtml(orderCard.messageText)}</div>
-                        <div class="order-update-meta">
-                            <span class="order-update-time">${m.created_at || formatTime(messageTimeKey)}</span>
-                            <span class="order-update-cta">${getOrderUpdateActionLabel()}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        row.innerHTML = renderOrderCard(m);
         box.appendChild(row);
         return;
     }
@@ -1907,7 +2184,40 @@ function appendMsgUI(m) {
             ${m.reply_id ? `<a href="javascript:void(0)" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior: 'smooth', block: 'center'})" class="reply-preview-bubble">↳ Replying: ${m.reply_image ? 'Photo' : (m.reply_message ? escapeHtml(m.reply_message) : 'Message')}</a>` : ''}
     `;
 
-    if (isCallLog) {
+    if (m.message_type === 'order_card') {
+        const data = getOrderCardData(m);
+        data.order_id = m.order_id || m.orderId || m.order || data.orderId || null;
+        if (!data.image) {
+            data.image = '/public/default.png';
+        }
+        console.log("Order Card Rendered:", data);
+        console.log("Image path:", data.image);
+        colHtml += `
+            <div class="msg-content-col">
+                <div class="order-card" data-order-id="${data.order_id}">
+                    <img src="${data.image}" class="order-img" onerror="this.onerror=null;this.src='/public/default.png'">
+                    <div class="order-info">
+                        <strong>${escapeHtml(data.service_name)}</strong>
+                        <p>${escapeHtml(data.customer_name)} sent an inquiry</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (false && m.message_type === 'order_card') {
+        const orderIdForCard = m.order_id || m.orderId || m.order || null;
+        const thumb = m.image_path || m.file_path || '';
+        colHtml += `
+            <div class="order-card" data-order-id="${orderIdForCard}" style="display:flex;gap:10px;align-items:center;cursor:pointer;">
+                <div style="width:64px;height:64px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#f3f4f6;display:flex;align-items:center;justify-content:center;border:1px solid #e6eef2;">
+                    ${thumb ? `<img src="${resolveAppUrl(thumb)}" style="width:100%;height:100%;object-fit:cover;">` : '<span style="font-size:24px;">🛒</span>'}
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:800;color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.service_name || m.message || 'New Order')}</div>
+                    <div style="font-size:0.85rem;color:#6b7280; margin-top:4px;">${escapeHtml(m.message || (m.customer_name ? 'New order from ' + m.customer_name : 'New order received'))}</div>
+                </div>
+            </div>
+        `;
+    } else if (isCallLog) {
         const isVideo = m.message.toLowerCase().includes('video');
         const isMissed = m.message.toLowerCase().includes('missed') || m.message.toLowerCase().includes('declined') || m.message.toLowerCase().includes('busy') || m.message.toLowerCase().includes('no answer');
         const icon = isVideo ? '<i class="bi bi-camera-video-fill"></i>' : '<i class="bi bi-telephone-fill"></i>';
@@ -2318,123 +2628,116 @@ document.getElementById('mediaInput').onchange = function() {
 function openDetails(id) {
     const modal = document.getElementById('detailsModal');
     const body = document.getElementById('detailsBody');
-    
+
     modal.classList.add('active');
     body.innerHTML = `
-        <div style="text-align:center; padding: 3rem 0;">
-            <div style="display:inline-block; width:32px; height:32px; border:3px solid #f1f5f9; border-top-color:#06A1A1; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <p style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-top:1rem; letter-spacing:0.1em;">Analyzing Workflow...</p>
+        <div style="grid-column:1/-1; text-align:center; padding:3rem 0;">
+            <div style="display:inline-block; width:32px; height:32px; border:3px solid #f1f5f9; border-top-color:#06A1A1; border-radius:50%; animation:spin .8s linear infinite;"></div>
+            <p style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-top:1rem; letter-spacing:.1em;">Analyzing Workflow...</p>
         </div>`;
-    
+
     api(`/public/api/chat/order_details.php?order_id=${id}`).then(data => {
-        if (!data.success) { 
-            body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">Access Denied: ${escapeHtml(data.error || 'Unknown')}</div>`; 
-            return; 
+        if (!data.success) {
+            body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">Access Denied: ${escapeHtml(data.error || 'Unknown')}</div>`;
+            return;
         }
+
         const c = data.customer || {};
         const o = data.order || {};
         const it = data.items || [];
-        const compact = window.matchMedia('(max-width: 1023px)').matches;
-        
+        const compact = window.matchMedia('(max-width: 768px)').matches;
+
+        const actionUrl = o.manage_url || `${window.baseUrl}/staff/customizations.php?order_id=${o.order_id}`;
+        const actionLabel = o.manage_url ? 'MANAGE ORDER' : 'MANAGE ORDER';
+
         let h = `
-        <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #f1f5f9;padding:1rem;' : ''}">
-            <!-- Customer Info -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
-                <div style="display:flex; align-items:center; gap:0.75rem;">
-                    <div style="width:32px; height:32px; border-radius:8px; background:#06A1A1; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:0.8rem; overflow:hidden;">
-                        ${c.profile_picture && !c.profile_picture.includes('default.png') ? `<img src="${c.profile_picture}" style="width:100%;height:100%;object-fit:cover;">` : (c.full_name || '?')[0].toUpperCase()}
+            <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #f1f5f9;padding:1rem;' : ''}">
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
+                    <div style="display:flex; align-items:center; gap:.75rem;">
+                        <div style="width:52px; height:52px; border-radius:14px; background:#06A1A1; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1rem; overflow:hidden; flex-shrink:0;">
+                            ${c.profile_picture ? `<img src="${c.profile_picture}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : escapeHtml((c.full_name || '?').charAt(0).toUpperCase())}
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:.85rem; font-weight:900; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.full_name || 'Guest')}</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.email || '')}</div>
+                        </div>
                     </div>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:900; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.full_name || 'Guest')}</div>
-                        <div style="font-size:8px; font-weight:700; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.email || '')}</div>
+                </div>
+
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.status || 'Pending')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${(o.status || '').toLowerCase().includes('complete') ? '#10b981' : '#3b82f6'};"></span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Workflow -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
-                     <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.status)}</div>
-                     <span style="width:8px; height:8px; border-radius:50%; background:${o.status === 'Completed' ? '#10b981' : '#3b82f6'};"></span>
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Payment Summary</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.payment_status || 'Unverified')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${(o.payment_status || '').toLowerCase().includes('paid') ? '#10b981' : '#f59e0b'};"></span>
+                    </div>
+                </div>
+
+                <div class="pf-mini-card" style="background:#0f172a; color:#fff; border:none; padding:.75rem; margin-bottom:0;">
+                     <div class="pf-spec-key" style="color:#06A1A1; margin-bottom:2px; font-size:9px;">Total</div>
+                     <div style="font-size:1.1rem; font-weight:900; line-height:1; margin-bottom:.75rem;">${o.total_amount || 'To be finalized'}</div>
+                     <a href="${actionUrl}" style="display:block; text-align:center; background:#06A1A1; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
                 </div>
             </div>
 
-            <!-- Payment -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Payment Summary</div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
-                     <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.payment_status || 'Unverified')}</div>
-                     <span style="width:8px; height:8px; border-radius:50%; background:${o.payment_status === 'Paid' ? '#10b981' : '#f59e0b'};"></span>
-                </div>
-            </div>
+            <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
+                <div class="details-main-heading" style="${compact ? 'padding:0 0 .85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
+                <div class="details-items">
+                    ${it.length ? it.map(i => {
+                        const specs = i.customization || {};
+                        const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
+                        let displayImg = i.service_image || i.design_url || `${window.baseUrl}/public/assets/images/services/default.png`;
+                        if (!displayImg) {
+                            const placement = specs['print_placement'] || specs['placement'] || '';
+                            if (placement.includes('Front Center')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
+                            if (placement.includes('Sleeve')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
+                            if (placement.includes('Upper')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
+                            if (specs.design_file) displayImg = `${window.baseUrl}/uploads/orders/${specs.design_file}`;
+                        }
 
-            <!-- Finance -->
-            <div class="pf-mini-card" style="background:#0f172a; color:#fff; border:none; padding:0.75rem; margin-bottom:0;">
-                 <div class="pf-spec-key" style="color:#06A1A1; margin-bottom:2px; font-size:9px;">Total</div>
-                 <div style="font-size:1.1rem; font-weight:900; line-height:1; margin-bottom:0.5rem;">${o.total_amount || '—'}</div>
-                 <a href="${window.baseUrl}/staff/customizations.php?order_id=${o.order_id}" style="display:block; text-align:center; background:#06A1A1; color:#fff; padding:6px; border-radius:8px; font-size:10px; font-weight:900; text-decoration:none !important; border:1px solid rgba(255,255,255,0.05); box-shadow:0 4px 8px rgba(0,0,0,0.3);">
-                    MANAGE ORDER
-                 </a>
-            </div>
-        </div>
-
-        <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
-            <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
-            <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                ${it.length ? it.map(i => {
-                    const specs = i.customization || {};
-                    const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
-                    
-                    // Advanced Placement Preview Logic (Priority: Service Image > Design Preview)
-                    let displayImg = i.service_image || i.design_url;
-                    if (!displayImg) {
-                         const placement = specs['print_placement'] || specs['placement'] || '';
-                         if (placement.includes('Front Center')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
-                         } else if (placement.includes('Sleeve')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
-                         } else if (placement.includes('Upper')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
-                         } else if (specs.design_file) {
-                             displayImg = `${window.baseUrl}/uploads/orders/${specs.design_file}`;
-                         }
-                    }
-
-                    return `
-                    <div style="background:#fff; border:1px solid #f1f5f9; border-radius:16px; padding:1rem;">
-                        <div style="display:flex; align-items:flex-start; gap:1rem;">
-                            <div style="width:72px; height:72px; border-radius:12px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png'; this.style.opacity=0.3;">
-                            </div>
-                            <div style="flex:1; min-width:0;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <div style="font-size:1.1rem; font-weight:900; color:#1e293b; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
-                                    <div style="text-align:right; flex-shrink:0; margin-left:1rem;">
-                                         <div class="pf-spec-key" style="margin:0; font-size:9px;">Total</div>
-                                         <div style="font-size:1.1rem; font-weight:900; color:#06A1A1;">${i.subtotal || '—'}</div>
+                        return `
+                            <div class="detail-order-card">
+                                <div class="detail-order-top">
+                                    <div class="detail-order-thumb">
+                                        <img src="${displayImg}" alt="${escapeHtml(i.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png';">
+                                    </div>
+                                    <div class="detail-order-body">
+                                        <div class="detail-order-summary">
+                                            <div style="min-width:0; flex:1;">
+                                                <div class="detail-order-title" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
+                                                <div class="detail-order-meta" style="margin-top:.65rem;">
+                                                    <span class="detail-order-chip category">${escapeHtml(i.category || 'Service')}</span>
+                                                    <span class="detail-order-chip">Units: ${i.quantity}</span>
+                                                </div>
+                                            </div>
+                                            <div class="detail-order-price">
+                                                <div class="pf-spec-key">Total</div>
+                                                <strong>${i.subtotal || 'To be finalized'}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
+                                            ${entries.map(([k,v]) => `
+                                                <div class="pf-spec-box">
+                                                    <div class="pf-spec-key" style="font-size:8px;">${escapeHtml(k.replace(/_/g,' ').replace('shirt ',''))}</div>
+                                                    <div class="pf-spec-val" style="font-size:11px;">${escapeHtml(String(v))}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
                                     </div>
                                 </div>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${escapeHtml(i.category)}</span>
-                                    <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${i.quantity}</span>
-                                </div>
-                                
-                                <div class="pf-spec-grid" style="margin-top:1rem; gap:6px;">
-                                    ${entries.map(([k,v]) => `
-                                        <div class="pf-spec-box" style="padding:6px 8px; border-radius:8px;">
-                                            <div class="pf-spec-key" style="font-size:8px;">${k.replace(/_/g,' ').replace('shirt ','')}</div>
-                                            <div class="pf-spec-val" style="word-break: break-all; font-size:11px;">${v}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>`;
-                }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Production Roadmap is currently empty.</div>'}
-            </div>
-        </div>`;
+                            </div>`;
+                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
+                </div>
+            </div>`;
+
         body.innerHTML = h;
     }).catch(err => {
         body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">System Error: ${escapeHtml(err.message)}</div>`;
@@ -2939,6 +3242,7 @@ function formatAudioTime(seconds) {
 }
 
 let pendingVoiceBlob = null;
+let isSendingMessage = false;
 
 function sendMsg() {
     const btn = document.getElementById('btnSend');
@@ -2955,9 +3259,10 @@ function sendMsg() {
         return;
     }
 
-    if ((!txt && !uploadFiles.length) || (btn && btn.disabled)) return;
+    if ((!txt && !uploadFiles.length) || isSendingMessage || !activeId || (btn && btn.disabled)) return;
 
     // Visual feedback
+    isSendingMessage = true;
     if (btn) {
         btn.disabled = true;
         btn.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
@@ -2984,7 +3289,11 @@ function sendMsg() {
                 showToast(r.error || 'Failed to send message', "error");
             }
         })
+        .catch(err => {
+            showToast(err?.message || 'Failed to send message', "error");
+        })
         .finally(() => {
+            isSendingMessage = false;
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-send-fill"></i>';
@@ -3277,6 +3586,17 @@ if (document.readyState === 'loading') {
 } else {
     initStaffChatPage();
 }
+
+// Global click handler for clickable order cards in chat
+document.addEventListener('click', function(e) {
+    const card = e.target.closest('.order-card');
+    if (!card) return;
+
+    const orderId = card.dataset.orderId;
+    console.log("Clicked order:", orderId);
+
+    openOrderModal(orderId);
+});
 </script>
 </body>
 </html>

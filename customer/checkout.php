@@ -315,7 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                 $product_name = get_service_name_from_customization($custom_data, 'Product Order');
             }
             create_notification($customer_id, 'Customer', "Order for {$product_name} placed successfully!", 'Order', true, false, $order_id);
-            notify_staff_new_order((int)$order_id, (string)($customer['first_name'] ?? 'Customer'));
+            notify_staff_new_order((int)$order_id, (string)($customer['first_name'] ?? 'Customer'), (int)$customer_id);
             
             $_SESSION['success'] = "Your order for {$product_name} has been placed successfully! Our team will review it shortly. You can track the status here.";
             

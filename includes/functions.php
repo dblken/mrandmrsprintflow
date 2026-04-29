@@ -547,17 +547,21 @@ function printflow_notification_target_url_for_user(string $userType, array $not
 /**
  * Notify all activated shop users (Staff, Admin, Manager) about a new customer order.
  */
-function notify_staff_new_order(int $order_id, string $customer_first_name): void {
+function notify_staff_new_order(int $order_id, string $customer_first_name, int $customer_id = 0): void {
     $preview = printflow_order_notification_preview($order_id);
     $service_name = $preview['display_name'] ?? 'Product Order';
     $kind_label = trim((string)($preview['item_kind'] ?? ''));
     $name = trim($customer_first_name) !== '' ? trim($customer_first_name) : 'A customer';
-    // Format: "Customer Name placed an order for Service Name"
-    $msg = $kind_label !== ''
-        ? "{$name} placed a {$kind_label} order for {$service_name}"
-        : "{$name} placed an order for {$service_name}";
+    $msg = "{$name} sent an inquiry for {$service_name}";
 
+    // Notify shop users (existing notification system)
     notify_shop_users($msg, 'Order', false, false, $order_id);
+
+    // Previously we also inserted an `order_messages` entry here which caused
+    // duplicate "order_card" chat messages because other order-update helpers
+    // (e.g. `printflow_send_order_update`) also create an order card. To avoid
+    // duplicate messages, we now only send notifications and let the dedicated
+    // order update system insert chat messages where appropriate.
 }
 
 /**
@@ -3362,60 +3366,75 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         }
     }
 
-    // 4. Step â†’ message, action_type, action_url
-    $step_configs = [
+    // 4. Step -> message, action_type, action_url, message_type
+    $step_configs = [ // UPDATED
         'inquiry' => [
-            'message'     => "{$customer_name} inquired about \"{$product_name}\".",
+            'message'      => "{$customer_name} inquired about \"{$product_name}\".",
+            'message_type' => 'order_card',
             'action_type' => 'view_inquiry',
             'action_url'  => '',
         ],
         'approved' => [
-            'message'     => "Your inquiry for \"{$product_name}\" has been approved for pricing. We are now preparing your quotation.",
+            'message'      => "Your inquiry has been approved! We're now preparing the final price based on your request.",
+            'message_type' => 'text',
             'action_type' => 'view_details',
             'action_url'  => '',
         ],
         'send_to_payment' => [
-            'message'     => "Your order for \"{$product_name}\" is ready for payment (â‚±{$amount}). Tap this card to proceed.",
+            'message'      => "Your order is ready for payment! We've finalized the details and pricing for your request.",
+            'message_type' => 'order_card',
+            'button_label' => 'Proceed to Payment',
             'action_type' => 'to_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'payment_submitted' => [
-            'message'     => "We have received your payment. It is now under verification.",
+            'message'      => "We have received your payment. It is now under verification.",
+            'message_type' => 'text',
             'action_type' => 'verify_payment',
             'action_url'  => '',
         ],
         'payment_verified' => [
-            'message'     => "Your payment has been approved. We will now proceed with production.",
+            'message'      => "Payment Approved! We’re now processing your order. You’ll be notified once it’s ready.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'payment_rejected' => [
-            'message'     => "Your payment was not approved. Please try again or update your payment details.",
+            'message'      => "Payment Rejected. The proof you uploaded was not accepted. Please re-upload your payment proof.",
+            'message_type' => 'order_card',
+            'button_label' => 'Upload Payment Again',
             'action_type' => 'retry_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'in_production' => [
-            'message'     => "Your order is now in production. Our team is currently working on it.",
+            'message'      => "Your order is now in production. Our team is currently working on it.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'ready_to_pickup' => [
-            'message'     => "Your order is ready for pickup. Please visit our store to claim it.",
+            'message'      => "Order Ready! Your order is now ready for pickup/delivery. Thank you for choosing PrintFlow!",
+            'message_type' => 'text',
             'action_type' => 'pickup_details',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'     => "Your order has been completed. Thank you for your purchase!",
+            'message'      => "Order Completed. Your order has been successfully picked up/delivered.",
+            'message_type' => 'order_card',
+            'button_label' => 'Leave a Review',
             'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
         'cancelled' => [
-            'message'     => "Your order has been cancelled. Please contact our team if you need help with the next step.",
+            'message'      => "Your order has been cancelled. Please contact our team if you need help with the next step.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'rate' => [
-            'message'     => "How was your experience? Please rate your order.",
+            'message'      => "How was your experience? Please rate your order.",
+            'message_type' => 'order_card',
+            'button_label' => 'Leave a Review',
             'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
@@ -3441,12 +3460,14 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         $config['message'] = "Your order is now ready for payment. Please proceed to complete your transaction.";
     }
 
-    $message     = $custom_text ?: $config['message'];
+    $message      = $custom_text ?: $config['message'];
+    $message_type = $config['message_type'] ?? 'text';
+    $button_label = $config['button_label'] ?? '';
     $action_type = $config['action_type'];
     $action_url  = $config['action_url'];
     $origin_actor_map = [
         'inquiry' => 'customer',
-        'payment_submitted' => 'customer',
+        'payment_submitted' => 'staff',
         'approved' => 'staff',
         'send_to_payment' => 'staff',
         'payment_verified' => 'staff',
@@ -3458,12 +3479,20 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
     ];
     $origin_actor = $origin_actor_map[$step] ?? 'staff';
     $session_user_type = function_exists('get_user_type') ? (string) get_user_type() : '';
-    $sender_type = $origin_actor;
-    if ($session_user_type === 'Customer') {
-        $sender_type = 'customer';
-    } elseif (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true)) {
-        $sender_type = 'staff';
+
+    // Prefer the mapped origin actor (authoritative). Only fall back to the
+    // current session user type if origin actor is not specified.
+    $sender_type = $origin_actor ?: '';
+    if (empty($sender_type)) {
+        if ($session_user_type === 'Customer') {
+            $sender_type = 'customer';
+        } elseif (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true)) {
+            $sender_type = 'staff';
+        } else {
+            $sender_type = 'staff';
+        }
     }
+
     $db_sender = $sender_type === 'customer' ? 'Customer' : 'Staff';
     $sender_id = 0;
     if ($sender_type === 'customer') {
@@ -3471,11 +3500,16 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         if ($session_user_type === 'Customer' && function_exists('get_user_id')) {
             $sender_id = (int) get_user_id();
         }
-    } elseif ($session_user_type !== '' && function_exists('get_user_id')) {
-        $sender_id = max(0, (int) get_user_id());
+    } elseif ($sender_type === 'staff') {
+        // Only attach a specific staff sender_id when the session user is a staff member.
+        if (in_array($session_user_type, ['Staff', 'Admin', 'Manager'], true) && function_exists('get_user_id')) {
+            $sender_id = max(0, (int) get_user_id());
+        } else {
+            $sender_id = 0; // system/staff generic
+        }
     }
 
-    // 5. meta_json for extra context (used by frontend card renderer)
+    // 5. meta_json for extra context
     $meta = json_encode([
         'step'         => $step,
         'order_id'     => $order_id,
@@ -3483,21 +3517,57 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'amount'       => (float)($order['total_amount'] ?? 0),
         'origin_actor' => $sender_type,
         'sender_type'  => $sender_type,
-        'order_status' => (string) ($order['status'] ?? ''),
-        'payment_status' => (string) ($order['payment_status'] ?? ''),
-        'thumbnail'    => $thumbnail,
+        'order_status'   => (string)($order['status'] ?? ''),
+        'payment_status' => (string)($order['payment_status'] ?? ''),
+        'thumbnail'      => $thumbnail,
+        'button_label'   => $button_label,
+        'action_url'     => $action_url,
     ]);
 
-    // 6. Insert into order_messages using dedicated schema columns
+    // 6. Avoid duplicate/legacy order_card messages for the same order.
+    // If this is an 'inquiry' step, remove legacy messages that use the
+    // old "sent an inquiry for" wording to prevent unrelated duplicates
+    // from showing up in the chat UI.
+    if ($step === 'inquiry') {
+        try {
+            db_execute(
+                "DELETE FROM order_messages WHERE order_id = ? AND message LIKE ? AND message_type = 'order_card'",
+                'is',
+                [$order_id, '%sent an inquiry for%']
+            );
+        } catch (Throwable $e) {
+            // Non-fatal - continue
+        }
+    }
+
+    // Prevent inserting the same order update repeatedly: look for an
+    // existing recent order message of the same type and similar text.
+    try {
+        $shortText = mb_substr((string)$message, 0, 80);
+        $existing = db_query(
+            "SELECT message_id FROM order_messages WHERE order_id = ? AND message_type = ? AND message LIKE ? ORDER BY created_at DESC LIMIT 1",
+            'iss',
+            [$order_id, $message_type, $shortText . '%']
+        );
+        if (!empty($existing) && !empty($existing[0]['message_id'])) {
+            // Return existing message id to indicate no new insert performed
+            return (int)$existing[0]['message_id'];
+        }
+    } catch (Throwable $e) {
+        // On error, fall back to inserting the message
+    }
+
+    // 7. Insert into order_messages using dedicated schema columns
     $sql = "INSERT INTO order_messages
                 (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt)
-            VALUES (?, ?, ?, ?, 'order_update', ?, ?, ?, ?, 0)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
 
-    return db_execute($sql, 'isissss', [
+    return db_execute($sql, 'isissssss', [
         $order_id,
         $db_sender,
         $sender_id,
         $message,
+        $message_type,
         $thumbnail,
         $action_type,
         $action_url,

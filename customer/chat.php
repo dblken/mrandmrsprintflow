@@ -23,6 +23,7 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 <!-- Socket.IO and Call System now loaded globally via header.php -->
+<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo time(); ?>"></script>
 
 <style>
     :root {
@@ -216,6 +217,120 @@ require_once __DIR__ . '/../includes/header.php';
     .order-update-time { font-size:.68rem; color:#94a3b8; font-weight:800; }
     .order-update-cta { font-size:.68rem; font-weight:900; color:#0891b2; text-transform:uppercase; letter-spacing:.06em; }
 
+    /* Rich Order Card V2 (Messenger Style) */
+    .order-card-v2 {
+        background: #ffffff;
+        border: 1px solid var(--pf-border);
+        border-radius: 18px;
+        width: min(100%, 300px);
+        overflow: hidden;
+        box-shadow: 0 10px 25px rgba(15,23,42,0.06);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        margin: 4px 0;
+    }
+    .order-card-v2:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 15px 35px rgba(15,23,42,0.12);
+        border-color: #cbd5e1;
+    }
+    .oc-header {
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fbff;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .oc-badge {
+        font-size: 0.6rem;
+        font-weight: 900;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .oc-status {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 3px 8px;
+        border-radius: 999px;
+        text-transform: capitalize;
+    }
+    .oc-body {
+        padding: 12px 14px;
+        display: flex;
+        gap: 12px;
+    }
+    .oc-thumb {
+        width: 54px;
+        height: 54px;
+        border-radius: 10px;
+        object-fit: cover;
+        background: #f1f5f9;
+        flex-shrink: 0;
+        border: 1px solid #f1f5f9;
+    }
+    .oc-content {
+        flex: 1;
+        min-width: 0;
+    }
+    .oc-title {
+        font-size: 0.88rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .oc-desc {
+        font-size: 0.78rem;
+        color: #475569;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .oc-footer {
+        padding: 8px 12px 12px;
+    }
+    .oc-btn {
+        width: 100%;
+        padding: 9px;
+        background: #0a2530;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        box-shadow: 0 4px 12px rgba(10,37,48,0.15);
+    }
+    .oc-btn:hover {
+        background: #0f172a;
+        transform: scale(1.02);
+    }
+    .oc-btn:active {
+        transform: scale(0.98);
+    }
+    
+    .oc-status.tone-pending { background: #fff7ed; color: #c2410c; }
+    .oc-status.tone-approved { background: #eff6ff; color: #1d4ed8; }
+    .oc-status.tone-payment { background: #eef2ff; color: #4338ca; }
+    .oc-status.tone-production { background: #ecfeff; color: #0f766e; }
+    .oc-status.tone-ready { background: #ecfccb; color: #3f6212; }
+    .oc-status.tone-complete { background: #dcfce7; color: #166534; }
+    .oc-status.tone-alert { background: #fef2f2; color: #b91c1c; }
+    .oc-status.tone-neutral { background: #f1f5f9; color: #475569; }
+
     /* Action Bar (Messenger Style) */
     .brow:hover .b-actions, .brow.has-active-menu .b-actions { opacity:1; pointer-events:auto; }
     .b-actions {
@@ -371,9 +486,14 @@ require_once __DIR__ . '/../includes/header.php';
 
     .details-modal-overlay { display:none !important; position:fixed; inset:0; background:rgba(15,23,42,0.75); z-index:3000; align-items:center; justify-content:center; padding:1.5rem; backdrop-filter:blur(8px); }
     .details-modal-overlay.active { display:flex !important; }
-    .details-modal-panel { background:#fff; border-radius:32px; width:100%; max-width:840px; max-height:85vh; overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
+    .details-modal-panel { background:#fff; border-radius:32px; width:min(100%, 1100px); max-height:min(88vh, 920px); overflow:hidden; box-shadow:0 40px 80px -15px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
+    /* Modal font: match app font for cleaner, consistent UI */
+    .details-modal-panel, .details-modal-header, .details-main, .details-sidebar {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        color: #0f172a;
+    }
     .details-modal-header { padding:1.25rem 2rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fff; flex-shrink:0; }
-    .details-modal-content { display:grid; grid-template-columns:260px 1fr; flex:1; overflow:hidden; }
+    .details-modal-content { display:grid; grid-template-columns:minmax(250px, 290px) minmax(0, 1fr); flex:1; overflow:hidden; min-height:0; }
     .details-sidebar { background:linear-gradient(180deg,#f8fbff 0%, #f1f5f9 100%); border-right:1px solid #eef2f7; padding:1.5rem; overflow-y:auto; }
     .details-main { padding:1.5rem; overflow-y:auto; background:#fff; }
     .pf-mini-card { background:#fff; border-radius:20px; padding:1.25rem; border:1px solid #eef2f6; box-shadow:0 4px 6px -1px rgba(0,0,0,0.02); }
@@ -381,6 +501,21 @@ require_once __DIR__ . '/../includes/header.php';
     .pf-spec-box { background:#f8fafc; border:1px solid #f1f5f9; padding:8px 10px; border-radius:12px; overflow:hidden; min-width:0; }
     .pf-spec-key { font-size:8px; font-weight:900; color:#94a3b8; text-transform:uppercase; margin-bottom:3px; letter-spacing:.05em; }
     .pf-spec-val { font-size:10.5px; font-weight:800; color:#1e293b; line-height:1.3; overflow-wrap:break-word; }
+    .details-main-heading { position:sticky; top:0; z-index:2; background:#fff; padding:0 0 1rem; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem; }
+    .details-items { display:flex; flex-direction:column; gap:1rem; }
+    .detail-order-card { background:#fff; border:1px solid #f1f5f9; border-radius:20px; padding:1rem; box-shadow:0 12px 32px rgba(15,23,42,0.04); }
+    .detail-order-top { display:grid; grid-template-columns:112px minmax(0, 1fr); gap:1rem; align-items:start; }
+    .detail-order-thumb { width:112px; height:112px; border-radius:16px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+    .detail-order-thumb img { width:100%; height:100%; object-fit:cover; }
+    .detail-order-body { min-width:0; display:flex; flex-direction:column; gap:.9rem; }
+    .detail-order-summary { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+    .detail-order-title { font-size:1.05rem; font-weight:900; color:#1e293b; line-height:1.2; word-break:break-word; }
+    .detail-order-meta { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+    .detail-order-chip { background:#f1f5f9; color:#475569; border-radius:999px; padding:.35rem .7rem; font-size:.72rem; font-weight:800; letter-spacing:.02em; }
+    .detail-order-chip.category { background:#ecfeff; color:#0f766e; text-transform:uppercase; }
+    .detail-order-price { min-width:120px; text-align:right; }
+    .detail-order-price .pf-spec-key { margin-bottom:2px; font-size:9px; }
+    .detail-order-price strong { display:block; font-size:1.05rem; font-weight:900; color:#0ea5a5; line-height:1.2; word-break:break-word; overflow-wrap:break-word; white-space:normal; }
     .fwd-footer { padding:1.25rem 1.5rem; border-top:1px solid var(--pf-border); display:flex; justify-content:flex-end; gap:12px; }
 
     .fwd-list-item { display:flex; align-items:center; gap:12px; padding:10px 14px; border-radius:16px; transition:.15s; cursor:pointer; background:#fff; border:1px solid var(--pf-border); }
@@ -428,6 +563,18 @@ require_once __DIR__ . '/../includes/header.php';
             border-radius: 0;
             box-shadow: none;
         }
+        .details-modal-overlay { padding:.75rem; align-items:flex-end; }
+        .details-modal-panel { max-height:min(92vh, 920px); border-radius:24px 24px 0 0; overflow:hidden; }
+        .details-modal-header,
+        .details-main,
+        .details-sidebar { padding:1rem; }
+        .details-modal-content { grid-template-columns:1fr; overflow-y:auto; overflow-x:hidden; }
+        .details-sidebar { border-right:none; border-bottom:1px solid #eef2f7; overflow:visible; }
+        .details-main { overflow:visible; }
+        .details-main-heading { padding-bottom:.75rem; margin-bottom:.85rem; border-bottom:1px solid #f1f5f9; }
+        .detail-order-top { grid-template-columns:1fr; }
+        .detail-order-thumb { width:100%; max-width:240px; height:auto; aspect-ratio:1 / 1; }
+        .detail-order-price { min-width:0; width:100%; text-align:left; }
 
         .cs-sidebar,
         .cs-window {
@@ -535,38 +682,6 @@ require_once __DIR__ . '/../includes/header.php';
             max-width: 100%;
         }
 
-        .details-modal-overlay {
-            padding: 0.75rem;
-            align-items: center;
-        }
-
-        .details-modal-panel {
-            max-width: 100%;
-            max-height: calc(100dvh - 1.5rem);
-            border-radius: 24px;
-        }
-
-        .details-modal-header {
-            padding: 1rem 1.1rem;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .details-modal-content {
-            grid-template-columns: 1fr;
-            overflow-y: auto;
-        }
-
-        .details-sidebar {
-            border-right: none;
-            border-bottom: 1px solid #eef2f7;
-            padding: 1rem;
-        }
-
-        .details-main {
-            padding: 1rem;
-        }
-
         .b-actions {
             position: static;
             transform: none;
@@ -623,7 +738,7 @@ require_once __DIR__ . '/../includes/header.php';
     .pin-bar-active { background: rgba(239,68,68,0.06) !important; color: #b91c1c !important; cursor: pointer; }
     .details-modal-overlay { display: none !important; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); z-index: 10000; align-items: center; justify-content: center; padding: 1.5rem; backdrop-filter: blur(8px); transition: all 0.3s; }
     .details-modal-overlay.active { display: flex !important; }
-    .details-modal-panel { background: #fff; border-radius: 24px; width: 100%; max-width: 500px; max-height: 85vh; overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
+    .details-modal-panel { background: #fff; border-radius: 32px; width: min(100%, 1100px); max-height: min(88vh, 920px); overflow: hidden; box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.4); position: relative; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
     .details-modal-header { padding: 1.25rem 2rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; background: #fff; z-index: 10; flex-shrink: 0; }
     @keyframes highlightStaffMsg { 0% { background: rgba(14,165,233,0.2); } 100% { background: transparent; } }
 </style>
@@ -801,7 +916,7 @@ const DEFAULT_PROFILE_IMAGE = `${BASE}/public/assets/uploads/profiles/default.pn
 const PROFILE_IMAGE_ONERROR = `this.onerror=null;this.src='${DEFAULT_PROFILE_IMAGE}'`;
 const EMOJIS = {like:'👍', love:'❤️', haha:'😂', wow:'😮', sad:'😢', angry:'😡'};
 
-let activeId = null, lastId = 0, pollTimer = null;
+let activeId = null, lastId = 0, pollTimer = null, isSendingMessage = false;
 window.__initialOrderId = <?= json_encode($initial_order_id) ?>;
 
 // --- PrintFlow Call System Initialization ---
@@ -1145,9 +1260,13 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        const alignment = senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        console.log('Current User:', CURRENT_USER_TYPE);
+        console.log('Sender:', senderType);
+        console.log('Alignment:', alignment);
+        return alignment;
     }
-    return (message?.is_system && message?.message_type !== 'order_update') ? 'system' : (message?.is_self ? 'self' : 'other');
+    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }
 
 function getMessageSenderKey(message) {
@@ -1173,18 +1292,65 @@ function getOrderStatusTone(statusText) {
     return 'neutral';
 }
 
-function getOrderCardData(message) {
-    const orderUpdate = message.order_update || {};
+function getOrderCardData(m) {
+    const orderUpdate = m.order_update || {};
     let meta = {};
-    try { meta = JSON.parse(message.meta_json || '{}'); } catch (e) {}
+    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
+
+    let imagePath = orderUpdate.thumbnail || m.image || m.image_path || m.file_path || m.thumbnail || meta.image || meta.thumbnail || '';
+    if (imagePath) imagePath = resolveAppUrl(imagePath);
+    if (!imagePath) imagePath = '/public/default.png';
+
+    const productName = orderUpdate.product_name || meta.product_name || m.service_name || m.message || 'Order update';
 
     return {
-        orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
-        productName: orderUpdate.product_name || meta.product_name || 'Order update',
+        orderId: Number(orderUpdate.order_id || meta.order_id || (typeof activeId !== 'undefined' ? activeId : 0) || 0),
+        productName: productName,
         statusLabel: orderUpdate.status || meta.order_status || orderUpdate.payment_status || meta.payment_status || 'Status updated',
-        thumbnail: orderUpdate.thumbnail || message.thumbnail || '',
-        messageText: orderUpdate.description || message.message || '',
+        thumbnail: imagePath,
+        image: imagePath,
+        messageText: m.message || meta.message || `Status update for ${productName}`,
+        rejectionReason: meta.rejection_reason || '',
+        actionType: m.action_type || 'view_status',
+        buttonLabel: m.button_label || meta.button_label || 'View Order',
+        actionUrl: meta.action_url || m.action_url || '',
+        amount: meta.amount ?? null,
+        step: meta.step || ''
     };
+}
+
+function renderOrderCard(m) {
+    const data = getOrderCardData(m);
+    const statusTone = getOrderStatusTone(data.statusLabel);
+    
+    return `
+        <div class="b-col">
+            <div class="order-card-v2" onclick="handleOrderCardClick(${data.orderId}, '${data.step}')">
+                <div class="oc-header">
+                    <div class="oc-badge">Order Update</div>
+                    <div class="oc-status tone-${statusTone}">${esc(data.statusLabel)}</div>
+                </div>
+                <div class="oc-body">
+                    ${data.thumbnail ? `<img src="${resolveAppUrl(data.thumbnail)}" class="oc-thumb" onerror="this.src='${BASE}/public/assets/images/services/default.png'">` : `<div class="oc-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:#f8fafc;">📦</div>`}
+                    <div class="oc-content">
+                        <div class="oc-title">${esc(data.productName)}</div>
+                        <div class="oc-desc">${esc(data.messageText)}</div>
+                    </div>
+                </div>
+                <div class="oc-footer">
+                    ${data.amount ? `<div class="oc-price">Final price: ${typeof formatCurrency === 'function' ? formatCurrency(data.amount) : ('₱' + Number(data.amount).toFixed(2))}</div>` : ''}
+                    ${data.actionUrl ? `<a href="${data.actionUrl}" class="oc-btn" onclick="event.stopPropagation();">${esc(data.buttonLabel)} <i class="bi bi-chevron-right"></i></a>` : `<button class="oc-btn">${esc(data.buttonLabel)} <i class="bi bi-chevron-right"></i></button>`}
+                </div>
+            </div>
+        </div>`;
+}
+
+function handleOrderCardClick(orderId, step) {
+    if (step === 'send_to_payment' || step === 'payment_rejected' || step === 'ready_to_pickup') {
+        window.location.href = `${BASE}/customer/orders.php?highlight=${orderId}`;
+    } else {
+        openOrderDetails(orderId);
+    }
 }
 
 function renderOrderUpdateMessage(m) {
@@ -1230,13 +1396,13 @@ function appendMsgUI(m) {
     const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
     const isSelf = rowClass === 'self';
 
-    if (m.message_type === 'order_update') {
+    if (m.message_type === 'order_update' || m.message_type === 'order_card') {
         const row = document.createElement('div');
         row.id = `ms-${m.id}`;
         row.className = `brow order-update-card ${rowSide === 'system' ? 'other' : rowSide}`;
         row.setAttribute('data-sender', senderKey);
         row.setAttribute('data-time', messageTimeKey);
-        row.innerHTML = renderOrderUpdateMessage(m);
+        row.innerHTML = (m.message_type === 'order_card') ? renderOrderCard(m) : renderOrderUpdateMessage(m);
         box.appendChild(row);
         return;
     }
@@ -1489,8 +1655,13 @@ function renderReactions(id, rx) {
 function sendMsg() {
     if (pendingVoiceBlob) { sendVoice(); return; }
     const input = document.getElementById('customerMsgInput'), txt = input.value.trim();
-    if (!txt && !uploads.length) return;
     const btn = document.getElementById('customerSendBtn');
+    if ((!txt && !uploads.length) || isSendingMessage || !activeId || (btn && btn.disabled)) return;
+    if (txt.length > 500) {
+        showToast('Message cannot exceed 500 characters.', 'warning');
+        return;
+    }
+    isSendingMessage = true;
     btn.disabled = true;
     const fd = new FormData(); fd.append('order_id', activeId);
     if (txt) fd.append('message', txt);
@@ -1502,10 +1673,17 @@ function sendMsg() {
             document.getElementById('customerImgPreview').style.display='none'; 
             cancelReply();
             loadMsgs(); 
+        } else {
+            showToast(res.error || 'Failed to send message.', 'error');
         }
+    }).catch(err => {
+        showToast(err?.message || 'Failed to send message.', 'error');
+    }).finally(() => {
+        isSendingMessage = false;
         btn.disabled = false;
-        document.getElementById('customerCharCount').textContent = '0/500';
+        document.getElementById('customerCharCount').textContent = input.value.length + '/500';
         input.style.height = 'auto';
+        input.focus();
     });
 }
 
@@ -1951,9 +2129,9 @@ function openOrderDetails(id) {
                      <a href="${actionUrl}" style="display:block; text-align:center; background:#0ea5a5; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
                 </div>
             </div>
-            <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
-                <div style="position:sticky; top:0; z-index:2; background:#fff; padding:${compact ? '0.25rem 0 0.85rem' : '0 0 1rem'}; font-size:9px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin-bottom:1rem; border-bottom:${compact ? '1px solid #f1f5f9' : 'none'};">Production Roadmap Details</div>
-                <div style="display:flex; flex-direction:column; gap:.75rem;">
+            <div class="details-main">
+                <div class="details-main-heading" style="${compact ? 'padding:0 0 .85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
+                <div class="details-items">
                     ${items.length ? items.map(it => {
                         const specs = it.customization || {};
                         const entries = Object.entries(specs).filter(([k, v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
@@ -1963,36 +2141,36 @@ function openOrderDetails(id) {
                         if (!it.design_url && placement.includes('Sleeve')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
                         if (!it.design_url && placement.includes('Upper')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
                         return `
-                        <div style="background:#fff; border:1px solid #f1f5f9; border-radius:16px; padding:1rem;">
-                            <div style="display:flex; align-items:flex-start; gap:1rem;">
-                                <div style="width:96px; height:96px; border-radius:14px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                    <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${BASE}/public/assets/images/services/default.png';">
+                        <div class="detail-order-card">
+                            <div class="detail-order-top">
+                                <div class="detail-order-thumb">
+                                    <img src="${displayImg}" alt="${esc(it.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${BASE}/public/assets/images/services/default.png';">
                                 </div>
-                                <div style="flex:1; min-width:0;">
-                                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:6px;">
-                                        <div style="min-width:0;">
-                                            <div style="font-size:1.1rem; font-weight:900; color:#1e293b; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(it.product_name || 'Order Item')}">${esc(it.product_name || 'Order Item')}</div>
-                                            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-                                                <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${esc(it.category || 'Service')}</span>
-                                                <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${it.quantity}</span>
+                                <div class="detail-order-body">
+                                    <div class="detail-order-summary">
+                                        <div style="min-width:0; flex:1;">
+                                            <div class="detail-order-title" title="${esc(it.product_name || 'Order Item')}">${esc(it.product_name || 'Order Item')}</div>
+                                            <div class="detail-order-meta" style="margin-top:.65rem;">
+                                                <span class="detail-order-chip category">${esc(it.category || 'Service')}</span>
+                                                <span class="detail-order-chip">Units: ${it.quantity}</span>
                                             </div>
                                         </div>
-                                        <div style="text-align:right; flex-shrink:0;">
-                                             <div class="pf-spec-key" style="margin:0; font-size:9px;">Total</div>
-                                             <div style="font-size:1.1rem; font-weight:900; color:#0ea5a5;">${it.subtotal || 'TBA'}</div>
+                                        <div class="detail-order-price">
+                                             <div class="pf-spec-key">Total</div>
+                                             <strong>${it.subtotal || 'To be finalized'}</strong>
                                         </div>
                                     </div>
-                                    <div class="pf-spec-grid" style="margin-top:1rem; gap:6px;">
+                                    <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
                                         ${entries.map(([k, v]) => `
-                                            <div class="pf-spec-box" style="padding:6px 8px; border-radius:8px;">
+                                            <div class="pf-spec-box">
                                                 <div class="pf-spec-key" style="font-size:8px;">${esc(k.replace(/_/g, ' ').replace('shirt ', ''))}</div>
-                                                <div class="pf-spec-val" style="word-break:break-all; font-size:11px;">${esc(String(v))}</div>
+                                                <div class="pf-spec-val" style="font-size:11px;">${esc(String(v))}</div>
                                             </div>`).join('')}
                                     </div>
                                 </div>
                             </div>
                         </div>`;
-                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Production Roadmap is currently empty.</div>'}
+                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
                 </div>
             </div>`;
     }).catch(err => {

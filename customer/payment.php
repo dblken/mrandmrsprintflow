@@ -564,7 +564,7 @@ if (!function_exists('pf_payment_qr_url')) {
                             </div>
                         <?php endif; ?>
 
-                        <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem;">1. Choose Method</h2>
+                        <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem;">1. Payment Method — GCash</h2>
                         
                         <!-- Important Note - Moved above QR code -->
                         <div style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.08)); border-left: 4px solid #fbbf24; padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: 0;">
@@ -583,8 +583,22 @@ if (!function_exists('pf_payment_qr_url')) {
                         $qr_dir = __DIR__ . '/../public/assets/uploads/qr/';
                         $payment_cfg_path = $qr_dir . 'payment_methods.json';
                         $payment_methods = file_exists($payment_cfg_path) ? json_decode(file_get_contents($payment_cfg_path), true) : [];
-                        $enabled_methods = array_filter($payment_methods ?: [], function($m) { return !empty($m['enabled']); });
-                        
+                        $all_enabled = array_filter($payment_methods ?: [], function($m) { return !empty($m['enabled']); });
+
+                        // Only keep GCash in the UI to remove PayMaya/Maya options here
+                        $enabled_methods = array_values(array_filter($all_enabled, function($m){
+                            $prov = strval($m['provider'] ?? '');
+                            return stripos($prov, 'gcash') !== false;
+                        }));
+
+                        // Fallback: if no GCash entry is found, keep the first enabled method
+                        if (empty($enabled_methods)) {
+                            $enabled_methods = array_values($all_enabled);
+                            if (!empty($enabled_methods)) {
+                                $enabled_methods = [ $enabled_methods[0] ];
+                            }
+                        }
+
                         // Determine if this is a product order (no customization) or service order
                         $is_product_order = true;
                         if (!$is_job_order && !empty($items)) {
@@ -634,7 +648,7 @@ if (!function_exists('pf_payment_qr_url')) {
                         <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem; color: #eaf6fb;">2. Upload Reference Receipt</h2>
                         
                         <div class="input-group">
-                            <input type="file" name="payment_proof" id="proofInput" style="display: none;" accept="image/*" required>
+                            <input type="file" name="payment_proof" id="proofInput" style="display: none;" accept="image/*,application/pdf" required>
                             <div id="dropzone" class="dropzone" onclick="document.getElementById('proofInput').click()">
                                 <div id="placeholder" style="display: block;">
                                     <div style="font-size: 2rem; margin-bottom: 0.5rem;">📸</div>
@@ -746,13 +760,30 @@ if (!function_exists('pf_payment_qr_url')) {
 
             const formData = new FormData(this);
             
-            fetch('api_submit_payment.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+            // Use XHR for more reliable file upload and progress on mobile browsers
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', 'api_submit_payment.php', true);
+            xhr.timeout = 120000; // 2 minutes
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    var percent = Math.round((e.loaded / e.total) * 100);
+                    btn.innerHTML = 'Uploading... ' + percent + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                try {
+                    var data = JSON.parse(xhr.responseText || '{}');
+                } catch (err) {
+                    console.error('Invalid JSON response', xhr.responseText);
+                    showToast('Server error. Please try again.');
+                    btn.disabled = false;
+                    btn.textContent = 'Submit Payment Proof';
+                    return;
+                }
+
+                if (xhr.status >= 200 && xhr.status < 300 && data.success) {
                     showSuccessModal(
                         'Payment Success',
                         'Your payment proof has been submitted and is now under review. We\'ll notify you once verified!',
@@ -764,17 +795,26 @@ if (!function_exists('pf_payment_qr_url')) {
                         4000
                     );
                 } else {
-                    showToast('Error: ' + data.message);
+                    showToast('Error: ' + (data.message || 'Upload failed'));
                     btn.disabled = false;
                     btn.textContent = 'Submit Payment Proof';
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('An unexpected error occurred. Please try again.');
+            };
+
+            xhr.onerror = function() {
+                console.error('Upload error');
+                showToast('Network error during upload. Please try again.');
                 btn.disabled = false;
                 btn.textContent = 'Submit Payment Proof';
-            });
+            };
+
+            xhr.ontimeout = function() {
+                showToast('Upload timed out. Try a smaller file or use Wi‑Fi.');
+                btn.disabled = false;
+                btn.textContent = 'Submit Payment Proof';
+            };
+
+            xhr.send(formData);
         });
     }
 </script>

@@ -144,7 +144,6 @@ try {
         $archive_col = $has_archived ? "o.is_archived" : "0";
         $has_activity = !empty(db_query("SHOW COLUMNS FROM customers LIKE 'last_activity'"));
         $activity_sel = $has_activity ? "c.last_activity as partner_last_activity," : "NULL as partner_last_activity,";
-
         $sql = "
         SELECT o.order_id, o.customer_id, o.status, o.order_date, $archive_col as is_archived,
                TRIM(CONCAT(COALESCE(c.first_name,''), ' ', COALESCE(c.last_name,''))) AS customer_name,
