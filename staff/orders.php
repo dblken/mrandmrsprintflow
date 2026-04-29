@@ -863,45 +863,67 @@ $page_title = 'Orders - Staff';
         .om-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 700px) { .om-grid { grid-template-columns: 1fr; } }
 
-        /* Mobile Fixes for Staff Orders */
+        /* ═══════════════════════════════════════════════
+           MOBILE FIXES — Staff Orders Page
+           Target: iPhone / small screens (≤768px)
+           ─────────────────────────────────────────────
+           RULE: Nothing must ever overflow the viewport.
+           All long text uses ellipsis. View + Message
+           buttons are ALWAYS visible side-by-side.
+        ═══════════════════════════════════════════════ */
         @media (max-width: 768px) {
+
+            /* 1. Stop horizontal scroll at the ROOT level */
+            html, body {
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
+
+            .dashboard-container {
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
+
+            .main-content {
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+            }
+
             .main-content header {
-                padding: 16px 20px 12px !important;
+                padding: 14px 12px !important;
                 flex-direction: column !important;
                 align-items: flex-start !important;
-                gap: 12px !important;
+                gap: 8px !important;
                 margin-bottom: 4px !important;
+                max-width: 100vw !important;
+                box-sizing: border-box !important;
             }
 
             #mobileBurger {
                 position: static !important;
-                margin-bottom: 8px !important;
-                margin-left: -4px !important;
+                margin-bottom: 0 !important;
             }
 
-            .page-title {
-                font-size: 20px !important;
-            }
+            .page-title { font-size: 18px !important; }
 
             .main-content main {
                 padding: 0 10px 24px !important;
-                /* Hard-lock the content area width */
                 max-width: 100vw !important;
                 overflow-x: hidden !important;
                 box-sizing: border-box !important;
             }
 
-            /* ── KPI: 2 columns × 2 rows ── */
+            /* 2. KPI: 2 columns × 2 rows */
             .kpi-row {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 8px !important;
-                margin-bottom: 16px !important;
+                margin-bottom: 14px !important;
             }
 
             .kpi-card {
-                padding: 12px !important;
-                border-radius: 12px !important;
+                padding: 10px 12px !important;
+                border-radius: 10px !important;
                 min-width: 0 !important;
                 width: 100% !important;
                 box-sizing: border-box !important;
@@ -909,27 +931,27 @@ $page_title = 'Orders - Staff';
             }
 
             .kpi-card .kpi-value {
-                font-size: 20px !important;
-                overflow-wrap: anywhere !important;
+                font-size: 18px !important;
+                line-height: 1.2 !important;
                 word-break: break-all !important;
             }
 
             .kpi-card .kpi-label,
             .kpi-card .kpi-sub {
-                font-size: 10px !important;
+                font-size: 9px !important;
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
                 display: block !important;
-                max-width: 100% !important;
             }
 
-            /* ── Toolbar ── */
+            /* 3. Toolbar — keep Sort+Filter buttons in one row */
             .toolbar-container {
                 flex-direction: row !important;
                 align-items: center !important;
                 justify-content: space-between !important;
                 gap: 8px !important;
+                flex-wrap: nowrap !important;
             }
 
             .toolbar-group--title {
@@ -939,8 +961,8 @@ $page_title = 'Orders - Staff';
 
             .toolbar-group--actions {
                 flex: 0 0 auto !important;
-                margin-left: auto !important;
-                gap: 8px !important;
+                display: flex !important;
+                gap: 6px !important;
             }
 
             .toolbar-btn {
