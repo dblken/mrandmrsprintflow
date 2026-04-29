@@ -1428,7 +1428,11 @@ window.addEventListener('PFCallConnected', () => {
 });
 
 window.addEventListener('PFCallDisconnected', () => {
-    pfCallWarn('[PFCall][UI] Socket disconnected, disabling call UI');
+    if (typeof window.pfCallWarn === 'function') {
+        window.pfCallWarn('[PFCall][UI] Socket disconnected, disabling call UI');
+    } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+        console.warn('[PFCall][UI] Socket disconnected, disabling call UI');
+    }
     document.querySelectorAll('.call-btns').forEach(btn => {
         btn.classList.add('pf-not-ready');
         btn.disabled = true;
@@ -1444,7 +1448,11 @@ function initiateCall(type) {
 
     // Check if system is ready
     if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
-        pfCallWarn('[PFCall] System not ready, waiting for initialization before starting call...');
+        if (typeof window.pfCallWarn === 'function') {
+            window.pfCallWarn('[PFCall] System not ready, waiting for initialization before starting call...');
+        } else if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+            console.warn('[PFCall] System not ready, waiting for initialization before starting call...');
+        }
         
         // Attempt manual recovery if possible
         if (window.PFCall && typeof initCallSystem === 'function') {

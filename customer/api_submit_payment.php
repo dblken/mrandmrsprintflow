@@ -65,7 +65,8 @@ if (!isset($_FILES['payment_proof']) || $_FILES['payment_proof']['error'] !== UP
     exit;
 }
 
-$upload = upload_file($_FILES['payment_proof'], ['jpg', 'jpeg', 'png', 'webp'], 'payments');
+// Accept common mobile formats (including HEIC/HEIF) and PDFs; allow up to 25MB uploads
+$upload = upload_file($_FILES['payment_proof'], ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'heic', 'heif'], 'payments', null, 25 * 1024 * 1024);
 if (!$upload['success']) {
     echo json_encode(['success' => false, 'message' => 'Upload failed: ' . $upload['error']]);
     exit;
