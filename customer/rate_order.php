@@ -277,7 +277,8 @@ require_once __DIR__ . '/../includes/header.php';
 .rate-shell-head .rate-shell-title,
 .rate-shell-head h1.rate-shell-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: #ffffff !important; }
 .rate-shell-sub { margin: 0.2rem 0 0; font-size: 0.92rem; color: #94a3b8; font-weight: 600; }
-.rate-back-link { display: inline-flex; align-items: center; gap: 0.45rem; color: #d7e7ee; text-decoration: none; font-weight: 700; font-size: 0.92rem; }
+.rate-shell-copy { min-width: 0; }
+.rate-back-link { display: inline-flex; align-items: center; gap: 0.45rem; color: #d7e7ee; text-decoration: none; font-weight: 700; font-size: 0.92rem; align-self: flex-start; }
 .rate-back-link:hover { color: #ffffff; }
 .rate-body { background: #ffffff; padding: 1.5rem; }
 .rate-card { background: #ffffff; border: 1px solid var(--pf-border); border-radius: 12px; padding: 1.5rem; }
@@ -318,6 +319,11 @@ require_once __DIR__ . '/../includes/header.php';
     .rate-shell-head {
         padding: 1rem;
         align-items: flex-start;
+        justify-content: space-between;
+    }
+    .rate-shell-copy {
+        order: 2;
+        width: 100%;
     }
     .rate-shell-title,
     .rate-shell-head .rate-shell-title,
@@ -332,9 +338,11 @@ require_once __DIR__ . '/../includes/header.php';
         max-width: 18rem;
     }
     .rate-back-link {
-        width: 100%;
-        justify-content: flex-start;
-        padding-top: 0.1rem;
+        order: 1;
+        width: auto;
+        margin-left: auto;
+        justify-content: flex-end;
+        padding-top: 0;
     }
     .rate-body { padding: 0.9rem; }
     .rate-card,
@@ -431,13 +439,13 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="rate-wrap">
         <div class="rate-shell">
             <div class="rate-shell-head">
-                <div>
+                <div class="rate-shell-copy">
                     <h1 class="rate-shell-title">Rate Your Order</h1>
                     <p class="rate-shell-sub">Share your feedback for this completed order.</p>
                 </div>
                 <a class="rate-back-link" href="<?php echo $app_base; ?>/customer/orders.php?tab=completed">
                     <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                    Back to Orders
+                    Back
                 </a>
             </div>
 
