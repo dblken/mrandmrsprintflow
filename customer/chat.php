@@ -1287,12 +1287,24 @@ function getOrderStatusTone(statusText) {
     return 'neutral';
 }
 
+function getOrderCardData(m) {
+    const orderUpdate = m.order_update || {};
+    let meta = {};
+    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
+
+    let imagePath = orderUpdate.thumbnail || m.image || m.image_path || m.file_path || m.thumbnail || meta.image || meta.thumbnail || '';
+    if (imagePath) imagePath = resolveAppUrl(imagePath);
+    if (!imagePath) imagePath = '/public/default.png';
+
+    const productName = orderUpdate.product_name || meta.product_name || m.service_name || m.message || 'Order update';
+
     return {
-        orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
-        productName: orderUpdate.product_name || meta.product_name || 'Order update',
+        orderId: Number(orderUpdate.order_id || meta.order_id || (typeof activeId !== 'undefined' ? activeId : 0) || 0),
+        productName: productName,
         statusLabel: orderUpdate.status || meta.order_status || orderUpdate.payment_status || meta.payment_status || 'Status updated',
-        thumbnail: orderUpdate.thumbnail || message.thumbnail || meta.thumbnail || '',
-        messageText: orderUpdate.description || message.message || meta.message || '',
+        thumbnail: imagePath,
+        image: imagePath,
+        messageText: m.message || meta.message || `Status update for ${productName}`,
         buttonLabel: m.button_label || meta.button_label || 'View Order',
         step: meta.step || ''
     };
