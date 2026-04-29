@@ -68,6 +68,13 @@ try {
         $isPlainProductOrder = (($order['order_type'] ?? '') === 'product') && !$hasProductionJobs;
         $new_status = $isPlainProductOrder ? 'Ready for Pickup' : 'Processing';
         $payment_status = 'Paid';
+        
+        // Get product name for better message context
+        $product_name = 'your order';
+        $items = db_query("SELECT service_type FROM order_items WHERE order_id = ? LIMIT 1", "i", [$order_id]);
+        if (!empty($items)) {
+            $product_name = $items[0]['service_type'];
+        }
 
         $conn->begin_transaction();
         try {
@@ -96,6 +103,7 @@ try {
             require_once __DIR__ . '/../includes/order_chat_system.php';
             $meta = [
                 'order_id' => $order_id,
+                'product_name' => $product_name,
                 'order_status' => $new_status,
                 'payment_status' => $payment_status,
                 'step' => 'payment_verified'
@@ -145,6 +153,13 @@ try {
         $new_status = 'To Pay';
         $reason = $_POST['reason'] ?? 'Payment proof rejected by staff.';
         
+        // Get product name for better message context
+        $product_name = 'your order';
+        $items = db_query("SELECT service_type FROM order_items WHERE order_id = ? LIMIT 1", "i", [$order_id]);
+        if (!empty($items)) {
+            $product_name = $items[0]['service_type'];
+        }
+        
         // Clear proof so they can re-upload
         if ($staffBranchId !== null) {
             $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ? AND branch_id = ?";
@@ -164,6 +179,7 @@ try {
             require_once __DIR__ . '/../includes/order_chat_system.php';
             $meta = [
                 'order_id' => $order_id,
+                'product_name' => $product_name,
                 'order_status' => $new_status,
                 'payment_status' => 'Rejected',
                 'rejection_reason' => $reason,

@@ -50,13 +50,14 @@ function printflow_send_order_update($order_id, $message, $action_type, $thumbna
 
     $meta_json = !empty($meta) ? json_encode($meta) : null;
     $sender = 'System';
+    $sender_id = 0; // System messages have sender_id = 0
     $message_type = 'order_update';
 
-    $sql = "INSERT INTO order_messages (order_id, sender, message, message_type, thumbnail, action_type, action_url, meta_json, is_seen, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())";
+    $sql = "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())";
     
-    $params = [$order_id, $sender, $message, $message_type, $thumbnail, $action_type, $action_url, $meta_json];
-    $res = db_execute($sql, "isssssss", $params);
+    $params = [$order_id, $sender, $sender_id, $message, $message_type, $thumbnail, $action_type, $action_url, $meta_json];
+    $res = db_execute($sql, "isiisssss", $params);
 
     if ($res) {
         // Also trigger real-time notification via existing system if any
