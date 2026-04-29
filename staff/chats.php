@@ -821,9 +821,9 @@ $current_user = get_logged_in_user();
                 position: fixed;
                 left: 50%;
                 right: auto;
-                top: 50%;
+                top: auto;
                 bottom: auto;
-                transform: translate(-50%, -50%) !important;
+                transform: translateX(-50%) !important;
                 margin: 0;
                 padding: 10px 12px;
                 gap: 8px;
@@ -845,9 +845,9 @@ $current_user = get_logged_in_user();
                 position: fixed;
                 left: 50%;
                 right: auto;
-                top: 50%;
+                top: auto;
                 bottom: auto;
-                transform: translate(-50%, -50%) !important;
+                transform: translateX(-50%) !important;
                 width: min(190px, calc(100vw - 32px));
                 max-width: calc(100vw - 32px);
                 border-radius: 18px;
@@ -2413,17 +2413,28 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     menu.style.position = 'fixed';
     menu.style.left = '50%';
     menu.style.right = 'auto';
-    menu.style.top = '50%';
+    menu.style.top = '0';
     menu.style.bottom = 'auto';
-    menu.style.transform = 'translate(-50%, -50%)';
+    menu.style.transform = 'translateX(-50%)';
     menu.style.visibility = 'hidden';
 
+    const triggerRect = trigger.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const menuHeight = menuRect.height || 56;
-    const top = Math.max(16, Math.min((viewportHeight / 2) - (menuHeight / 2), viewportHeight - menuHeight - 16));
+    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
+    let left = triggerRect.left + (triggerRect.width / 2);
+    left = Math.max((menuWidth / 2) + 12, Math.min(left, viewportWidth - (menuWidth / 2) - 12));
 
-    menu.style.left = '50%';
+    const spaceAbove = triggerRect.top;
+    const spaceBelow = viewportHeight - triggerRect.bottom;
+    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    const top = shouldOpenAbove
+        ? Math.max(12, triggerRect.top - menuHeight - gap)
+        : Math.min(viewportHeight - menuHeight - 12, triggerRect.bottom + gap);
+
+    menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
     menu.style.transform = 'translateX(-50%)';
     menu.style.visibility = 'visible';
