@@ -1289,7 +1289,7 @@ $page_title = 'Review Management - Staff';
                                 <div class="review-item" id="review-<?php echo $review['id']; ?>">
                                     <div class="review-customer-review-col customer-review-col">
                                         <div class="customer-review-head">
-                                            <div class="review-customer-name" title="<?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>">
+                                            <div class="review-customer-name truncate-ellipsis" title="<?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>">
                                                 <?php echo htmlspecialchars($review['first_name'] . ' ' . $review['last_name']); ?>
                                             </div>
                                             <div class="customer-review-meta">
@@ -1402,7 +1402,7 @@ $page_title = 'Review Management - Staff';
                             <?php endforeach; ?>
                         </div>
 
-                        <div class="rv-pager" style="padding: 24px 0; border-top: 1px solid #f3f4f6;">
+                        <div class="pagination-container" style="display:flex; justify-content:center; padding: 24px 0; border-top: 1px solid #f3f4f6; margin-top: auto;">
                             <?php echo render_pagination($current_page, $total_pages, $page_query_params); ?>
                         </div>
                     <?php endif; ?>

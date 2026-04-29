@@ -1269,7 +1269,7 @@ if ($showLatestCustomizationOnly) {
                 </div>
 
                 <!-- Standardized Premium Pagination -->
-                <div x-show="totalPages > 1" class="pagination-container" style="display:flex; width:100%; justify-content:center; padding: 24px 0; border-top:1px solid #f3f4f6; margin-top: auto;">
+                <div x-show="totalPages > 1" class="pagination-container" style="display:flex !important; width:100% !important; justify-content:center !important; padding: 24px 0; border-top:1px solid #f3f4f6; margin-top: auto;">
                     <div style="display:inline-flex; align-items:center; gap:6px;">
                         <!-- Previous Button -->
                         <button x-show="currentPage > 1" 

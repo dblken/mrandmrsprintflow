@@ -397,7 +397,7 @@ $page_title = 'Visual Reports & Analytics';
                     <?php if (!empty($top_products)): ?>
                         <?php $rank = 1; foreach ($top_products as $tp): ?>
                         <div class="top-product-row">
-                            <div class="tp-name">
+                            <div class="tp-name truncate-ellipsis" title="<?php echo htmlspecialchars($tp['name']); ?>">
                                 <span class="tp-rank">#<?php echo $rank++; ?></span>
                                 <?php echo htmlspecialchars($tp['name']); ?>
                             </div>

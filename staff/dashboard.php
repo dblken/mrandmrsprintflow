@@ -463,7 +463,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
                             <?php if (!empty($top_services)): ?>
                                 <?php foreach ($top_services as $service): ?>
                                     <div class="service-item">
-                                        <span class="service-info"><?php echo htmlspecialchars($service['name']); ?></span>
+                                        <span class="service-info truncate-ellipsis" title="<?php echo htmlspecialchars($service['name']); ?>"><?php echo htmlspecialchars($service['name']); ?></span>
                                         <span class="service-count"><?php echo $service['order_count']; ?> Orders</span>
                                     </div>
                                 <?php endforeach; ?>
@@ -499,8 +499,8 @@ $page_title = 'Staff Dashboard - PrintFlow';
                                     <?php foreach ($recent_orders as $order): ?>
                                         <tr>
                                             <td style="font-weight:700;">#<?php echo $order['order_id']; ?></td>
-                                            <td style="font-weight:600;"><?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?></td>
-                                            <td style="font-weight:500;"><?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?></td>
+                                            <td style="font-weight:600;" class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?>"><?php echo htmlspecialchars($order['customer_name'] ?: 'Guest'); ?></td>
+                                            <td style="font-weight:500;" class="truncate-ellipsis" title="<?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?>"><?php echo htmlspecialchars($order['service_type'] ?: 'General'); ?></td>
                                             <td style="color:#64748b; font-size:13px;"><?php echo date('M d, Y', strtotime($order['order_date'])); ?></td>
                                             <td style="font-weight:800; color:#013a3a;">₱<?php echo number_format($order['total_amount'], 2); ?></td>
                                              <td>

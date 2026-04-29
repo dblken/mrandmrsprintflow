@@ -2047,19 +2047,10 @@ $page_title = 'Orders - Staff';
             <!-- Orders Table -->
             <div class="card staff-orders-table-card overflow-visible">
                 <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                    <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
-                    <div class="pf-custom-tabs" style="margin:0; padding-bottom:0; border-bottom:0; justify-content:center; flex:1 1 auto; overflow-x: auto;">
-                        <template x-for="(label, key) in statusTabs" :key="key">
-                            <button type="button" 
-                                    class="pill-tab" 
-                                    :class="{ 'active': activeTab === key }"
-                                    @click="switchStatusTab(key)">
-                                <span x-text="label"></span>
-                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
-                            </button>
-                        </template>
+                    <div class="toolbar-group toolbar-group--title">
+                        <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0; white-space:nowrap;">Orders List</h3>
                     </div>
-                    <div class="toolbar-group" style="display: flex; gap: 8px; margin-left: auto;">
+                    <div class="toolbar-group toolbar-group--actions" style="display: flex; gap: 8px; margin-left: auto;">
 
                             <!-- Sort Button -->
                             <div style="position:relative;">
@@ -2143,8 +2134,22 @@ $page_title = 'Orders - Staff';
                                         <button class="filter-btn-reset" style="width:100%;" @click="applyFilters(true)">Reset all filters</button>
                                     </div>
                                 </div>
-                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="toolbar-group toolbar-group--tabs" style="padding: 0 20px 12px;">
+                    <div class="pf-custom-tabs" style="margin:0; padding-bottom:0; border-bottom:0; justify-content:flex-start; overflow-x: auto;">
+                        <template x-for="(label, key) in statusTabs" :key="key">
+                            <button type="button" 
+                                    class="pill-tab" 
+                                    :class="{ 'active': activeTab === key }"
+                                    @click="switchStatusTab(key)">
+                                <span x-text="label"></span>
+                                <span class="tab-count" x-text="tabCounts[key] || 0"></span>
+                            </button>
+                        </template>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto -mx-6 px-6" style="clear:both;">

@@ -446,6 +446,14 @@
     }
 
     /* Staff-wide mobile hardening (parallel to admin shell behavior). */
+    html.printflow-staff .truncate-ellipsis {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        max-width: 100%;
+    }
+
     @media (max-width: 768px) {
         html.printflow-staff .content-area,
         html.printflow-staff main {

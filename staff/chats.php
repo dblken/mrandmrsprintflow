@@ -1698,7 +1698,7 @@ function loadConvs() {
                     </div>
                     <div class="conv-info">
                         <div class="conv-name-row">
-                            <span class="conv-name">${escapeHtml(c.customer_name || 'Customer')}</span>
+                            <span class="conv-name truncate-ellipsis" title="${escapeHtml(c.customer_name || 'Customer')}">${escapeHtml(c.customer_name || 'Customer')}</span>
                             <span class="conv-time">${formatTime(c.last_message_at)}</span>
                         </div>
                         <div class="conv-sub">${escapeHtml(c.product_name || '').toLowerCase()}</div>
