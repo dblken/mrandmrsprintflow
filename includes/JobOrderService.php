@@ -303,6 +303,37 @@ class JobOrderService {
             $job_qty = (int)($item['quantity'] ?? 1);
             $unit_price = (float)($item['unit_price'] ?? 0);
 
+            // 1. Auto-link materials from rules (Heuristic for POS/Online orders)
+            $autoMaterials = [];
+            try {
+                $rules = db_query("SELECT item_id, rule_type FROM service_material_rules WHERE service_type = ?", 's', [$service_type]) ?: [];
+                foreach ($rules as $rule) {
+                    $itemInv = InventoryManager::getItem($rule['item_id']);
+                    if (!$itemInv) continue;
+                    
+                    if ($itemInv['track_by_roll']) {
+                        $match = false;
+                        $iname = strtolower($itemInv['name']);
+                        // Check if item name or default length matches either dimension
+                        if (strpos($iname, (int)$width_ft . 'ft') !== false) $match = true;
+                        if (strpos($iname, (int)$height_ft . 'ft') !== false) $match = true;
+                        if ((int)($itemInv['default_roll_length_ft'] ?? 0) == (int)$width_ft) $match = true;
+                        if ((int)($itemInv['default_roll_length_ft'] ?? 0) == (int)$height_ft) $match = true;
+                        
+                        if (!$match) continue;
+                    }
+                    
+                    $autoMaterials[] = [
+                        'item_id' => $rule['item_id'],
+                        'quantity' => $job_qty,
+                        'uom' => ($height_ft > 0 || $width_ft > 0) ? 'ft' : 'pcs',
+                        'computed_len' => ($height_ft > 0) ? ($height_ft * $job_qty) : (($width_ft > 0) ? ($width_ft * $job_qty) : 0)
+                    ];
+                }
+            } catch (Throwable $matEx) {
+                error_log('PrintFlow AutoMaterial Error: ' . $matEx->getMessage());
+            }
+
             try {
                 $jid = self::createOrder([
                     'order_id'        => $orderId,
@@ -322,7 +353,7 @@ class JobOrderService {
                     'priority'        => 'NORMAL',
                     'artwork_path'    => null,
                     'created_by'      => null,
-                ]);
+                ], $autoMaterials);
                 if ($firstJobId === null) {
                     $firstJobId = (int)$jid;
                 }
@@ -367,10 +398,22 @@ class JobOrderService {
         if ($track_by_roll) {
             // For roll-based, if uom is ft, quantity is often the length
             // But we might have separate height/qty in metadata
-            if (isset($metadata['height_ft'])) {
-                $computed_len = $metadata['height_ft'] * $qty;
+            if (isset($metadata['height_ft']) && (float)$metadata['height_ft'] > 0) {
+                $computed_len = (float)$metadata['height_ft'] * $qty;
             } else {
                 $computed_len = ($uom === 'ft') ? $qty : 0;
+            }
+
+            // Fallback to job dimensions if still 0
+            if ($computed_len <= 0 && ($orderType === 'JOB' || $colId === 'job_order_id')) {
+                $job = db_query("SELECT height_ft, width_ft, quantity FROM job_orders WHERE id = ?", 'i', [$orderId]);
+                if (!empty($job)) {
+                    $jH = (float)($job[0]['height_ft'] ?? 0);
+                    $jW = (float)($job[0]['width_ft'] ?? 0);
+                    $jQ = (float)($job[0]['quantity'] ?? 1);
+                    // Use the larger dimension as length if height is not specifically set
+                    $computed_len = max($jH, $jW) * $jQ;
+                }
             }
         }
 

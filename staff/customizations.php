@@ -2127,7 +2127,31 @@ window.pfCustomizationPreloadedOrders = (() => {
                 this.newMaterialRollId = '';
                 this.availableRollsList = [];
                 this.materialQtyManuallyEdited = false;
-                this.newMaterialQty = this.getDefaultMaterialQty(selectedId);
+                
+                // Auto-fill from job dimensions if available
+                if (this.currentJo && selectedId) {
+                    const jH = parseFloat(this.currentJo.height_ft || 0);
+                    const jW = parseFloat(this.currentJo.width_ft || 0);
+                    const jQ = parseFloat(this.currentJo.quantity || 1);
+                    
+                    if (this.isTarpaulin(selectedId)) {
+                        // For Tarpaulin, qty is width, height is height (heuristic)
+                        // This ensures 'Req:' is not 0.00
+                        this.newMaterialQty = jW || 1;
+                        this.newMaterialHeight = jH || 1;
+                    } else if (this.isRollTracked(selectedId)) {
+                         // Default to max dimension for roll-tracked length
+                         this.newMaterialQty = Math.max(jH, jW) || 1;
+                         this.newMaterialHeight = 0;
+                    } else {
+                        this.newMaterialQty = jQ || 1;
+                        this.newMaterialHeight = 0;
+                    }
+                } else {
+                    this.newMaterialQty = this.getDefaultMaterialQty(selectedId);
+                    this.newMaterialHeight = 0;
+                }
+
                 if (this.isRollTracked(selectedId)) {
                     this.loadAvailableRolls(selectedId);
                 }
