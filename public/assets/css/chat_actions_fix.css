@@ -1,0 +1,494 @@
+/**
+ * Messenger-Style Message Actions Fix
+ * Ensures proper positioning and responsive behavior across all devices
+ */
+
+/* ===== DESKTOP: Action Bar Positioning ===== */
+@media (min-width: 1024px) {
+    /* Action bar appears beside message on hover */
+    .msg-action-bar,
+    .b-actions {
+        opacity: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 50;
+        white-space: nowrap;
+    }
+
+    /* Show on hover or when menu is active */
+    .bubble-row:hover .msg-action-bar,
+    .bubble-row.has-active-menu .msg-action-bar,
+    .brow:hover .b-actions,
+    .brow.has-active-menu .b-actions {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Position for messages from others (left side) */
+    .bubble-row.other .msg-action-bar,
+    .brow.other .b-actions {
+        left: calc(100% + 12px);
+        right: auto;
+    }
+
+    /* Position for self messages (right side) */
+    .bubble-row.self .msg-action-bar,
+    .brow.self .b-actions {
+        right: calc(100% + 12px);
+        left: auto;
+        flex-direction: row-reverse;
+    }
+
+    /* Reaction picker - opens above action bar */
+    .reaction-picker {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 12px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffff;
+        padding: 0 18px;
+        border-radius: 999px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        border: 1px solid #e2e8f0;
+        gap: 10px;
+        z-index: 500;
+        width: max-content;
+        pointer-events: auto;
+        align-items: center;
+        justify-content: center;
+        height: 50px;
+    }
+
+    .reaction-picker.active,
+    .reaction-picker.show {
+        display: flex;
+        animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* More menu - opens below action bar */
+    .m-more-menu,
+    .more-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 6px 0;
+        width: 160px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+        z-index: 400;
+    }
+
+    .m-more-menu.active,
+    .more-menu.show {
+        display: block;
+        animation: menuFade 0.2s ease;
+    }
+}
+
+/* ===== MOBILE/TABLET: Fixed Positioning ===== */
+@media (max-width: 1023px) {
+    /* Action bar fixed to viewport, positioned dynamically via JS */
+    .msg-action-bar,
+    .b-actions {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        right: auto;
+        bottom: auto;
+        transform: translateY(-50%);
+        opacity: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        z-index: 1300;
+        white-space: nowrap;
+        flex-wrap: nowrap;
+        max-width: calc(100vw - 24px);
+    }
+
+    /* Show when message has active menu */
+    .bubble-row.has-active-menu .msg-action-bar,
+    .brow.has-active-menu .b-actions {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    /* Reaction picker - fixed, centered horizontally */
+    .reaction-picker {
+        position: fixed !important;
+        left: 50% !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        transform: translateX(-50%) !important;
+        display: none;
+        padding: 10px 12px;
+        gap: 8px;
+        height: auto;
+        width: min(300px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 22px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        z-index: 1200;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .reaction-picker.active,
+    .reaction-picker.show {
+        display: flex !important;
+        animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* More menu - fixed, centered horizontally */
+    .m-more-menu,
+    .more-menu {
+        position: fixed !important;
+        left: 50% !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+        transform: translateX(-50%) !important;
+        display: none;
+        width: min(190px, calc(100vw - 32px));
+        max-width: calc(100vw - 32px);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-radius: 18px;
+        padding: 8px 0;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+        z-index: 1200;
+    }
+
+    .m-more-menu.active,
+    .more-menu.show {
+        display: block !important;
+        animation: menuFade 0.2s ease;
+    }
+
+    .m-menu-item,
+    .mi {
+        min-height: 44px;
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
+
+    /* Ensure reaction buttons are tappable */
+    .reaction-btn {
+        flex: 0 0 auto;
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* ===== SHARED STYLES ===== */
+
+/* Action button */
+.m-action-btn,
+.ab {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+    background: transparent;
+    border: none;
+    flex-shrink: 0;
+}
+
+.m-action-btn:hover,
+.ab:hover {
+    background: #f1f5f9;
+    color: #0a2530;
+}
+
+/* Reaction button */
+.reaction-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1.6rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.reaction-btn:hover {
+    transform: scale(1.35) translateY(-4px);
+}
+
+/* Menu item */
+.m-menu-item,
+.mi {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+
+.m-menu-item:hover,
+.mi:hover {
+    background: #f1f5f9;
+    color: #0a2530;
+}
+
+.m-menu-item i,
+.mi i {
+    font-size: 1rem;
+    opacity: 0.7;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Reaction display (shown reactions on message) */
+.reaction-display {
+    position: absolute;
+    bottom: -10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 10;
+    box-shadow: 0 4px 8px rgba(15,23,42,0.12);
+    cursor: default;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.reaction-display:hover {
+    transform: scale(1.05);
+    background: #f8fafc;
+}
+
+.bubble-row.self .reaction-display,
+.brow.self .reaction-display {
+    right: 8px;
+}
+
+.bubble-row.other .reaction-display,
+.brow.other .reaction-display {
+    left: 8px;
+}
+
+.react-chip {
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #0f172a;
+}
+
+.react-chip b {
+    font-weight: 800;
+    font-size: 0.75rem;
+    color: #0a2530;
+}
+
+/* Animations */
+@keyframes pickerPop {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.8) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1) translateY(0);
+    }
+}
+
+@keyframes menuFade {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Desktop menu fade for fixed positioning */
+@media (max-width: 1023px) {
+    @keyframes menuFade {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(5px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+}
+
+/* Prevent overflow and ensure visibility */
+.reaction-picker,
+.m-more-menu,
+.more-menu {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Ensure menus stay within viewport */
+@media (max-width: 1023px) {
+    .reaction-picker {
+        margin: 12px;
+    }
+    
+    .m-more-menu,
+    .more-menu {
+        margin: 12px;
+    }
+}
+
+/* Pinned badge */
+.pinned-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    border: 2px solid #fff;
+    box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+    z-index: 10;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pinned-badge i {
+    transform: rotate(45deg);
+}
+
+/* Ensure proper stacking context */
+.bubble-row,
+.brow {
+    position: relative;
+    z-index: 1;
+}
+
+.bubble-row.has-active-menu,
+.brow.has-active-menu {
+    z-index: 1100;
+}
+
+/* Prevent text selection during long press */
+.bubble,
+.voice-bubble-player,
+.call-log-bubble,
+.order-update-bubble {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Smart positioning helpers */
+.msg-action-bar.pf-smart-left,
+.b-actions.pf-smart-left {
+    left: 12px !important;
+    right: auto !important;
+}
+
+.msg-action-bar.pf-smart-right,
+.b-actions.pf-smart-right {
+    right: 12px !important;
+    left: auto !important;
+}
+
+.reaction-picker.pf-smart-pos,
+.m-more-menu.pf-smart-pos,
+.more-menu.pf-smart-pos {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+/* Viewport edge protection */
+@media (max-width: 1023px) {
+    .msg-action-bar,
+    .b-actions {
+        min-width: 116px;
+        max-width: calc(100vw - 24px);
+    }
+    
+    .reaction-picker {
+        min-width: 200px;
+        max-width: calc(100vw - 24px);
+    }
+    
+    .m-more-menu,
+    .more-menu {
+        min-width: 160px;
+        max-width: calc(100vw - 32px);
+    }
+}

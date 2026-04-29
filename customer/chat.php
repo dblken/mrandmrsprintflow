@@ -2046,6 +2046,8 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     // Temporarily make menu measurable even when hidden
     const prevDisplay = menu.style.display;
     const prevVisibility = menu.style.visibility;
+    // Reparent to body to avoid clipping by transformed/overflow parents
+    reparentMenuToBody(menu);
     menu.style.display = 'block';
     menu.style.visibility = 'hidden';
 
@@ -2083,6 +2085,40 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     if (!prevDisplay) menu.style.display = '';
     else menu.style.display = prevDisplay;
     menu.style.visibility = prevVisibility;
+}
+
+// Reparent helpers for customer chat (avoid clipping by parent elements)
+function reparentMenuToBody(menu) {
+    if (!menu || menu.dataset.reparented === '1') return;
+    try {
+        const parent = menu.parentElement;
+        if (!parent) return;
+        const placeholder = document.createElement('div');
+        placeholder.style.display = 'none';
+        parent.insertBefore(placeholder, menu);
+        menu.__pf_original_parent = parent;
+        menu.__pf_placeholder = placeholder;
+        document.body.appendChild(menu);
+        menu.dataset.reparented = '1';
+        menu.style.zIndex = 9999;
+    } catch (err) { console.warn('reparentMenuToBody failed', err); }
+}
+
+function restoreReparentedMenus() {
+    document.querySelectorAll('[data-reparented="1"]').forEach(menu => {
+        try {
+            const placeholder = menu.__pf_placeholder;
+            const parent = menu.__pf_original_parent;
+            if (placeholder && parent) {
+                placeholder.parentElement.insertBefore(menu, placeholder);
+                placeholder.remove();
+                delete menu.__pf_placeholder;
+                delete menu.__pf_original_parent;
+                delete menu.dataset.reparented;
+                menu.style.zIndex = '';
+            }
+        } catch (err) { console.warn('restoreReparentedMenus failed', err); }
+    });
 }
 function bindMobileMessageHold(row) {
     if (!row || row.dataset.mobileHoldBound === '1' || !window.matchMedia('(max-width: 768px)').matches) return;
@@ -2436,6 +2472,8 @@ function closeAllMenus() {
         bar.style.opacity = '';
         bar.style.pointerEvents = '';
     });
+    // restore menus moved to body
+    restoreReparentedMenus();
 }
 if (!window.__pfCustomerChatCloseMenusBound) {
     window.__pfCustomerChatCloseMenusBound = true;
