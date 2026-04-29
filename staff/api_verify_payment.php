@@ -99,16 +99,18 @@ try {
                 create_notification((int)$order['customer_id'], 'Customer', $msg, 'Order', false, false, $order_id);
             }
             
-            // Send order update chat message
-            require_once __DIR__ . '/../includes/order_chat_system.php';
-            $meta = [
-                'order_id' => $order_id,
-                'product_name' => $product_name,
-                'order_status' => $new_status,
-                'payment_status' => $payment_status,
-                'step' => 'payment_verified'
-            ];
-            printflow_send_order_update($order_id, 'payment_verified', 'view_status', '', '', $meta);
+            // Send order update chat message (ONLY if not handled by JobOrderService below)
+            if (!$hasProductionJobs || $isPlainProductOrder) {
+                require_once __DIR__ . '/../includes/order_chat_system.php';
+                $meta = [
+                    'order_id' => $order_id,
+                    'product_name' => $product_name,
+                    'order_status' => $new_status,
+                    'payment_status' => $payment_status,
+                    'step' => 'payment_verified'
+                ];
+                printflow_send_order_update($order_id, 'payment_verified', 'view_status', '', '', $meta);
+            }
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
@@ -117,6 +119,7 @@ try {
             
             // Update linked job_orders and trigger inventory deduction via JobOrderService
             if ($hasProductionJobs) {
+                $notified = false;
                 foreach ($jobs as $job) {
                     if ($orderBranchId > 0) {
                         db_execute(
@@ -136,7 +139,8 @@ try {
                         db_execute("UPDATE job_orders SET status = 'READY_TO_COLLECT' WHERE id = ?", 'i', [$job['id']]);
                     } else {
                         // Move service jobs to IN_PRODUCTION (triggers inventory deduction)
-                        JobOrderService::updateStatus($job['id'], 'IN_PRODUCTION');
+                        JobOrderService::updateStatus($job['id'], 'IN_PRODUCTION', null, '', $notified);
+                        $notified = true;
                     }
                 }
             }
@@ -162,11 +166,11 @@ try {
         
         // Clear proof so they can re-upload
         if ($staffBranchId !== null) {
-            $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ? AND branch_id = ?";
-            $success = db_execute($sql, 'sii', [$new_status, $order_id, $staffBranchId]);
+            $sql = "UPDATE orders SET status = ?, payment_proof = NULL, rejection_reason = ? WHERE order_id = ? AND branch_id = ?";
+            $success = db_execute($sql, 'ssii', [$new_status, $reason, $order_id, $staffBranchId]);
         } else {
-            $sql = "UPDATE orders SET status = ?, payment_proof = NULL WHERE order_id = ?";
-            $success = db_execute($sql, 'si', [$new_status, $order_id]);
+            $sql = "UPDATE orders SET status = ?, payment_proof = NULL, rejection_reason = ? WHERE order_id = ?";
+            $success = db_execute($sql, 'ssi', [$new_status, $reason, $order_id]);
         }
         
         if ($success) {
@@ -182,10 +186,10 @@ try {
                 'product_name' => $product_name,
                 'order_status' => $new_status,
                 'payment_status' => 'Rejected',
-                'rejection_reason' => $reason,
+                'reason' => $reason,
                 'step' => 'payment_rejected'
             ];
-            printflow_send_order_update($order_id, $msg, 'retry_payment', '', '', $meta);
+            printflow_send_order_update($order_id, 'payment_rejected', 'retry_payment', '', '', $meta);
             
             log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}. Reason: {$reason}");
             db_execute(

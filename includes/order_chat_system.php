@@ -23,7 +23,7 @@ function printflow_send_order_update($order_id, $message, $action_type = 'view_s
     if (!$order_id) return false;
 
     // Handle step name aliases (backward compatibility with legacy callers)
-    $known_steps = ['pending', 'approved', 'send_to_payment', 'payment_submitted', 'payment_verified', 'payment_rejected', 'in_production', 'ready_to_pickup', 'completed', 'cancelled', 'inquiry'];
+    $known_steps = ['pending', 'approved', 'send_to_payment', 'payment_submitted', 'payment_verified', 'payment_rejected', 'in_production', 'ready_to_pickup', 'completed', 'cancelled', 'inquiry', 'inquiry_rejected'];
     if (in_array($message, $known_steps) && function_exists('printflow_send_order_update_legacy')) {
         return printflow_send_order_update_legacy($order_id, $message, '', $meta);
     }

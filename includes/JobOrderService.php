@@ -511,7 +511,7 @@ class JobOrderService {
     /**
      * Set job order status and trigger logic.
      */
-    public static function updateStatus($orderId, $newStatus, $machineId = null, $reason = '') {
+    public static function updateStatus($orderId, $newStatus, $machineId = null, $reason = '', $silent = false) {
         global $conn;
         
         $order = db_query("SELECT * FROM job_orders WHERE id = ?", 'i', [$orderId]);
@@ -586,7 +586,7 @@ class JobOrderService {
             }
 
             // Send real-time notification to customer on every status change
-            if (!empty($order['customer_id'])) {
+            if (!$silent && !empty($order['customer_id'])) {
                 NotificationService::sendJobOrderNotification(
                     (int)$order['customer_id'],
                     $orderId,
@@ -597,7 +597,7 @@ class JobOrderService {
             }
 
             // Also send a chat update card if linked to a store order
-            if (!empty($order['order_id'])) {
+            if (!$silent && !empty($order['order_id'])) {
                 $step = strtolower((string)$newStatus);
                 // Map job status to notification steps
                 $step_map = [

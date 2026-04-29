@@ -198,6 +198,7 @@ if ($action === 'verify_payment') {
         // Move every linked job for this order into production so stale sibling
         // job rows do not remain in VERIFY_PAY and reappear in the dashboard.
         if ($should_move_to_production) {
+            $notified = false;
             foreach ($linkedJobRows as $linkedJobRow) {
                 $linkedJobId = (int)($linkedJobRow['id'] ?? 0);
                 if ($linkedJobId <= 0) continue;
@@ -214,7 +215,8 @@ if ($action === 'verify_payment') {
                     'sii',
                     [$new_payment_status, $user_id, $linkedJobId]
                 );
-                JobOrderService::updateStatus($linkedJobId, 'IN_PRODUCTION');
+                JobOrderService::updateStatus($linkedJobId, 'IN_PRODUCTION', null, '', $notified);
+                $notified = true;
             }
             if (!empty($job['order_id'])) {
                 db_execute(

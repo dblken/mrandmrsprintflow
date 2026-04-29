@@ -588,6 +588,7 @@ try {
                 'CANCELLED'     => 'Cancelled',
             ];
             $new_status = $status_to_db[$raw_status] ?? $raw_status;
+            $rejection_reason = sanitize($_POST['reason'] ?? '');
 
             // Check if payment proof already exists for this customization's order
             $order_check = db_query(
@@ -645,6 +646,9 @@ try {
             }
 
             db_execute('UPDATE customizations SET status = ?, updated_at = NOW() WHERE customization_id = ?', 'si', [$new_status, $cust_id]);
+            if ($new_status === 'Rejected' && !empty($rejection_reason)) {
+                db_execute('UPDATE customizations SET rejection_reason = ? WHERE customization_id = ?', 'si', [$rejection_reason, $cust_id]);
+            }
 
             if ($price !== null && $linked_order_id) {
                 db_execute('UPDATE orders SET total_amount = ? WHERE order_id = ?', 'di', [$price, $linked_order_id]);
@@ -660,10 +664,15 @@ try {
                     'Processing'           => 'Processing',
                     'Ready for Pickup'     => 'Ready for Pickup',
                     'Completed'            => 'Completed',
+                    'Rejected'             => 'Rejected',
                     'Cancelled'            => 'Cancelled',
                 ];
                 if (isset($order_status_sync[$new_status])) {
-                    db_execute('UPDATE orders SET status = ? WHERE order_id = ?', 'si', [$order_status_sync[$new_status], $linked_order_id]);
+                    if ($new_status === 'Rejected' && $rejection_reason !== '') {
+                        db_execute('UPDATE orders SET status = ?, rejection_reason = ? WHERE order_id = ?', 'ssi', [$order_status_sync[$new_status], $rejection_reason, $linked_order_id]);
+                    } else {
+                        db_execute('UPDATE orders SET status = ? WHERE order_id = ?', 'si', [$order_status_sync[$new_status], $linked_order_id]);
+                    }
                 }
             }
 
@@ -675,10 +684,15 @@ try {
                     'Processing'        => 'in_production',
                     'Ready for Pickup'  => 'ready_to_pickup',
                     'Completed'         => 'completed',
+                    'Rejected'          => 'inquiry_rejected',
                 ];
                 if (isset($chat_step_map[$new_status])) {
                     require_once __DIR__ . '/../includes/functions.php';
-                    printflow_send_order_update($linked_order_id, $chat_step_map[$new_status]);
+                    $additional_meta = [];
+                    if ($new_status === 'Rejected' && $rejection_reason !== '') {
+                        $additional_meta['reason'] = $rejection_reason;
+                    }
+                    printflow_send_order_update($linked_order_id, $chat_step_map[$new_status], 'view_status', '', '', $additional_meta);
                 }
             }
 

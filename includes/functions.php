@@ -3424,7 +3424,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
             'action_url'  => '',
         ],
         'payment_rejected' => [
-            'message'      => "Payment Rejected. The proof you uploaded was not accepted. Please re-upload your payment proof.",
+            'message'      => "Your payment proof was rejected. Reason: {reason}. Please resubmit your payment proof.",
             'message_type' => 'order_card',
             'button_label' => 'Upload Payment Again',
             'action_type' => 'retry_payment',
@@ -3433,8 +3433,15 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
         'in_production' => [
             'message'      => "Your payment has been approved. We will now proceed with processing your order.",
             'message_type' => 'order_update',
-            'action_type' => 'view_status',
-            'action_url'  => '',
+            'action_type'  => 'view_status',
+            'action_url'   => '',
+        ],
+        'inquiry_rejected' => [
+            'message'      => "Your inquiry has been reviewed and was not approved. Reason: {reason}. Please update your request and resubmit based on the feedback provided.",
+            'message_type' => 'order_card',
+            'button_label' => 'View Details',
+            'action_type'  => 'view_status',
+            'action_url'   => '',
         ],
         'ready_to_pickup' => [
             'message'      => "Order Ready! Your order is now ready for pickup. Thank you for choosing Mr. and Mrs. Print!",
@@ -3443,7 +3450,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'      => "Order Completed. Your order has been successfully picked up. We hope you are satisfied with our service! Feel free to share your feedback to help us improve even more.",
+            'message'      => "Order Completed. Your order has been successfully picked up. Thank you for choosing Mr. and Mrs. Print!",
             'message_type' => 'order_card',
             'button_label' => 'Leave a Review',
             'action_type' => 'rate',
@@ -3484,6 +3491,10 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
         $config['message'] = "Your order is now ready for payment. Please proceed to complete your transaction.";
     }
 
+    if (in_array($step, ['inquiry_rejected', 'payment_rejected']) && !empty($additional_meta['reason'])) {
+        $config['message'] = str_replace('{reason}', $additional_meta['reason'], $config['message']);
+    }
+
     $message      = $custom_text ?: $config['message'];
     $message_type = $config['message_type'] ?? 'text';
     $button_label = $config['button_label'] ?? '';
@@ -3497,6 +3508,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '',
         'payment_verified' => 'staff',
         'payment_rejected' => 'staff',
         'in_production' => 'staff',
+        'inquiry_rejected' => 'staff',
         'ready_to_pickup' => 'staff',
         'completed' => 'staff',
         'rate' => 'staff',
