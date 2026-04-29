@@ -237,6 +237,7 @@ $page_title = 'Products & Inventory - Staff';
             display: block;
             width: 100%;
             max-width: 150px;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -421,6 +422,8 @@ $page_title = 'Products & Inventory - Staff';
                 align-items: center;
                 justify-content: space-between;
                 min-height: 32px;
+                min-width: 0;
+                gap: 12px;
             }
             .products-table td::before {
                 content: attr(data-label);
@@ -431,6 +434,16 @@ $page_title = 'Products & Inventory - Staff';
                 margin-right: 12px;
                 flex-shrink: 0;
                 width: 80px;
+            }
+            .products-table td[data-label="Name"],
+            .products-table td[data-label="Category"] {
+                justify-content: flex-start;
+            }
+            .products-table td[data-label="Name"] > .truncate-ellipsis,
+            .products-table td[data-label="Category"] > .truncate-ellipsis {
+                flex: 1 1 auto;
+                min-width: 0;
+                max-width: calc(100% - 92px);
             }
             .products-table td:last-child {
                 border-top: 1px solid #f1f5f9;
