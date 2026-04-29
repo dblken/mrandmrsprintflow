@@ -265,12 +265,17 @@ $page_title = 'My Profile - Staff';
 @media (max-width: 992px) {
     .profile-grid-main { grid-template-columns: 1fr; gap: 2rem; }
     .profile-container { padding: 1.5rem; }
+    .profile-sidebar-wrap {
+        position: static;
+        top: auto;
+    }
 }
 
 /* ─ SIDEBAR (LEFT SIDE) ─ */
 .profile-sidebar-wrap {
     position: sticky;
     top: 20px;
+    align-self: start;
 }
 .profile-sidebar-content {
     text-align: center;
