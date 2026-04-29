@@ -374,11 +374,11 @@ try {
             color: white;
             text-align: center;
             line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
             overflow: hidden;
-            word-break: break-word;
+            text-overflow: ellipsis;
+            width: 100%;
+            display: block;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
         }
 
@@ -536,8 +536,9 @@ try {
             color: #1e293b;
             margin-bottom: 4px;
             line-height: 1.2;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .pos-item-price {
@@ -832,6 +833,10 @@ try {
         .select2-container--default .select2-selection--single .select2-selection__rendered {
             line-height: 28px;
             color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
         }
 
         .select2-container--default .select2-selection--single .select2-selection__arrow {
@@ -2420,7 +2425,7 @@ try {
                             if (val) parts.push(`${key}: ${val}`);
                         }
                         if (parts.length > 0) {
-                            customHtml = `<div style="font-size:11px; color:#64748b; margin-top:2px; line-height:1.2; word-break:break-word; max-height: 48px; overflow-y: auto;">${parts.join(' | ')}</div>`;
+                            customHtml = `<div style="font-size:11px; color:#64748b; margin-top:2px; line-height:1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${parts.join(' | ')}</div>`;
                         }
                     }
 
