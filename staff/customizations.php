@@ -1785,7 +1785,6 @@ if ($showLatestCustomizationOnly) {
                             <div x-show="isPendingReviewStatus(currentJo) && !isVerifyStageRow(currentJo)" style="display:flex; gap:8px;">
                                 <button type="button" @click="jobAction('APPROVED')" :disabled="actionBusy" class="pf-entry-btn pf-entry-in" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Approve to Set Price</button>
                                 <button type="button" @click="openRevisionModal()" :disabled="actionBusy" class="pf-entry-btn pf-entry-out" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Request Revision</button>
-                                <button type="button" @click="openRejectInquiryModal()" :disabled="actionBusy" class="pf-entry-btn" style="background:#dc2626; color:white; border:none; padding:8px 16px; border-radius:8px; font-weight:600; cursor:pointer;" :style="actionBusy ? 'opacity:.6;cursor:not-allowed;' : ''">Reject Inquiry</button>
                             </div>
                             <div x-show="currentJo.status === 'APPROVED'" style="display:flex; gap:8px;">
                                 <button type="button" @click="submitToPay()" :disabled="actionBusy || approvalStockErrors.length > 0" class="pf-entry-btn pf-entry-in" :style="(actionBusy || approvalStockErrors.length > 0) ? 'opacity:.6;cursor:not-allowed;' : ''">Confirm Approval &amp; Send to Payment</button>
@@ -1863,52 +1862,6 @@ if ($showLatestCustomizationOnly) {
         </div>
     </template>
 
-    <!-- REJECT INQUIRY MODAL -->
-    <template x-if="showRejectInquiryModal">
-        <div>
-            <!-- Backdrop -->
-            <div x-show="showRejectInquiryModal" x-cloak
-                 style="position:fixed; inset:0; z-index:10001; background:transparent;"
-                 @click="closeRejectInquiryModal()"></div>
-            <!-- Modal Panel -->
-            <div x-show="showRejectInquiryModal" x-cloak
-                 style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10002;
-                        width:calc(100% - 32px); max-width:420px;
-                        background:white; border-radius:16px;
-                        box-shadow:0 25px 50px -12px rgba(0,0,0,0.35);
-                        border:1px solid #fee2e2; overflow:hidden;">
-                <!-- Header -->
-                <div style="padding:16px 20px; border-bottom:1px solid #fee2e2; background:#fef2f2; display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0; font-size:16px; font-weight:700; color:#b91c1c;">Reject Inquiry</h3>
-                    <button @click="closeRejectInquiryModal()" style="background:none; border:none; color:#f87171; cursor:pointer;">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <!-- Body -->
-                <div style="padding:20px;">
-                    <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">Reason for Rejection</label>
-                    <select x-model="rejectInquiryReasonSelect" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; margin-bottom:16px; outline:none;" onfocus="this.style.borderColor='#f87171'" onblur="this.style.borderColor='#d1d5db'">
-                        <option value="">-- Select a reason --</option>
-                        <option value="Duplicate Request">Duplicate Request</option>
-                        <option value="Spam / Invalid Content">Spam / Invalid Content</option>
-                        <option value="Outside Service Scope">Outside Service Scope</option>
-                        <option value="Incomplete details for pricing">Incomplete details for pricing</option>
-                        <option value="Others">Others</option>
-                    </select>
-                    <div x-show="rejectInquiryReasonSelect === 'Others'" style="transition:all 0.2s;">
-                        <label style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">Please specify</label>
-                        <textarea x-model="rejectInquiryReasonText" rows="3" placeholder="Enter custom reason..." style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; resize:vertical; outline:none; box-sizing:border-box;" onfocus="this.style.borderColor='#f87171'" onblur="this.style.borderColor='#d1d5db'"></textarea>
-                    </div>
-                    <div x-show="rejectInquiryModalError" x-cloak style="margin-top:12px; font-size:12px; color:#dc2626; font-weight:600;" x-text="rejectInquiryModalError"></div>
-                </div>
-                <!-- Footer -->
-                <div style="padding:16px 20px; border-top:1px solid #fee2e2; background:#f9fafb; display:flex; justify-content:flex-end; gap:12px;">
-                    <button @click="closeRejectInquiryModal()" class="btn-secondary" style="padding:8px 16px; border-radius:8px; font-weight:600;">Cancel</button>
-                    <button @click="submitRejectInquiry()" class="btn-primary" style="padding:8px 20px; border-radius:8px; font-weight:600; background:#dc2626; border-color:#dc2626;" :disabled="actionBusy">Reject Inquiry</button>
-                </div>
-            </div>
-        </div>
-    </template>
 
     <!-- REJECT PAYMENT MODAL -->
     <template x-if="showRejectPaymentModal">
@@ -2041,10 +1994,6 @@ window.pfCustomizationPreloadedOrders = (() => {
             rejectPaymentReasonSelect: '',
             rejectPaymentReasonText: '',
             rejectPaymentModalError: '',
-            showRejectInquiryModal: false,
-            rejectInquiryReasonSelect: '',
-            rejectInquiryReasonText: '',
-            rejectInquiryModalError: '',
             previewFile: null,
             currentJo: {},
             availableRolls: {},
@@ -3524,65 +3473,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.showStaffAlert('Success', 'Payment verified. Materials deducted and production started.');
                     } else {
                         this.showStaffAlert('Verification Failed', res.error || 'Verification failed.');
-                    }
-                } finally {
-                    this.endModalAction();
-                }
-            },
-            openRejectInquiryModal() {
-                this.rejectInquiryReasonSelect = '';
-                this.rejectInquiryReasonText = '';
-                this.rejectInquiryModalError = '';
-                this.showRejectInquiryModal = true;
-            },
-
-            closeRejectInquiryModal() {
-                this.rejectInquiryModalError = '';
-                this.showRejectInquiryModal = false;
-            },
-
-            async submitRejectInquiry() {
-                const finalReason = this.rejectInquiryReasonSelect === 'Others' ? this.rejectInquiryReasonText : this.rejectInquiryReasonSelect;
-                if (!finalReason) {
-                    this.rejectInquiryModalError = 'Please select or specify a reason for rejection.';
-                    return;
-                }
-                this.rejectInquiryModalError = '';
-                this.closeRejectInquiryModal();
-                await this.rejectInquiry(finalReason);
-            },
-
-            async rejectInquiry(reason) {
-                if (!reason) return;
-                if (!this.beginModalAction()) return;
-                try {
-                    const fd = new FormData();
-                    fd.append('action', 'update_customization');
-                    fd.append('id', this.currentJo.id);
-                    fd.append('status', 'Rejected');
-                    fd.append('reason', reason);
-
-                    const r = await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fd });
-                    const res = await this.parseJsonResponse(r);
-
-                    if (res.success) {
-                        this.activeStatus = 'REJECTED';
-                        await this.loadOrders();
-                        this.currentJo.status = 'Rejected';
-                        const currentOrderId = this.currentJo.order_id ?? null;
-                        this.orders = this.orders.map(o => (
-                            (
-                                (this.sameId(o.id, this.currentJo.id) && (o.order_type || 'JOB') === (this.currentJo.order_type || 'JOB')) ||
-                                (currentOrderId != null && this.sameId(o.order_id, currentOrderId))
-                            )
-                                ? { ...o, status: 'Rejected', updated_at: new Date().toISOString(), _ts: Date.now() }
-                                : o
-                        ));
-                        this.bumpOrdersVersion();
-                        this.showDetailsModal = false;
-                        this.showStaffAlert('Success', 'Inquiry has been rejected and customer has been notified.');
-                    } else {
-                        this.showStaffAlert('Rejection Failed', res.error || 'Rejection failed.');
                     }
                 } finally {
                     this.endModalAction();

@@ -684,14 +684,10 @@ try {
                     'Processing'        => 'in_production',
                     'Ready for Pickup'  => 'ready_to_pickup',
                     'Completed'         => 'completed',
-                    'Rejected'          => 'inquiry_rejected',
                 ];
                 if (isset($chat_step_map[$new_status])) {
                     require_once __DIR__ . '/../includes/functions.php';
                     $additional_meta = [];
-                    if ($new_status === 'Rejected' && $rejection_reason !== '') {
-                        $additional_meta['reason'] = $rejection_reason;
-                    }
                     printflow_send_order_update($linked_order_id, $chat_step_map[$new_status], 'view_status', '', '', $additional_meta);
                 }
             }
