@@ -490,17 +490,17 @@ $current_user = get_logged_in_user();
         .msg-action-bar {
             opacity: 0; pointer-events: none;
             display: flex; align-items: center; gap: 4px;
-            padding: 2px 6px; border-radius: 999px;
+            padding: 4px 6px; border-radius: 999px;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             border: 1px solid #e2e8f0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            transition: opacity 0.2s, transform 0.2s, left 0.2s, right 0.2s, top 0.2s;
+            transition: opacity 0.15s ease;
             position: absolute; top: 50%; transform: translateY(-50%);
             z-index: 50;
         }
-        .bubble-row.other .msg-action-bar { left: calc(100% + 12px); }
-        .bubble-row.self .msg-action-bar { right: calc(100% + 12px); flex-direction: row-reverse; }
+        .bubble-row.other .msg-action-bar { left: calc(100% + 8px); }
+        .bubble-row.self .msg-action-bar { right: calc(100% + 8px); flex-direction: row-reverse; }
 
         .m-action-btn {
             width: 32px; height: 32px;
@@ -798,26 +798,20 @@ $current_user = get_logged_in_user();
             .msg-action-bar {
                 position: fixed;
                 top: 0;
+                left: 0;
                 transform: translateY(-50%);
                 margin: 0;
                 opacity: 0;
                 pointer-events: none;
+                display: none;
                 flex-wrap: nowrap;
                 z-index: 1300;
-                padding: 2px 4px;
-                gap: 2px;
-                left: 12px;
-                right: auto;
-            }
-            .bubble-row.other .msg-action-bar {
-                left: 12px;
-                right: auto;
-            }
-            .bubble-row.self .msg-action-bar {
-                right: 12px;
-                left: auto;
+                padding: 4px 6px;
+                gap: 4px;
+                transition: opacity 0.15s ease;
             }
             .bubble-row.has-active-menu .msg-action-bar {
+                display: flex;
                 opacity: 1;
                 pointer-events: auto;
             }
@@ -2416,28 +2410,54 @@ function toggleMoreMenu(msgId, e, triggerEl) {
 function positionMobileActionBar(row) {
     if (!row || !window.matchMedia('(max-width: 1023px)').matches) return;
     const actionBar = row.querySelector('.msg-action-bar');
-    const bubble = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble.staff');
+    const bubble = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
     if (!actionBar || !bubble) return;
 
     const bubbleRect = bubble.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+    const messagesArea = document.getElementById('messagesArea');
+    const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight };
+    
+    // Temporarily show to measure
+    actionBar.style.display = 'flex';
+    actionBar.style.visibility = 'hidden';
+    actionBar.style.opacity = '0';
     const actionRect = actionBar.getBoundingClientRect();
     const actionWidth = actionRect.width || 116;
     const actionHeight = actionRect.height || 38;
+    
     const rowIsSelf = row.classList.contains('self');
-    const gap = 10;
+    const gap = 8;
 
+    // Calculate vertical position - center on bubble
     let top = bubbleRect.top + (bubbleRect.height / 2);
-    top = Math.max((actionHeight / 2) + 12, Math.min(top, viewportHeight - (actionHeight / 2) - 12));
+    
+    // Keep within messages area bounds
+    const minTop = messagesRect.top + (actionHeight / 2) + 8;
+    const maxTop = messagesRect.bottom - (actionHeight / 2) - 8;
+    top = Math.max(minTop, Math.min(top, maxTop));
 
+    // Calculate horizontal position based on message side
     if (rowIsSelf) {
-        const right = Math.max(12, viewportWidth - bubbleRect.left + gap);
-        actionBar.style.left = 'auto';
-        actionBar.style.right = `${right}px`;
+        // Staff message (right side) - show actions on left of bubble
+        const left = bubbleRect.left - actionWidth - gap;
+        if (left < 12) {
+            // Not enough space on left, show on right
+            actionBar.style.left = `${Math.min(bubbleRect.right + gap, viewportWidth - actionWidth - 12)}px`;
+        } else {
+            actionBar.style.left = `${left}px`;
+        }
+        actionBar.style.right = 'auto';
     } else {
-        const left = Math.min(viewportWidth - actionWidth - 12, bubbleRect.right + gap);
-        actionBar.style.left = `${Math.max(12, left)}px`;
+        // Customer message (left side) - show actions on right of bubble
+        const left = bubbleRect.right + gap;
+        if (left + actionWidth > viewportWidth - 12) {
+            // Not enough space on right, show on left
+            actionBar.style.left = `${Math.max(12, bubbleRect.left - actionWidth - gap)}px`;
+        } else {
+            actionBar.style.left = `${left}px`;
+        }
         actionBar.style.right = 'auto';
     }
 
@@ -2451,68 +2471,82 @@ function positionMobileActionBar(row) {
 
 function setActiveMessageRow(row) {
     if (!row) return;
+    const wasActive = row.classList.contains('has-active-menu');
     document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
-    row.classList.add('has-active-menu');
-    requestAnimationFrame(() => positionMobileActionBar(row));
+    
+    if (!wasActive) {
+        row.classList.add('has-active-menu');
+        requestAnimationFrame(() => positionMobileActionBar(row));
+    }
 }
 
-        function positionFloatingMenu(menu, trigger, options = {}) {
-            if (!menu || !trigger) return;
-            const gap = options.gap ?? 10;
-            const preferred = options.preferred || 'bottom';
+function positionFloatingMenu(menu, trigger, options = {}) {
+    if (!menu || !trigger) return;
+    const gap = options.gap ?? 8;
+    const preferred = options.preferred || 'bottom';
 
-            // Ensure the menu is measurable even when hidden: temporarily force visible (but keep it invisible to user)
-            const prevDisplay = menu.style.display;
-            const prevVisibility = menu.style.visibility;
-            // Reparent menu to body to avoid clipping by transform/overflow parents
-            reparentMenuToBody(menu);
-            menu.style.display = 'block';
-            menu.style.visibility = 'hidden';
+    // Temporarily show to measure
+    const prevDisplay = menu.style.display;
+    const prevVisibility = menu.style.visibility;
+    reparentMenuToBody(menu);
+    menu.style.display = 'block';
+    menu.style.visibility = 'hidden';
+    menu.style.opacity = '0';
 
-            const triggerRect = trigger.getBoundingClientRect();
-            const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble, .order-update-bubble.staff');
-            const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
-            const menuRect = menu.getBoundingClientRect();
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
+    const triggerRect = trigger.getBoundingClientRect();
+    const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
+    const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const messagesArea = document.getElementById('messagesArea');
+    const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight, left: 0, right: viewportWidth };
 
-            const menuHeight = menuRect.height || 56;
-            const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
+    const menuHeight = menuRect.height || 56;
+    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
 
-            // Prefer opening above/below based on available space and preference
-            const spaceAbove = anchorRect.top;
-            const spaceBelow = viewportHeight - anchorRect.bottom;
-            const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
-            const top = shouldOpenAbove
-                ? Math.max(12, anchorRect.top - menuHeight - gap)
-                : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
+    // Determine vertical position - prefer above for reaction picker, below for more menu
+    const spaceAbove = anchorRect.top - messagesRect.top;
+    const spaceBelow = messagesRect.bottom - anchorRect.bottom;
+    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    
+    let top;
+    if (shouldOpenAbove) {
+        top = Math.max(messagesRect.top + 8, anchorRect.top - menuHeight - gap);
+    } else {
+        top = Math.min(messagesRect.bottom - menuHeight - 8, anchorRect.bottom + gap);
+    }
 
-            // Align horizontally based on message side (self => align to right side, other => align to left)
-            const row = trigger.closest('.bubble-row');
-            const alignRight = row ? row.classList.contains('self') : false;
-            let left;
-            if (alignRight) {
-                // try to align to the right edge of anchor
-                left = anchorRect.right - menuWidth + 8;
-            } else {
-                // align to left edge with slight offset
-                left = anchorRect.left - 8;
-            }
-            // Clamp within viewport with padding
-            left = Math.max(12, Math.min(left, viewportWidth - menuWidth - 12));
+    // Horizontal alignment based on message side
+    const row = trigger.closest('.bubble-row');
+    const alignRight = row ? row.classList.contains('self') : false;
+    let left;
+    
+    if (alignRight) {
+        // Align to right edge of bubble
+        left = anchorRect.right - menuWidth;
+    } else {
+        // Align to left edge of bubble
+        left = anchorRect.left;
+    }
+    
+    // Keep within viewport bounds
+    left = Math.max(messagesRect.left + 12, Math.min(left, messagesRect.right - menuWidth - 12));
 
-            // Apply fixed positioning so menus are not clipped by parent containers
-            menu.style.position = 'fixed';
-            menu.style.left = `${left}px`;
-            menu.style.top = `${top}px`;
-            menu.style.width = `${menuWidth}px`;
-            menu.style.transform = 'none';
-            menu.style.visibility = 'visible';
+    // Apply positioning
+    menu.style.position = 'fixed';
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.width = `${menuWidth}px`;
+    menu.style.transform = 'none';
+    menu.style.right = 'auto';
+    menu.style.bottom = 'auto';
+    menu.style.visibility = 'visible';
+    menu.style.opacity = '1';
 
-            // restore original display if it was empty (we left it visible so `active` class controls final display)
-            if (!prevDisplay) menu.style.display = '';
-            else menu.style.display = prevDisplay;
-            menu.style.visibility = prevVisibility;
+    if (!prevDisplay) menu.style.display = '';
+    else menu.style.display = prevDisplay;
+    menu.style.visibility = prevVisibility;
 }
 
 // Move menu DOM node to document.body to avoid being clipped by parent stacking contexts
@@ -2555,34 +2589,16 @@ function restoreReparentedMenus() {
 function closeAllMenus() {
     document.querySelectorAll('.reaction-picker').forEach(p => {
         p.classList.remove('active');
-        p.style.left = '';
-        p.style.right = '';
-        p.style.top = '';
-        p.style.bottom = '';
-        p.style.transform = '';
-        p.style.visibility = '';
+        p.style.cssText = '';
     });
     document.querySelectorAll('.m-more-menu').forEach(m => {
         m.classList.remove('active');
-        m.style.left = '';
-        m.style.right = '';
-        m.style.top = '';
-        m.style.bottom = '';
-        m.style.transform = '';
-        m.style.visibility = '';
+        m.style.cssText = '';
     });
     document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
     document.querySelectorAll('.msg-action-bar').forEach(bar => {
-        bar.style.left = '';
-        bar.style.right = '';
-        bar.style.top = '';
-        bar.style.bottom = '';
-        bar.style.transform = '';
-        bar.style.visibility = '';
-        bar.style.opacity = '';
-        bar.style.pointerEvents = '';
+        bar.style.cssText = '';
     });
-    // If menus were moved to body to avoid clipping, put them back
     restoreReparentedMenus();
 }
 
