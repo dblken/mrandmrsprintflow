@@ -737,6 +737,16 @@ try {
             justify-content: center;
             gap: 8px;
             position: relative;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .service-btn span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+            display: block;
         }
 
         .service-btn:hover {
@@ -1086,8 +1096,9 @@ try {
                                     <?php foreach ($pos_services as $svc): ?>
                                         <button type="button" class="service-btn"
                                             onclick="openServiceModal(<?php echo (int) $svc['service_id']; ?>, '<?php echo addslashes($svc['name']); ?>'); setActiveService(this)"
-                                            data-service="<?php echo htmlspecialchars($svc['name']); ?>">
-                                            <?php echo htmlspecialchars($svc['name']); ?>
+                                            data-service="<?php echo htmlspecialchars($svc['name']); ?>"
+                                            title="<?php echo htmlspecialchars($svc['name']); ?>">
+                                            <span><?php echo htmlspecialchars($svc['name']); ?></span>
                                         </button>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
