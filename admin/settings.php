@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/runtime_config.php';
 
 require_role('Admin');
 // Ensure $base_path is defined
@@ -43,44 +44,14 @@ $store_img_dir = __DIR__ . '/../uploads/';
 if (!is_dir($qr_dir)) mkdir($qr_dir, 0755, true);
 if (!is_dir($store_img_dir)) mkdir($store_img_dir, 0755, true);
 
-// Helper: load json config
-function load_cfg($path) {
-    return file_exists($path) ? (json_decode(file_get_contents($path), true) ?: []) : [];
-}
-function save_cfg($path, $data) {
-    $dir = dirname($path);
-    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-        return false;
-    }
-
-    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    if ($json === false) {
-        error_log('Failed to encode settings JSON for ' . $path . ': ' . json_last_error_msg());
-        return false;
-    }
-
-    $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false) {
-        error_log('Failed to write temp settings file: ' . $tmp);
-        return false;
-    }
-
-    if (!rename($tmp, $path)) {
-        @unlink($tmp);
-        error_log('Failed to replace settings file: ' . $path);
-        return false;
-    }
-
-    return true;
-}
 function cfg_text($input) {
     return trim(str_replace(["\r\n", "\r"], "\n", (string)$input));
 }
 
-$payment_cfg = load_cfg($qr_dir . 'payment_methods.json');
-$shop_cfg   = load_cfg($logo_dir . 'shop_config.json');
-$footer_cfg = load_cfg($logo_dir . 'footer_config.json');
-$about_cfg  = load_cfg($logo_dir . 'about_config.json');
+$payment_cfg = printflow_load_runtime_config('payment_methods', $qr_dir . 'payment_methods.json');
+$shop_cfg   = printflow_load_runtime_config('shop', $logo_dir . 'shop_config.json');
+$footer_cfg = printflow_load_runtime_config('footer', $logo_dir . 'footer_config.json');
+$about_cfg  = printflow_load_runtime_config('about', $logo_dir . 'about_config.json');
 
 // Load branches for address selector
 $branches = db_query("SELECT id, branch_name AS name FROM branches ORDER BY branch_name") ?: [];
@@ -142,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 ];
             }
         }
-        if (save_cfg($qr_dir . 'payment_methods.json', $pm_cfg)) {
+        if (printflow_save_runtime_config('payment_methods', $pm_cfg)) {
             settings_redirect_after_save('payment_methods');
         } else {
             $error = 'Payment methods could not be saved. Please try again.';
@@ -173,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 $error = 'Invalid store image type. Use JPG, PNG, or WebP.';
             }
         }
-        if ($error === '' && save_cfg($logo_dir . 'shop_config.json', $shop_cfg)) {
+        if ($error === '' && printflow_save_runtime_config('shop', $shop_cfg)) {
             settings_redirect_after_save('general');
         } elseif ($error === '') {
             $error = 'General settings could not be saved. Please try again.';
@@ -213,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         }
         $footer_cfg['social_links'] = $socials;
 
-        if (save_cfg($logo_dir . 'footer_config.json', $footer_cfg)) {
+        if (printflow_save_runtime_config('footer', $footer_cfg)) {
             settings_redirect_after_save('footer');
         } else {
             $error = 'Footer info could not be saved. Please try again.';
@@ -265,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             'values'        => $values,
             'team_members'  => $team,
         ];
-        if (save_cfg($logo_dir . 'about_config.json', $about_cfg)) {
+        if (printflow_save_runtime_config('about', $about_cfg)) {
             settings_redirect_after_save('about');
         } else {
             $error = 'About page content could not be saved. Please try again.';

@@ -5,6 +5,7 @@
 if (!function_exists('is_logged_in') && file_exists(__DIR__ . '/auth.php')) {
     require_once __DIR__ . '/auth.php';
 }
+require_once __DIR__ . '/runtime_config.php';
 if (!isset($is_logged_in) && function_exists('is_logged_in')) {
     $is_logged_in = is_logged_in();
 } elseif (!isset($is_logged_in)) {
@@ -32,8 +33,8 @@ $_ft_show_footer = !$_ft_is_logged_in_customer
 // Load configs for the footer
 $_ft_shop_path   = __DIR__ . '/../public/assets/uploads/shop_config.json';
 $_ft_footer_path = __DIR__ . '/../public/assets/uploads/footer_config.json';
-$_ft_shop   = file_exists($_ft_shop_path)   ? (json_decode(file_get_contents($_ft_shop_path),   true) ?: []) : [];
-$_ft_footer = file_exists($_ft_footer_path) ? (json_decode(file_get_contents($_ft_footer_path), true) ?: []) : [];
+$_ft_shop   = printflow_load_runtime_config('shop', $_ft_shop_path);
+$_ft_footer = printflow_load_runtime_config('footer', $_ft_footer_path);
 
 $_ft_name            = !empty($_ft_shop['name'])               ? htmlspecialchars($_ft_shop['name'])          : 'PrintFlow';
 $_ft_tagline         = !empty($_ft_footer['tagline'])          ? $_ft_footer['tagline']                       : 'Your trusted printing partner.';

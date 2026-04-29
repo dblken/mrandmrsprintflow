@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
+require_once __DIR__ . '/../includes/runtime_config.php';
 
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
@@ -582,7 +583,7 @@ if (!function_exists('pf_payment_qr_url')) {
                         <?php 
                         $qr_dir = __DIR__ . '/../public/assets/uploads/qr/';
                         $payment_cfg_path = $qr_dir . 'payment_methods.json';
-                        $payment_methods = file_exists($payment_cfg_path) ? json_decode(file_get_contents($payment_cfg_path), true) : [];
+                        $payment_methods = printflow_load_runtime_config('payment_methods', $payment_cfg_path);
                         $all_enabled = array_filter($payment_methods ?: [], function($m) { return !empty($m['enabled']); });
 
                         // Only keep GCash in the UI to remove PayMaya/Maya options here
