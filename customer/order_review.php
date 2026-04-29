@@ -1276,8 +1276,9 @@ require_once __DIR__ . '/../includes/header.php';
         }
         .review-order-item .order-item-spec-grid {
             grid-template-columns: 1fr !important;
-            gap: 0.95rem !important;
-            padding-inline: 0.35rem !important;
+            row-gap: 1.1rem !important;
+            column-gap: 0 !important;
+            padding-inline: 0.5rem !important;
         }
         .review-order-item .order-item-specs {
             padding: 1rem 0.85rem 1.1rem !important;
@@ -1287,16 +1288,25 @@ require_once __DIR__ . '/../includes/header.php';
             padding-bottom: 0.75rem !important;
         }
         .review-order-item .order-item-spec-tile {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
             padding: 1rem 1.1rem !important;
+            min-height: 4.75rem !important;
             border-radius: 12px !important;
             background: rgba(255, 255, 255, 0.05) !important;
+            margin: 0 !important;
         }
         .review-order-item .order-item-spec-tile > div:first-child {
-            margin-bottom: 0.35rem !important;
+            margin-bottom: 0.45rem !important;
             line-height: 1.35 !important;
+            padding-right: 0.35rem !important;
         }
         .review-order-item .order-item-spec-tile > div:last-child {
             line-height: 1.45 !important;
+            padding-right: 0.35rem !important;
         }
         .review-total-banner-row {
             flex-direction: column !important;
