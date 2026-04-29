@@ -537,7 +537,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
             
             <div class="order-item-content" style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
                 <h3 style="font-size: 0.95rem; line-height: 1.3rem; font-weight: 600; color: #ffffff !important; margin: 0 0 0.3rem 0; word-wrap: break-word;"><?php echo pf_order_ui_escape($name); ?></h3>
-                <div style="display: inline-flex; font-size: 0.72rem; font-weight: 700; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 20px; background: rgba(83, 197, 224, 0.12); border: 1px solid rgba(83, 197, 224, 0.18); margin-bottom: 1.25rem; align-self: flex-start;">
+                <div class="order-item-category-badge" style="display: inline-flex; font-size: 0.72rem; font-weight: 700; color: #53c5e0; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 10px; border-radius: 20px; background: rgba(83, 197, 224, 0.12); border: 1px solid rgba(83, 197, 224, 0.18); margin-bottom: 1.25rem; align-self: flex-start;">
                     <?php echo pf_order_ui_escape($category); ?>
                 </div>
                 
@@ -565,13 +565,13 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
         </div>
 
         <!-- Specifications -->
-        <div style="padding: 1.25rem; background: transparent;">
+        <div class="order-item-specs" style="padding: 1.25rem; background: transparent;">
             <h4 style="font-size: 0.85rem; font-weight: 800; color: #eaf6fb; margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(83, 197, 224, 0.12); padding-bottom: 0.5rem;">
                 <svg style="width: 16px; height: 16px; color: #53c5e0;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 Order Specifications
             </h4>
             
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.85rem;">
+            <div class="review-spec-grid order-item-spec-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.85rem;">
                 <?php 
                 $has_specs = false;
                 foreach ($custom as $ck => $cv): 
@@ -580,7 +580,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', (string)$ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
-                    <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s;">
+                    <div class="review-spec-tile order-item-spec-tile" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s;">
                         <div style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em;"><?php echo pf_order_ui_escape($label); ?></div>
                         <div style="font-size: 0.95rem; font-weight: 700; color: #eaf6fb; overflow-wrap: break-word; word-break: break-word;"><?php echo pf_order_ui_escape($display_val); ?></div>
                     </div>
