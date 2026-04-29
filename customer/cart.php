@@ -1256,11 +1256,13 @@ function recalculateTotal() {
     let subtotal = 0;
     let hasProduct = false;
     let hasService = false;
+    let selectedCount = 0;
     
     const rows = document.querySelectorAll('.cart-row');
     rows.forEach(row => {
         const checkbox = row.querySelector('.item-checkbox');
         if (checkbox.checked) {
+            selectedCount += 1;
             const isCustom = row.dataset.custom === '1';
             const itemOrigin = (row.dataset.itemOrigin || '').trim();
             
@@ -1294,8 +1296,14 @@ function recalculateTotal() {
             checkoutBtn.style.pointerEvents = 'none';
             checkoutBtn.style.cursor = 'not-allowed';
             if (mixedWarning) mixedWarning.style.display = 'flex';
-        } else if (subtotal <= 0) {
-            // Disable if no priced items selected
+        } else if (selectedCount === 0) {
+            // Disable if no items are selected
+            checkoutBtn.style.opacity = '0.5';
+            checkoutBtn.style.pointerEvents = 'none';
+            checkoutBtn.style.cursor = 'not-allowed';
+            if (mixedWarning) mixedWarning.style.display = 'none';
+        } else if (subtotal <= 0 && !hasService) {
+            // Disable only if the selection has no payable products and no services to inquire about
             checkoutBtn.style.opacity = '0.5';
             checkoutBtn.style.pointerEvents = 'none';
             checkoutBtn.style.cursor = 'not-allowed';
