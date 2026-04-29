@@ -821,9 +821,9 @@ $current_user = get_logged_in_user();
                 position: fixed;
                 left: 50%;
                 right: auto;
-                top: auto;
+                top: 50%;
                 bottom: auto;
-                transform: translateX(-50%) !important;
+                transform: translate(-50%, -50%) !important;
                 margin: 0;
                 padding: 10px 12px;
                 gap: 8px;
@@ -835,6 +835,7 @@ $current_user = get_logged_in_user();
                 overflow-y: hidden;
                 border-radius: 22px;
                 -webkit-overflow-scrolling: touch;
+                z-index: 1200;
             }
             .bubble-row.self .reaction-picker {
                 left: 50%;
@@ -844,15 +845,16 @@ $current_user = get_logged_in_user();
                 position: fixed;
                 left: 50%;
                 right: auto;
-                top: auto;
+                top: 50%;
                 bottom: auto;
-                transform: translateX(-50%) !important;
+                transform: translate(-50%, -50%) !important;
                 width: min(190px, calc(100vw - 32px));
                 max-width: calc(100vw - 32px);
                 border-radius: 18px;
                 padding: 8px 0;
                 margin-top: 0;
                 box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16);
+                z-index: 1200;
             }
             .m-menu-item {
                 min-height: 44px;
@@ -2411,24 +2413,15 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     menu.style.position = 'fixed';
     menu.style.left = '50%';
     menu.style.right = 'auto';
-    menu.style.top = '0';
+    menu.style.top = '50%';
     menu.style.bottom = 'auto';
-    menu.style.transform = 'translateX(-50%)';
+    menu.style.transform = 'translate(-50%, -50%)';
     menu.style.visibility = 'hidden';
 
-    const triggerRect = trigger.getBoundingClientRect();
     const menuRect = menu.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
     const menuHeight = menuRect.height || 56;
-
-    const spaceAbove = triggerRect.top;
-    const spaceBelow = viewportHeight - triggerRect.bottom;
-    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
-    const top = shouldOpenAbove
-        ? Math.max(12, triggerRect.top - menuHeight - gap)
-        : Math.min(viewportHeight - menuHeight - 12, triggerRect.bottom + gap);
+    const top = Math.max(16, Math.min((viewportHeight / 2) - (menuHeight / 2), viewportHeight - menuHeight - 16));
 
     menu.style.left = '50%';
     menu.style.top = `${top}px`;
