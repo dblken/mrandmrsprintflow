@@ -430,6 +430,10 @@ $page_title = 'Review Management - Staff';
             font-size: 13px;
             outline: none;
             transition: border-color 0.2s;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
         }
 
         .rv-input:focus,
@@ -949,6 +953,7 @@ $page_title = 'Review Management - Staff';
             margin-top: 0;
             padding-top: 0;
             border-top: 0;
+            width: 100%;
         }
 
         .reply-compose .reply-input-wrap {
@@ -1066,6 +1071,16 @@ $page_title = 'Review Management - Staff';
                 flex: 1 1 auto;
                 min-width: 0;
                 width: 100%;
+            }
+            
+            .reply-form,
+            .reply-input-wrap,
+            .rv-select,
+            .reply-textarea,
+            .reply-submit {
+                width: 100%;
+                max-width: 100%;
+                min-width: 0;
             }
 
             .reviews-table-head {
@@ -1386,9 +1401,9 @@ $page_title = 'Review Management - Staff';
                                             <div class="reply-compose">
                                                 <div class="reply-form">
                                                     <select class="rv-select" style="width: 100%; font-size: 12px;" onchange="applyQuickReply(this, <?php echo $review['id']; ?>)">
-                                                        <option value="">Quick Reply Suggestions...</option>
-                                                        <option value="Thank you! We're happy to hear you're satisfied with your order.">Positive Feedback</option>
-                                                        <option value="We apologize for the inconvenience. Please contact us so we can resolve this.">Negative Feedback</option>
+                                                        <option value="">Quick reply</option>
+                                                        <option value="Thank you! We're happy to hear you're satisfied with your order.">Positive</option>
+                                                        <option value="We apologize for the inconvenience. Please contact us so we can resolve this.">Negative</option>
                                                     </select>
                                                     <div class="reply-input-wrap">
                                                         <textarea class="reply-textarea" placeholder="Type your response..." id="reply-text-<?php echo $review['id']; ?>"></textarea>
