@@ -235,16 +235,41 @@
             if (typeof avatar === 'string' && avatar.trim()) {
                 return avatar;
             }
+            const activePartner = window.PFCallState?.activePartner;
+            if (activePartner && typeof activePartner.avatar === 'string' && activePartner.avatar.trim()) {
+                return activePartner.avatar;
+            }
             return PF_DEFAULT_AVATAR;
         }
 
         _getPartnerDisplayName(name) {
             const raw = (typeof name === 'string' ? name.trim() : '') || this.partnerName || '';
-            if (!raw) return 'User';
+            if (!raw) {
+                const activePartner = window.PFCallState?.activePartner;
+                if (activePartner && typeof activePartner.name === 'string' && activePartner.name.trim()) {
+                    return activePartner.name.trim();
+                }
+                return 'User';
+            }
             if (/^(staff|customer|user)$/i.test(raw)) {
-                return this.partnerName && !/^(staff|customer|user)$/i.test(this.partnerName) ? this.partnerName : raw;
+                if (this.partnerName && !/^(staff|customer|user)$/i.test(this.partnerName)) return this.partnerName;
+                const activePartner = window.PFCallState?.activePartner;
+                if (activePartner && typeof activePartner.name === 'string' && activePartner.name.trim()) {
+                    return activePartner.name.trim();
+                }
+                return raw;
             }
             return raw;
+        }
+
+        _rememberActivePartner(id, type, name, avatar) {
+            if (!window.PFCallState) window.PFCallState = {};
+            window.PFCallState.activePartner = {
+                id: id ?? null,
+                type: type ?? '',
+                name: this._getPartnerDisplayName(name),
+                avatar: this._normalizeAvatar(avatar, name)
+            };
         }
 
         async startCall(targetId, targetType, targetName, targetAvatar, type = 'voice') {
@@ -264,6 +289,7 @@
             this.partnerAvatar = this._normalizeAvatar(targetAvatar, this.partnerName);
             this.callType = type;
             this.isInitiator = true;
+            this._rememberActivePartner(targetId, targetType, this.partnerName, this.partnerAvatar);
             this._showOverlay(PF_STATE.CALLING, this.partnerName, this.partnerAvatar, `Calling... (${type})`);
             this.audio.play(this.basePath);
 
@@ -305,6 +331,7 @@
             this.partnerAvatar = this._normalizeAvatar(data.fromAvatar, this.partnerName);
             this.callType = data.callType || data.type || 'voice';
             this.isInitiator = false;
+            this._rememberActivePartner(this.partnerId, this.partnerType, this.partnerName, this.partnerAvatar);
             
             // Critical: Store the orderId from the signaling payload
             this.activeOrderId = data.orderId || null;
@@ -545,6 +572,8 @@
             if (!overlay) return;
             const displayName = this._getPartnerDisplayName(name);
             const displayAvatar = this._normalizeAvatar(avatar, displayName);
+            this.partnerName = displayName;
+            this.partnerAvatar = displayAvatar;
             overlay.className = `pf-call-overlay--${state}`;
             this.$('pf-call-name').textContent = displayName;
             this.$('pf-call-avatar').src = displayAvatar;

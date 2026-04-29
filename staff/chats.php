@@ -1671,6 +1671,13 @@ function initiateCall(type) {
             const pId = res.partner.id;
             const pName = res.partner.name;
             const pAvatar = resolveProfileUrl(res.partner.avatar);
+            if (!window.PFCallState) window.PFCallState = {};
+            window.PFCallState.activePartner = {
+                id: pId,
+                type: 'Customer',
+                name: pName || document.getElementById('activeName')?.textContent || 'Customer',
+                avatar: pAvatar || partnerAvatarUrl || ''
+            };
             
             if (window.PFCall && typeof window.PFCall.startCall === 'function') {
                 window.PFCall.startCall(pId, 'Customer', pName, pAvatar, type);
@@ -1818,6 +1825,14 @@ function openChat(id, name, meta, archived, avatar = '') {
     activeId = id;
     lastId = 0;
     partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : null;
+    if (!window.PFCallState) window.PFCallState = {};
+    window.PFCallState.activeId = id;
+    window.PFCallState.activePartner = {
+        id: null,
+        type: 'Customer',
+        name: name || 'Customer',
+        avatar: partnerAvatarUrl || ''
+    };
     window.staffUiOpened = true;
     const welcomeEl = document.getElementById('welcomeScreen');
     const chatEl = document.getElementById('chatInterface');

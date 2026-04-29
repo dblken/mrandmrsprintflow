@@ -1106,6 +1106,14 @@ function loadConvs() {
 
 function openChat(id, name, meta, archived, avatar = '') {
     activeId = id; lastId = 0; isConvArch = !!archived; partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : '';
+    if (!window.PFCallState) window.PFCallState = {};
+    window.PFCallState.activeId = id;
+    window.PFCallState.activePartner = {
+        id: null,
+        type: 'Staff',
+        name: name || 'PrintFlow Team',
+        avatar: partnerAvatarUrl || ''
+    };
     openChatMobile();
     document.getElementById('welcome').style.display = 'none';
     document.getElementById('chatInterface').style.display = 'flex';
@@ -2267,11 +2275,19 @@ function initiateCall(type) {
             alert('Staff is unavailable right now.');
             return;
         }
+        if (!window.PFCallState) window.PFCallState = {};
+        const partnerAvatar = resolveProfileUrl(res.partner.avatar);
+        window.PFCallState.activePartner = {
+            id: res.partner.id,
+            type: 'Staff',
+            name: res.partner.name || document.getElementById('hName')?.textContent || 'PrintFlow Team',
+            avatar: partnerAvatar || partnerAvatarUrl || ''
+        };
         window.PFCall.startCall(
             res.partner.id,
             'Staff',
             res.partner.name,
-            resolveProfileUrl(res.partner.avatar),
+            partnerAvatar,
             type
         );
     });
