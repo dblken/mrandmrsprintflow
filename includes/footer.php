@@ -77,44 +77,44 @@ function _ft_detect_social(string $url): array {
         .ft-social a:hover { background: #32a1c4; color: #fff; }
         .ft-social svg { width: 18px; height: 18px; display: block; }
         .ft-hr { border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 2rem 0 1.25rem 0; }
-        .ft-bottom { display: flex; flex-direction: column; gap: 0.5rem; text-align: center; font-size: 0.8125rem; color: #94a3b8; }
+        .ft-bottom { display: flex; flex-direction: column; gap: 0.5rem; text-align: left; font-size: 0.8125rem; color: #94a3b8; }
         @media (min-width: 768px) { .ft-bottom { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; } }
         @media (max-width: 767px) {
             .ft-wrap { padding: 2rem 1rem 6rem; }
             .ft-grid { gap: 2rem; }
-            .ft-grid > div:first-child { text-align: center; }
-            .ft-grid > div:first-child .ft-desc { margin: 0 auto; max-width: 100%; text-align: justify; }
-            .ft-grid > div:first-child .ft-social { justify-content: center; }
-            .ft-brand, .ft-title { text-align: center; }
+            .ft-grid > div:first-child { text-align: left; }
+            .ft-grid > div:first-child .ft-desc { margin: 0; max-width: 100%; text-align: left; }
+            .ft-grid > div:first-child .ft-social { justify-content: flex-start; }
+            .ft-brand, .ft-title { text-align: left; }
             .ft-desc {
-                text-align: justify;
+                text-align: left;
                 line-height: 1.65;
                 max-width: none;
             }
             .ft-list-item, .ft-bottom p {
-                text-align: center;
+                text-align: left;
                 line-height: 1.65;
                 max-width: none;
             }
-            .ft-list { text-align: center; }
-            .ft-list li { text-align: center; }
+            .ft-list { text-align: left; }
+            .ft-list li { text-align: left; }
             .ft-list a { display: inline-block; }
-            .ft-list-item { justify-content: center; text-align: center; display: inline-flex; max-width: fit-content; margin-left: auto; margin-right: auto; }
+            .ft-list-item { justify-content: flex-start; text-align: left; display: flex; max-width: none; margin-left: 0; margin-right: 0; }
             .ft-services-list .ft-list-item {
                 display: flex;
                 width: 100%;
                 max-width: none;
             }
             .ft-contact-list .ft-list-item {
-                display: inline-flex;
-                width: auto;
+                display: flex;
+                width: 100%;
                 gap: 0.4rem;
-                justify-content: center;
+                justify-content: flex-start;
                 align-items: flex-start;
             }
             .ft-social { margin-top: .85rem; }
             .ft-list li { margin-bottom: .65rem; }
-            .ft-grid > div { padding: 0 0.5rem; text-align: center; }
+            .ft-grid > div { padding: 0 0.5rem; text-align: left; }
         }
     </style>
     <footer class="ft-footer">
@@ -309,7 +309,7 @@ function _ft_detect_social(string $url): array {
 
             <!-- Questions Area -->
             <div id="chatbot-suggested-section" style="display: none; border-top: 1px solid #e5e5e5; background: #f9f9fb; flex-shrink: 0;">
-                <button id="chatbot-suggested-toggle" type="button" aria-expanded="true" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: none; background: transparent; color: #1f2937; cursor: pointer; font-size: 13px; font-weight: 700; letter-spacing: 0.2px; text-align: left; transition: background 0.2s ease;">
+                <button id="chatbot-suggested-toggle" type="button" aria-expanded="false" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border: none; background: transparent; color: #1f2937; cursor: pointer; font-size: 13px; font-weight: 700; letter-spacing: 0.2px; text-align: left; transition: background 0.2s ease;">
                     <span>Suggested Questions</span>
                     <span id="chatbot-suggested-arrow" aria-hidden="true" style="font-size: 14px; line-height: 1; color: #4b5563; transition: transform 0.25s ease; transform-origin: center;">&#9654;</span>
                 </button>
@@ -476,7 +476,7 @@ function _ft_detect_social(string $url): array {
         var sendBtn = document.getElementById('chatbot-send');
         var loaded = false;
         var isOpen = false;
-        var areSuggestedQuestionsExpanded = true;
+        var areSuggestedQuestionsExpanded = false;
         var SUGGESTED_QUESTIONS_MAX_HEIGHT = 140;
         var isLoggedIn = <?php echo ($is_logged_in ? 'true' : 'false'); ?>;
         <?php
@@ -1032,7 +1032,7 @@ function _ft_detect_social(string $url): array {
                         '<button style="display: block; width: 100%; text-align: left; padding: 12px 14px; margin: 6px 0; background: white; border: 1px solid #d5e8f0; border-radius: 8px; cursor: pointer; font-size: 13px; color: #333; transition: all 0.2s ease; font-weight: 500; line-height: 1.4; animation: slideInLeft 0.3s ease-out ' + (idx * 0.05) + 's both;" data-q="' + escapeHtml(item.text) + '" data-a="' + escapeHtml(item.answer) + '">' + escapeHtml(item.text) + '</button>'
                     ).join('');
 
-                    updateSuggestedQuestionsPanel(true);
+                    updateSuggestedQuestionsPanel(false);
                     ques.querySelectorAll('button').forEach(b => {
                         b.addEventListener('click', function() {
                             handleQuestion(this.dataset.q, this.dataset.a);
