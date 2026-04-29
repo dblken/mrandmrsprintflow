@@ -1362,7 +1362,7 @@ function handleCartRowClick(row, event) {
     
     if (itemOrigin === 'Service') {
         if (serviceId && serviceId !== '' && serviceId !== '0') {
-            const url = '/printflow/customer/order/' + serviceId + '?edit_item=' + encodeURIComponent(cartKey);
+            const url = 'order_service_dynamic.php?service_id=' + encodeURIComponent(serviceId) + '&edit_item=' + encodeURIComponent(cartKey);
             console.log('✓ Redirecting to:', url);
             window.location.href = url;
         } else {
@@ -1370,7 +1370,7 @@ function handleCartRowClick(row, event) {
             const match = cartKey.match(/^service_(\d+)_/);
             if (match && match[1]) {
                 const extractedId = match[1];
-                const url = '/printflow/customer/order/' + extractedId + '?edit_item=' + encodeURIComponent(cartKey);
+                const url = 'order_service_dynamic.php?service_id=' + encodeURIComponent(extractedId) + '&edit_item=' + encodeURIComponent(cartKey);
                 console.log('✓ Extracted service_id:', extractedId, '- Redirecting to:', url);
                 window.location.href = url;
             } else {
