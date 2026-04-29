@@ -14,6 +14,10 @@ $app_badge = $base_path . '/public/assets/images/icon-72.png';
 
 header('Content-Type: application/javascript');
 header('Service-Worker-Allowed: /');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+header('Expires: 0');
+header('X-Content-Type-Options: nosniff');
 ?>
 /**
  * Service Worker - PrintFlow PWA
@@ -120,6 +124,13 @@ self.addEventListener('install', (event) => {
         ])
     );
     self.skipWaiting();
+});
+
+self.addEventListener('message', (event) => {
+    const message = event && event.data ? event.data : null;
+    if (message && message.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });
 
 // -- Activate: delete old caches -----------------------------------------------

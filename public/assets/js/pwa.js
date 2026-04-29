@@ -6,10 +6,26 @@
 if ('serviceWorker' in navigator && !window.__pfPwaRegistered) {
     window.__pfPwaRegistered = true;
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register((window.PFConfig?.basePath || '') + '/public/sw.php', {
-            scope: (window.PFConfig?.basePath || '') + '/',
+        const basePath = (window.PFConfig?.basePath || '');
+        const swPath = basePath + '/public/sw.php';
+        const swScope = basePath + '/';
+        const cleanupLegacyWorkers = typeof navigator.serviceWorker.getRegistrations === 'function'
+            ? navigator.serviceWorker.getRegistrations().then((registrations) => Promise.all(
+                registrations.map((registration) => {
+                    const active = registration?.active || registration?.waiting || registration?.installing;
+                    const scriptURL = active?.scriptURL ? String(active.scriptURL) : '';
+                    if (scriptURL.includes('/public/sw.js') && !scriptURL.includes('/public/sw.php')) {
+                        return registration.unregister().catch(() => false);
+                    }
+                    return Promise.resolve(true);
+                })
+            ))
+            : Promise.resolve([]);
+
+        cleanupLegacyWorkers.then(() => navigator.serviceWorker.register(swPath, {
+            scope: swScope,
             updateViaCache: 'none'
-        })
+        }))
             .then((registration) => {
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });

@@ -201,14 +201,72 @@
     function ensureServiceWorker() {
         if (!('serviceWorker' in navigator)) return Promise.reject(new Error('serviceWorker unsupported'));
 
-        return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
-            if (reg) return reg;
-            return navigator.serviceWorker.register(SW_PATH, {
-                scope: SW_SCOPE,
-                updateViaCache: 'none'
+        return cleanupLegacyServiceWorkers().then(function() {
+            return navigator.serviceWorker.getRegistration(SW_SCOPE).then(function(reg) {
+                if (reg) return reg;
+                return navigator.serviceWorker.register(SW_PATH, {
+                    scope: SW_SCOPE,
+                    updateViaCache: 'none'
+                });
             });
-        }).then(function() {
+        }).then(function(reg) {
+            if (reg && typeof reg.update === 'function') {
+                reg.update().catch(function() {});
+            }
             return navigator.serviceWorker.ready;
+        }).then(function(reg) {
+            return waitForActiveServiceWorker(reg);
+        });
+    }
+
+    function cleanupLegacyServiceWorkers() {
+        return listServiceWorkerRegistrations().then(function(registrations) {
+            var tasks = [];
+            for (var i = 0; i < registrations.length; i++) {
+                var reg = registrations[i];
+                var active = reg && (reg.active || reg.waiting || reg.installing);
+                var scriptURL = active && active.scriptURL ? String(active.scriptURL) : '';
+                if (!scriptURL) continue;
+                if (scriptURL.indexOf('/public/sw.js') !== -1 && scriptURL.indexOf('/public/sw.php') === -1) {
+                    tasks.push(reg.unregister().catch(function() { return false; }));
+                }
+            }
+            return Promise.all(tasks);
+        }).catch(function() { return []; });
+    }
+
+    function waitForActiveServiceWorker(reg) {
+        if (!reg) return Promise.reject(new Error('service worker registration unavailable'));
+        if (reg.active) return Promise.resolve(reg);
+
+        return new Promise(function(resolve, reject) {
+            var timeoutId = setTimeout(function() {
+                reject(new Error('service worker activation timed out'));
+            }, 15000);
+
+            function resolveReady() {
+                clearTimeout(timeoutId);
+                resolve(reg);
+            }
+
+            if (reg.installing) {
+                reg.installing.addEventListener('statechange', function() {
+                    if (reg.active) {
+                        resolveReady();
+                    }
+                });
+            }
+
+            if (reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+
+            navigator.serviceWorker.ready.then(function(readyReg) {
+                if (readyReg && readyReg.active) {
+                    clearTimeout(timeoutId);
+                    resolve(readyReg);
+                }
+            }).catch(function() {});
         });
     }
 
