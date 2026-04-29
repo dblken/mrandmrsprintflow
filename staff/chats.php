@@ -823,7 +823,7 @@ $current_user = get_logged_in_user();
                 right: auto;
                 top: auto;
                 bottom: auto;
-                transform: translateX(-50%);
+                transform: translateX(-50%) !important;
                 margin: 0;
                 padding: 10px 12px;
                 gap: 8px;
@@ -846,7 +846,7 @@ $current_user = get_logged_in_user();
                 right: auto;
                 top: auto;
                 bottom: auto;
-                transform: translateX(-50%);
+                transform: translateX(-50%) !important;
                 width: min(190px, calc(100vw - 32px));
                 max-width: calc(100vw - 32px);
                 border-radius: 18px;
@@ -2423,9 +2423,6 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
     const menuHeight = menuRect.height || 56;
 
-    let left = triggerRect.left + (triggerRect.width / 2) - (menuWidth / 2);
-    left = Math.max(12, Math.min(left, viewportWidth - menuWidth - 12));
-
     const spaceAbove = triggerRect.top;
     const spaceBelow = viewportHeight - triggerRect.bottom;
     const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
@@ -2433,9 +2430,9 @@ function positionFloatingMenu(menu, trigger, options = {}) {
         ? Math.max(12, triggerRect.top - menuHeight - gap)
         : Math.min(viewportHeight - menuHeight - 12, triggerRect.bottom + gap);
 
-    menu.style.left = `${left}px`;
+    menu.style.left = '50%';
     menu.style.top = `${top}px`;
-    menu.style.transform = 'none';
+    menu.style.transform = 'translateX(-50%)';
     menu.style.visibility = 'visible';
 }
 
