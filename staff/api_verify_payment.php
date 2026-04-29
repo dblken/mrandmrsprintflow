@@ -108,7 +108,7 @@ try {
                 'payment_status' => $payment_status,
                 'step' => 'payment_verified'
             ];
-            printflow_send_order_update($order_id, $msg, 'view_status', '', '', $meta);
+            printflow_send_order_update($order_id, 'payment_verified', 'view_status', '', '', $meta);
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 

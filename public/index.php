@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 SessionManager::setNoCacheHeaders();
 redirect_logged_in_from_landing_page();
 
-$page_title = 'PrintFlow - Your Trusted Printing Shop';
+$page_title = 'Mr. and Mrs. Print - Your Trusted Printing Shop';
 $use_landing_css = true;
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/db.php';
@@ -348,7 +348,7 @@ $featured_products = db_query(
             </div>
             <div class="lp-order-1">
                 <p class="lp-heading-label">Why Choose Us</p>
-                <h2 class="lp-heading">Why Choose PrintFlow?</h2>
+                <h2 class="lp-heading">Why Choose Mr. and Mrs. Print?</h2>
                 <p class="lp-heading-desc">We combine cutting-edge printing technology with expertise to produce exceptional results every time.</p>
                 <ul class="lp-list">
                     <li>
@@ -374,7 +374,7 @@ $featured_products = db_query(
     <div class="lp-wrap">
         <div class="lp-cta-inner">
             <h2 class="lp-cta-title">Ready to Bring Your Ideas to Life?</h2>
-            <p class="lp-cta-desc">Join hundreds of satisfied customers who trust PrintFlow for their printing needs.</p>
+            <p class="lp-cta-desc">Join hundreds of satisfied customers who trust Mr. and Mrs. Print for their printing needs.</p>
             <div class="lp-cta-btns">
                 <?php if (!is_logged_in()): ?>
                     <a href="#" data-auth-modal="register" class="lp-btn lp-btn-primary">Create Free Account</a>

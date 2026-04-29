@@ -73,17 +73,17 @@ function send_otp_email(string $to_email, string $otp_code): array
                     ' . $logo_html . '
                     <h2 style="margin:0 0 8px 0;font-size:18px;text-align:center;">Email Verification Code</h2>
                     <p style="margin:0 0 12px 0;">Hello,</p>
-                    <p style="margin:0 0 12px 0;">Your PrintFlow verification code is:</p>
+                    <p style="margin:0 0 12px 0;">Your Mr. and Mrs. Print verification code is:</p>
                     <p style="margin:0 0 14px 0;font-size:28px;font-weight:700;letter-spacing:4px;text-align:center;">' . htmlspecialchars($otp_code) . '</p>
                     <p style="margin:0 0 12px 0;">This code will expire in ' . (int)$expiry . ' minutes.</p>
                     <p style="margin:0;">If you did not request this verification, you may ignore this email.</p>
-                    <p style="margin:14px 0 0 0;">PrintFlow Security Team</p>
+                    <p style="margin:14px 0 0 0;">Mr. and Mrs. Print Security Team</p>
                 </div>
             </div>';
         $mail->AltBody = implode("\n", [
             "Hello,",
             "",
-            "Your PrintFlow verification code is:",
+            "Your Mr. and Mrs. Print verification code is:",
             "",
             "  {$otp_code}",
             "",
@@ -91,7 +91,7 @@ function send_otp_email(string $to_email, string $otp_code): array
             "",
             "If you did not request this verification, you may ignore this email.",
             "",
-            "PrintFlow Security Team",
+            "Mr. and Mrs. Print Security Team",
         ]);
 
         $mail->send();

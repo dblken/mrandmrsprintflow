@@ -155,7 +155,7 @@ require_once __DIR__ . '/../includes/header.php';
     .brow.grouped-msg.self .bubble, .brow.grouped-msg.self .voice-bubble-player { border-radius: 20px 20px 4px 4px; }
     .brow.grouped-msg-next.self .bubble, .brow.grouped-msg-next.self .voice-bubble-player { border-radius: 20px 4px 4px 20px; }
 
-    .brow.system .bubble { background:#f1f5f9; color:var(--pf-dim); font-size:.78rem; border:none; border-radius:10px; padding:4px 12px; font-weight:700; letter-spacing:.04em; }
+    .brow.system .bubble { background:#fff; color:#1e293b; font-size:.9rem; border:1px solid var(--pf-border); border-radius:20px 20px 20px 4px; padding:10px 16px; font-weight:500; letter-spacing:normal; }
 
     .b-meta { font-size:.65rem; color:var(--pf-dim); font-weight:700; opacity:.8; margin-top:6px; display:flex; gap:4px; }
     .brow.self .b-meta { justify-content:flex-end; }
@@ -1261,13 +1261,10 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        const alignment = senderType === CURRENT_USER_TYPE ? 'self' : 'other';
-        console.log('Current User:', CURRENT_USER_TYPE);
-        console.log('Sender:', senderType);
-        console.log('Alignment:', alignment);
-        return alignment;
+        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
     }
-    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
+    // Final fallback
+    return (message?.is_self) ? 'self' : 'other';
 }
 
 function getMessageSenderKey(message) {
@@ -1394,7 +1391,7 @@ function appendMsgUI(m) {
     const isCallLog = m.message_type === 'call_log' || m.message_type === 'call_event' || /voice call|video call|missed|declined|busy/i.test(m.message);
     const rowSide = getMessageSide(m);
     const senderKey = getMessageSenderKey(m);
-    const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
+    const rowClass = rowSide;
     const isSelf = rowClass === 'self';
 
     if (m.message_type === 'order_update' || m.message_type === 'order_card') {
@@ -1424,7 +1421,8 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system && !isCallLog) {
-        row.innerHTML = `<div class="b-col"><div class="bubble">${esc(m.message)}</div></div>`;
+        const avHtml = `<div class="conv-av" style="width:32px; height:32px; border-radius:50%; align-self:flex-end; background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img src="${BASE}/public/assets/images/favicon.png" style="width:20px;height:20px;object-fit:contain;opacity:0.8;"></div>`;
+        row.innerHTML = `${avHtml}<div class="b-col"><div class="bubble">${esc(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
 

@@ -279,7 +279,7 @@ if ($action === 'verify_payment') {
                     'payment_status' => $new_payment_status,
                     'step' => 'payment_verified'
                 ];
-                printflow_send_order_update((int)$job['order_id'], $approval_message, 'view_status', '', '', $meta);
+                printflow_send_order_update((int)$job['order_id'], 'payment_verified', 'view_status', '', '', $meta);
             } catch (Exception $chatEx) {
                 // Log but don't fail the approval if chat message fails
                 error_log("Failed to send approval chat message for job #{$job_id}: " . $chatEx->getMessage());
@@ -370,7 +370,7 @@ elseif ($action === 'reject_payment') {
                     'rejection_reason' => $reason,
                     'step' => 'payment_rejected'
                 ];
-                printflow_send_order_update((int)$job['order_id'], $rejection_message, 'retry_payment', '', '', $meta);
+                printflow_send_order_update((int)$job['order_id'], 'payment_rejected', 'retry_payment', '', '', $meta);
             } catch (Exception $chatEx) {
                 // Log but don't fail the rejection if chat message fails
                 error_log("Failed to send rejection chat message for job #{$job_id}: " . $chatEx->getMessage());

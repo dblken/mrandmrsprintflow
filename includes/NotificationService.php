@@ -23,8 +23,8 @@ class NotificationService {
         'TO_PAY'       => 'Your order is ready. Please proceed to payment of ₱{amount}. {order_no}',
         'VERIFY_PAY'   => 'Your payment has been received and is under verification.',
         'IN_PRODUCTION'=> 'Your payment has been approved. We will now proceed with processing your order.',
-        'TO_RECEIVE'   => 'Great news! Your order is ready for pickup.',
-        'COMPLETED'    => 'Thank you! Your order has been marked as completed.',
+        'TO_RECEIVE'   => 'Order Ready! Your order is now ready for pickup. Thank you for choosing Mr. and Mrs. Print!',
+        'COMPLETED'    => 'Order Completed. Your order has been successfully picked up. We hope you are satisfied with our service! Feel free to share your feedback to help us improve even more.',
         'CANCELLED'    => 'Your order has been cancelled. Please contact us for assistance.',
         'FOR REVISION' => 'Revision requested for your order. Reason: {reason}',
     ];

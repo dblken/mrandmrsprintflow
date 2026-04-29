@@ -43,7 +43,7 @@ function send_profile_completion_email(string $to_email, string $first_name, str
         $mail->addReplyTo($cfg['from_email'], $cfg['from_name']);
 
         $mail->isHTML(true);
-        $mail->Subject = 'Complete Your PrintFlow Profile';
+        $mail->Subject = 'Complete Your Mr. and Mrs. Print Profile';
 
         $logo_path = dirname(__DIR__) . '/public/images/printflow.jpg';
         $logo_html = '';
@@ -59,7 +59,7 @@ function send_profile_completion_email(string $to_email, string $first_name, str
             <div style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;">
                 <div style="max-width:520px;margin:0 auto;padding:16px;border:1px solid #e5e7eb;border-radius:8px;">
                     ' . $logo_html . '
-                    <h2 style="margin:0 0 8px 0;font-size:18px;text-align:center;">Welcome to PrintFlow!</h2>
+                    <h2 style="margin:0 0 8px 0;font-size:18px;text-align:center;">Welcome to Mr. and Mrs. Print!</h2>
                     <p style="margin:0 0 12px 0;">Hello ' . $name . ',</p>
                     <p style="margin:0 0 12px 0;">Your staff account has been created. Please complete your profile by clicking the link below:</p>
                     <p style="margin:0 0 14px 0;text-align:center;">
@@ -67,10 +67,10 @@ function send_profile_completion_email(string $to_email, string $first_name, str
                     </p>
                     <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">This link expires in 7 days. You will need to add your contact details, address, and upload a valid ID. Use your email and default password (email + birthday MMDDYYYY) to log in after completing.</p>
                     <p style="margin:0;">If you did not expect this email, please contact your administrator.</p>
-                    <p style="margin:14px 0 0 0;">PrintFlow Team</p>
+                    <p style="margin:14px 0 0 0;">Mr. and Mrs. Print Team</p>
                 </div>
             </div>';
-        $mail->AltBody = "Hello {$name},\n\nYour staff account has been created. Complete your profile:\n{$link}\n\nThis link expires in 7 days. Use your email and default password (email + birthday MMDDYYYY) to log in after completing.\n\nPrintFlow Team";
+        $mail->AltBody = "Hello {$name},\n\nYour staff account has been created. Complete your profile:\n{$link}\n\nThis link expires in 7 days. Use your email and default password (email + birthday MMDDYYYY) to log in after completing.\n\nMr. and Mrs. Print Team";
 
         $mail->send();
         return ['success' => true, 'message' => 'Email sent successfully'];
@@ -111,7 +111,7 @@ function send_profile_completion_resend_email(string $to_email, string $first_na
         $mail->addReplyTo($cfg['from_email'], $cfg['from_name']);
 
         $mail->isHTML(true);
-        $mail->Subject = 'PrintFlow – Please Review Your Profile';
+        $mail->Subject = 'Mr. and Mrs. Print – Please Review Your Profile';
 
         $logo_path = dirname(__DIR__) . '/public/images/printflow.jpg';
         $logo_html = '';
@@ -147,11 +147,11 @@ function send_profile_completion_resend_email(string $to_email, string $first_na
                     </p>
                     <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">This link expires in 7 days.</p>
                     <p style="margin:0;">If you did not expect this email, please contact your administrator.</p>
-                    <p style="margin:14px 0 0 0;">PrintFlow Team</p>
+                    <p style="margin:14px 0 0 0;">Mr. and Mrs. Print Team</p>
                 </div>
             </div>';
         $notes_plain = !empty($admin_notes) ? "\n\nAdmin feedback – please fix:\n- " . implode("\n- ", $admin_notes) : '';
-        $mail->AltBody = "Hello {$name},\n\nAn administrator has requested that you review and update your profile.{$notes_plain}\n\nComplete your profile: {$link}\n\nThis link expires in 7 days.\n\nPrintFlow Team";
+        $mail->AltBody = "Hello {$name},\n\nAn administrator has requested that you review and update your profile.{$notes_plain}\n\nComplete your profile: {$link}\n\nThis link expires in 7 days.\n\nMr. and Mrs. Print Team";
 
         $mail->send();
         return ['success' => true, 'message' => 'Email sent successfully'];
@@ -195,7 +195,7 @@ function send_account_activated_email(string $to_email, string $first_name): arr
         $mail->addReplyTo($cfg['from_email'], $cfg['from_name']);
 
         $mail->isHTML(true);
-        $mail->Subject = 'Your PrintFlow Account is Activated';
+        $mail->Subject = 'Your Mr. and Mrs. Print Account is Activated';
 
         $logo_path = dirname(__DIR__) . '/public/images/printflow.jpg';
         $logo_html = '';
@@ -212,15 +212,15 @@ function send_account_activated_email(string $to_email, string $first_name): arr
                     ' . $logo_html . '
                     <h2 style="margin:0 0 8px 0;font-size:18px;text-align:center;">Your Account is Activated</h2>
                     <p style="margin:0 0 12px 0;">Hello ' . $name . ',</p>
-                    <p style="margin:0 0 12px 0;">Your PrintFlow staff account has been approved. You can now log in and access the system.</p>
+                    <p style="margin:0 0 12px 0;">Your Mr. and Mrs. Print staff account has been approved. You can now log in and access the system.</p>
                     <p style="margin:0 0 14px 0;text-align:center;">
                         <a href="' . $login_safe . '" style="display:inline-block;padding:12px 24px;background:#0d9488;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Go to Login</a>
                     </p>
                     <p style="margin:0 0 12px 0;font-size:13px;color:#6b7280;">Use your email and password to sign in.</p>
-                    <p style="margin:0;">PrintFlow Team</p>
+                    <p style="margin:0;">Mr. and Mrs. Print Team</p>
                 </div>
             </div>';
-        $mail->AltBody = "Hello {$name},\n\nYour PrintFlow staff account has been activated. Log in at: {$login_url}\n\nUse your email and password to sign in.\n\nPrintFlow Team";
+        $mail->AltBody = "Hello {$name},\n\nYour Mr. and Mrs. Print staff account has been activated. Log in at: {$login_url}\n\nUse your email and password to sign in.\n\nMr. and Mrs. Print Team";
 
         $mail->send();
         return ['success' => true, 'message' => 'Email sent successfully'];

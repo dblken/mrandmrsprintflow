@@ -129,7 +129,7 @@ $current_user = get_logged_in_user();
         .bubble-row { display: flex; width: 100%; position: relative; margin-bottom: 8px; }
         .bubble-row.self { flex-direction: row-reverse; gap: 8px; align-items: flex-end; }
         .bubble-row.other { align-items: flex-end; gap: 8px; }
-        .bubble-row.system { justify-content: center; }
+        .bubble-row.system { justify-content: flex-start; } /* Default to left for any remaining system msgs */
 
         .bubble { 
             padding: 6px 12px; border-radius: 18px; font-size: 0.92rem; font-weight: 500; line-height: 1.4; 
@@ -142,7 +142,7 @@ $current_user = get_logged_in_user();
         .bubble:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
         .bubble-row.self .bubble { background: #0a2530; color: #fff; border-radius: 18px 18px 4px 18px; }
         .bubble-row.other .bubble { background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 18px 18px 18px 4px; }
-        .bubble-row.system .bubble { background: #f1f5f9; color: #475569; border: none; font-size: 0.8rem; text-align: center; border-radius: 10px; padding: 0.5rem; }
+        .bubble-row.system .bubble { background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 18px 18px 18px 4px; font-size: 0.92rem; font-weight: 500; padding: 6px 12px; }
 
         .bubble-meta { font-size: 0.65rem; color: #94a3b8; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
         .bubble-row.self .bubble-meta { justify-content: flex-end; }
@@ -2000,13 +2000,10 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        const alignment = (senderType === CURRENT_USER_TYPE) ? 'self' : 'other';
-        console.log('Current User:', CURRENT_USER_TYPE);
-        console.log('Sender:', senderType);
-        console.log('Alignment:', alignment);
-        return alignment;
+        return (senderType === CURRENT_USER_TYPE) ? 'self' : 'other';
     }
-    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
+    // Final fallback
+    return (message?.is_self) ? 'self' : 'other';
 }
 
 function getMessageSenderKey(message) {
@@ -2104,7 +2101,7 @@ function appendMsgUI(m) {
     const isCallLog = m.message_type === 'call_log' || m.message_type === 'call_event' || /voice call|video call|missed|declined|busy/i.test(m.message);
     const rowSide = getMessageSide(m);
     const senderKey = getMessageSenderKey(m);
-    const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
+    const rowClass = rowSide;
     const isSelf = rowClass === 'self';
 
     if (m.message_type === 'order_update' || m.message_type === 'order_card') {
@@ -2134,7 +2131,9 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system && !isCallLog) {
-        row.innerHTML = `<div class="msg-content-col"><div class="bubble">${escapeHtml(m.message)}</div></div>`;
+        const logoUrl = typeof BASE !== 'undefined' ? `${BASE}/public/assets/images/favicon.png` : '/public/assets/images/favicon.png';
+        const avHtml = `<div class="msg-avatar" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img src="${logoUrl}" style="width:18px;height:18px;object-fit:contain;opacity:0.8;"></div>`;
+        row.innerHTML = `${avHtml}<div class="msg-content-col"><div class="bubble">${escapeHtml(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
 

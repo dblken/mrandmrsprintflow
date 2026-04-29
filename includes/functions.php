@@ -3324,7 +3324,7 @@ if (!function_exists('printflow_send_order_update')) {
     require_once __DIR__ . '/order_chat_system.php';
 }
 
-function printflow_send_order_update_legacy($order_id, $step, $custom_text = '') {
+function printflow_send_order_update_legacy($order_id, $step, $custom_text = '', $additional_meta = []) {
     $order_id = (int)$order_id;
     if ($order_id <= 0) return false;
 
@@ -3393,7 +3393,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
     // 4. Step -> message, action_type, action_url, message_type
     $step_configs = [ // UPDATED
         'inquiry' => [
-            'message'      => "{$customer_name} inquired about \"{$product_name}\".",
+            'message'      => "Hi! I have an inquiry about an order. Please check and assist me. Thank you!",
             'message_type' => 'order_card',
             'action_type' => 'view_inquiry',
             'action_url'  => '',
@@ -3413,13 +3413,13 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
         ],
         'payment_submitted' => [
             'message'      => "We have received your payment. It is now under verification.",
-            'message_type' => 'text',
+            'message_type' => 'order_update',
             'action_type' => 'verify_payment',
             'action_url'  => '',
         ],
         'payment_verified' => [
             'message'      => "Your payment has been approved. We will now proceed with processing your order.",
-            'message_type' => 'text',
+            'message_type' => 'order_update',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
@@ -3432,18 +3432,18 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
         ],
         'in_production' => [
             'message'      => "Your payment has been approved. We will now proceed with processing your order.",
-            'message_type' => 'text',
+            'message_type' => 'order_update',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'ready_to_pickup' => [
-            'message'      => "Order Ready! Your order is now ready for pickup/delivery. Thank you for choosing PrintFlow!",
-            'message_type' => 'text',
+            'message'      => "Order Ready! Your order is now ready for pickup. Thank you for choosing Mr. and Mrs. Print!",
+            'message_type' => 'order_update',
             'action_type' => 'pickup_details',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'      => "Order Completed. Your order has been successfully picked up/delivered.",
+            'message'      => "Order Completed. Your order has been successfully picked up. We hope you are satisfied with our service! Feel free to share your feedback to help us improve even more.",
             'message_type' => 'order_card',
             'button_label' => 'Leave a Review',
             'action_type' => 'rate',
@@ -3451,7 +3451,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
         ],
         'cancelled' => [
             'message'      => "Your order has been cancelled. Please contact our team if you need help with the next step.",
-            'message_type' => 'text',
+            'message_type' => 'order_update',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
@@ -3534,7 +3534,7 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
     }
 
     // 5. meta_json for extra context
-    $meta = json_encode([
+    $final_meta = [
         'step'         => $step,
         'order_id'     => $order_id,
         'product_name' => $product_name,
@@ -3546,7 +3546,13 @@ function printflow_send_order_update_legacy($order_id, $step, $custom_text = '')
         'thumbnail'      => $thumbnail,
         'button_label'   => $button_label,
         'action_url'     => $action_url,
-    ]);
+    ];
+
+    if (!empty($additional_meta) && is_array($additional_meta)) {
+        $final_meta = array_merge($final_meta, $additional_meta);
+    }
+
+    $meta = json_encode($final_meta);
 
     // 6. Avoid duplicate/legacy order_card messages for the same order.
     // If this is an 'inquiry' step, remove legacy messages that use the

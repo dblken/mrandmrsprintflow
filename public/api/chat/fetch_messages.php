@@ -60,17 +60,15 @@ try {
         return ($base_path === '' ? '' : $base_path) . '/' . ltrim($path, '/');
     };
 
-    $resolve_sender_type = static function (string $sender, string $message_type, array $meta): ?string {
+    $resolve_sender_type = static function (string $sender, string $message_type, array $meta): string {
         if ($sender === 'Customer') {
             return 'customer';
         }
         if ($sender === 'Staff') {
             return 'staff';
         }
-        if ($message_type !== 'order_update') {
-            return null;
-        }
 
+        // Handle System messages
         $meta_sender_type = strtolower(trim((string) ($meta['sender_type'] ?? $meta['origin_actor'] ?? '')));
         if (in_array($meta_sender_type, ['customer', 'staff'], true)) {
             return $meta_sender_type;
@@ -81,6 +79,7 @@ try {
             return 'customer';
         }
 
+        // Default for system messages/actions is staff
         return 'staff';
     };
 
