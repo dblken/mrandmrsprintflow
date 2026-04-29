@@ -494,7 +494,7 @@ $current_user = get_logged_in_user();
             backdrop-filter: blur(12px);
             border: 1px solid #e2e8f0;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            transition: opacity 0.2s;
+            transition: opacity 0.2s, transform 0.2s, left 0.2s, right 0.2s, top 0.2s;
             position: absolute; top: 50%; transform: translateY(-50%);
             z-index: 50;
         }
@@ -795,22 +795,26 @@ $current_user = get_logged_in_user();
                 overflow: visible;
             }
             .msg-action-bar {
-                position: absolute;
-                top: 50%;
+                position: fixed;
+                top: 0;
                 transform: translateY(-50%);
                 margin: 0;
                 opacity: 0;
                 pointer-events: none;
                 flex-wrap: nowrap;
-                z-index: 25;
+                z-index: 1300;
                 padding: 2px 4px;
                 gap: 2px;
+                left: 12px;
+                right: auto;
             }
             .bubble-row.other .msg-action-bar {
-                left: calc(100% + 8px);
+                left: 12px;
+                right: auto;
             }
             .bubble-row.self .msg-action-bar {
-                right: calc(100% + 8px);
+                right: 12px;
+                left: auto;
             }
             .bubble-row.has-active-menu .msg-action-bar {
                 opacity: 1;
@@ -2368,7 +2372,7 @@ function togglePicker(msgId, e, triggerEl) {
     if (!isActive) {
         picker.classList.add('active');
         const row = document.getElementById(`ms-${msgId}`);
-        if (row) row.classList.add('has-active-menu');
+        setActiveMessageRow(row);
 
         const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.m-action-btn') || picker.parentElement;
         requestAnimationFrame(() => positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 }));
@@ -2387,10 +2391,53 @@ function toggleMoreMenu(msgId, e, triggerEl) {
     if (!isActive) {
         menu.classList.add('active');
         const row = document.getElementById(`ms-${msgId}`);
-        if (row) row.classList.add('has-active-menu');
+        setActiveMessageRow(row);
         const trigger = triggerEl || e?.currentTarget || e?.target?.closest('.m-action-btn') || menu.parentElement;
         requestAnimationFrame(() => positionFloatingMenu(menu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 }));
     }
+}
+
+function positionMobileActionBar(row) {
+    if (!row || !window.matchMedia('(max-width: 1023px)').matches) return;
+    const actionBar = row.querySelector('.msg-action-bar');
+    const bubble = row.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble.staff');
+    if (!actionBar || !bubble) return;
+
+    const bubbleRect = bubble.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const actionRect = actionBar.getBoundingClientRect();
+    const actionWidth = actionRect.width || 116;
+    const actionHeight = actionRect.height || 38;
+    const rowIsSelf = row.classList.contains('self');
+    const gap = 10;
+
+    let top = bubbleRect.top + (bubbleRect.height / 2);
+    top = Math.max((actionHeight / 2) + 12, Math.min(top, viewportHeight - (actionHeight / 2) - 12));
+
+    if (rowIsSelf) {
+        const right = Math.max(12, viewportWidth - bubbleRect.left + gap);
+        actionBar.style.left = 'auto';
+        actionBar.style.right = `${right}px`;
+    } else {
+        const left = Math.min(viewportWidth - actionWidth - 12, bubbleRect.right + gap);
+        actionBar.style.left = `${Math.max(12, left)}px`;
+        actionBar.style.right = 'auto';
+    }
+
+    actionBar.style.top = `${top}px`;
+    actionBar.style.bottom = 'auto';
+    actionBar.style.transform = 'translateY(-50%)';
+    actionBar.style.visibility = 'visible';
+    actionBar.style.opacity = '1';
+    actionBar.style.pointerEvents = 'auto';
+}
+
+function setActiveMessageRow(row) {
+    if (!row) return;
+    document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
+    row.classList.add('has-active-menu');
+    requestAnimationFrame(() => positionMobileActionBar(row));
 }
 
         function positionFloatingMenu(menu, trigger, options = {}) {
@@ -2461,6 +2508,16 @@ function closeAllMenus() {
         m.style.visibility = '';
     });
     document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
+    document.querySelectorAll('.msg-action-bar').forEach(bar => {
+        bar.style.left = '';
+        bar.style.right = '';
+        bar.style.top = '';
+        bar.style.bottom = '';
+        bar.style.transform = '';
+        bar.style.visibility = '';
+        bar.style.opacity = '';
+        bar.style.pointerEvents = '';
+    });
 }
 
 document.addEventListener('click', (e) => {
@@ -3065,7 +3122,7 @@ function bindMobileMessageHold(row) {
         holdTimer = setTimeout(() => {
             holdTriggered = true;
             closeAllMenus();
-            row.classList.add('has-active-menu');
+            setActiveMessageRow(row);
         }, 450);
     };
 
@@ -3078,8 +3135,18 @@ function bindMobileMessageHold(row) {
     target.addEventListener('contextmenu', (event) => {
         event.preventDefault();
         closeAllMenus();
-        row.classList.add('has-active-menu');
+        setActiveMessageRow(row);
     });
+
+    target.addEventListener('click', (event) => {
+        if (event.target.closest('a, button, audio, video')) return;
+        if (!window.matchMedia('(max-width: 1023px)').matches) return;
+        if (row.classList.contains('has-active-menu')) return;
+        closeAllMenus();
+        setActiveMessageRow(row);
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
 
     row.addEventListener('click', (event) => {
         if (holdTriggered) {
@@ -3089,6 +3156,18 @@ function bindMobileMessageHold(row) {
         }
     }, true);
 }
+
+window.addEventListener('resize', () => {
+    const activeRow = document.querySelector('.bubble-row.has-active-menu');
+    if (!activeRow) return;
+    positionMobileActionBar(activeRow);
+});
+
+document.getElementById('messagesArea')?.addEventListener('scroll', () => {
+    const activeRow = document.querySelector('.bubble-row.has-active-menu');
+    if (!activeRow) return;
+    positionMobileActionBar(activeRow);
+}, { passive: true });
 
 window.startRecording = async function() {
     if (mediaRecorder && mediaRecorder.state === "recording") return;
