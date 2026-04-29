@@ -564,7 +564,7 @@ if (!function_exists('pf_payment_qr_url')) {
                             </div>
                         <?php endif; ?>
 
-                        <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem;">1. Choose Method</h2>
+                        <h2 class="payment-section-title" style="margin-bottom: 1rem; font-size: 1rem;">1. Payment Method — GCash</h2>
                         
                         <!-- Important Note - Moved above QR code -->
                         <div style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.08)); border-left: 4px solid #fbbf24; padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: 0;">
@@ -583,8 +583,22 @@ if (!function_exists('pf_payment_qr_url')) {
                         $qr_dir = __DIR__ . '/../public/assets/uploads/qr/';
                         $payment_cfg_path = $qr_dir . 'payment_methods.json';
                         $payment_methods = file_exists($payment_cfg_path) ? json_decode(file_get_contents($payment_cfg_path), true) : [];
-                        $enabled_methods = array_filter($payment_methods ?: [], function($m) { return !empty($m['enabled']); });
-                        
+                        $all_enabled = array_filter($payment_methods ?: [], function($m) { return !empty($m['enabled']); });
+
+                        // Only keep GCash in the UI to remove PayMaya/Maya options here
+                        $enabled_methods = array_values(array_filter($all_enabled, function($m){
+                            $prov = strval($m['provider'] ?? '');
+                            return stripos($prov, 'gcash') !== false;
+                        }));
+
+                        // Fallback: if no GCash entry is found, keep the first enabled method
+                        if (empty($enabled_methods)) {
+                            $enabled_methods = array_values($all_enabled);
+                            if (!empty($enabled_methods)) {
+                                $enabled_methods = [ $enabled_methods[0] ];
+                            }
+                        }
+
                         // Determine if this is a product order (no customization) or service order
                         $is_product_order = true;
                         if (!$is_job_order && !empty($items)) {
