@@ -970,11 +970,16 @@ async function api(url, method = 'GET', body = null) {
 
 function resolveAppUrl(path, fallback = '') {
     if (!path || path === 'null' || path === 'undefined') return fallback;
-    const value = String(path).trim();
+    let value = String(path).trim();
     if (!value) return fallback;
+    if (value.startsWith('/')) value = value.substring(1);
+    
+    if (value.startsWith('uploads/products') || value.startsWith('uploads/profiles') || value.startsWith('uploads/services') || value.startsWith('uploads/orders')) {
+        value = 'public/assets/' + value;
+    }
+    
     if (/^(https?:)?\/\//i.test(value) || value.startsWith('data:') || value.startsWith('blob:')) return value;
     if (value.startsWith(BASE + '/')) return value;
-    if (value.startsWith('/')) return value;
     if (value.startsWith('printflow/')) return '/' + value;
     return `${BASE}/${value.replace(/^\/+/, '')}`;
 }
@@ -2134,11 +2139,12 @@ function openOrderDetails(id) {
                     ${items.length ? items.map(it => {
                         const specs = it.customization || {};
                         const entries = Object.entries(specs).filter(([k, v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
-                        let displayImg = it.design_url || `${BASE}/public/assets/images/services/default.png`;
+                        let rawImg = it.service_image || it.design_url || '';
+                        let displayImg = resolveAppUrl(rawImg, `${BASE}/public/assets/images/services/default.png`);
                         const placement = specs.print_placement || specs.placement || '';
-                        if (!it.design_url && placement.includes('Front Center')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
-                        if (!it.design_url && placement.includes('Sleeve')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
-                        if (!it.design_url && placement.includes('Upper')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
+                        if (!rawImg && placement.includes('Front Center')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
+                        if (!rawImg && placement.includes('Sleeve')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
+                        if (!rawImg && placement.includes('Upper')) displayImg = `${BASE}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
                         return `
                         <div class="detail-order-card">
                             <div class="detail-order-top">

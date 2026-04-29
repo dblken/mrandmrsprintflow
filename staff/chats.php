@@ -1492,9 +1492,15 @@ function resolveAppUrl(path, fallback = '') {
     if (!path || path === 'null' || path === 'undefined') return fallback;
     const value = String(path).trim();
     if (!value) return fallback;
+    if (value.startsWith('/')) value = value.substring(1);
+    
+    // Fix for misplaced uploads/ directory requests
+    if (value.startsWith('uploads/products') || value.startsWith('uploads/profiles') || value.startsWith('uploads/services') || value.startsWith('uploads/orders')) {
+        value = 'public/assets/' + value;
+    }
+    
     if (/^(https?:)?\/\//i.test(value) || value.startsWith('data:') || value.startsWith('blob:')) return value;
     if (value.startsWith(window.baseUrl + '/')) return value;
-    if (value.startsWith('/')) return value;
     if (value.startsWith('printflow/')) return '/' + value;
     return `${window.baseUrl}/${value.replace(/^\/+/, '')}`;
 }
@@ -2697,7 +2703,8 @@ function openDetails(id) {
                     ${it.length ? it.map(i => {
                         const specs = i.customization || {};
                         const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
-                        let displayImg = i.service_image || i.design_url || `${window.baseUrl}/public/assets/images/services/default.png`;
+                        let rawImg = i.service_image || i.design_url || '';
+                        let displayImg = resolveAppUrl(rawImg, `${window.baseUrl}/public/assets/images/services/default.png`);
                         if (!displayImg) {
                             const placement = specs['print_placement'] || specs['placement'] || '';
                             if (placement.includes('Front Center')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
