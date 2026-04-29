@@ -245,7 +245,10 @@ $page_title = 'Visual Reports & Analytics';
                     <!-- Filter Panel -->
                     <div class="dropdown-panel filter-panel" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
                         <form id="reports-filter-form" method="GET" action="reports.php">
-                            <div class="filter-header">Filter Analytics</div>
+                            <div class="filter-header">
+                                <span>Filter Analytics</span>
+                                <button type="button" class="filter-close-btn" @click="filterOpen = false">×</button>
+                            </div>
                             
                             <!-- Status -->
                             <div class="filter-section">

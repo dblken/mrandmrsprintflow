@@ -1197,7 +1197,7 @@ $page_title = 'Review Management - Staff';
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                                     </svg>
-                                    <span class="toolbar-btn-label-light">Filters</span>
+                                    Filter
                                     <template x-if="filterActiveCount > 0">
                                         <span class="filter-badge" x-text="filterActiveCount"></span>
                                     </template>
@@ -1206,7 +1206,10 @@ $page_title = 'Review Management - Staff';
                                 <!-- Filter Panel -->
                                 <div class="dropdown-panel filter-panel" x-show="filterOpen" x-cloak
                                     @click.outside="filterOpen = false">
-                                    <div class="filter-header">Refine Reviews</div>
+                                    <div class="filter-header">
+                                        <span>Refine Reviews</span>
+                                        <button type="button" class="filter-close-btn" @click="filterOpen = false">×</button>
+                                    </div>
 
                                     <div class="filter-section">
                                         <div class="filter-section-head">

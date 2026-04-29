@@ -264,6 +264,187 @@
         transform: translateY(-1px);
     }
 
+    /* Standardized Dropdowns & Panels (Sort/Filter) */
+    html.printflow-staff .toolbar-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 14px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        color: #475569;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    html.printflow-staff .toolbar-btn:hover {
+        border-color: #06A1A1;
+        color: #06A1A1;
+        background: #f0fdfa;
+    }
+    html.printflow-staff .toolbar-btn.active {
+        border-color: #06A1A1;
+        background: #f0fdfa;
+        color: #06A1A1;
+    }
+
+    html.printflow-staff .dropdown-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.03);
+        z-index: 100;
+        min-width: 220px;
+        overflow: hidden;
+        animation: pfDropdownIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes pfDropdownIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    html.printflow-staff .sort-dropdown {
+        padding: 8px;
+    }
+    html.printflow-staff .sort-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #475569;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    html.printflow-staff .sort-option:hover {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    html.printflow-staff .sort-option.active {
+        background: rgba(6, 161, 161, 0.08);
+        color: #058f8f;
+        font-weight: 700;
+    }
+
+    html.printflow-staff .filter-panel {
+        width: 320px;
+        padding: 0;
+    }
+    html.printflow-staff .filter-header {
+        padding: 14px 18px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e293b;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    html.printflow-staff .filter-close-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px;
+        line-height: 1;
+    }
+    html.printflow-staff .filter-close-btn:hover {
+        color: #475569;
+    }
+    html.printflow-staff .filter-section {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    html.printflow-staff .filter-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    html.printflow-staff .filter-label {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        color: #64748b;
+    }
+    html.printflow-staff .filter-reset-link {
+        font-size: 12px;
+        font-weight: 600;
+        color: #06A1A1;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+    }
+    html.printflow-staff .filter-select, 
+    html.printflow-staff .filter-input {
+        width: 100%;
+        height: 38px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0 12px;
+        font-size: 14px;
+        color: #1e293b;
+        transition: all 0.2s;
+    }
+    html.printflow-staff .filter-select:focus,
+    html.printflow-staff .filter-input:focus {
+        border-color: #06A1A1;
+        background: #fff;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(6, 161, 161, 0.1);
+    }
+    html.printflow-staff .filter-footer {
+        padding: 14px 18px;
+        background: #f8fafc;
+    }
+    html.printflow-staff .filter-btn-reset {
+        width: 100%;
+        height: 38px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    html.printflow-staff .filter-btn-reset:hover {
+        border-color: #cbd5e1;
+        color: #1e293b;
+        background: #f1f5f9;
+    }
+    html.printflow-staff .filter-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        background: #06A1A1;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        border-radius: 50%;
+        margin-left: 4px;
+    }
+
     /* Staff-wide mobile hardening (parallel to admin shell behavior). */
     @media (max-width: 768px) {
         html.printflow-staff .content-area,
