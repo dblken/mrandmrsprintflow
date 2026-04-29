@@ -2437,29 +2437,35 @@ function openDetails(id) {
                     }
 
                     return `
-                    <div style="background:#fff; border:1px solid #f1f5f9; border-radius:16px; padding:1rem;">
-                        <div style="display:flex; align-items:flex-start; gap:1rem;">
-                            <div style="width:72px; height:72px; border-radius:12px; background:#f8fafc; border:1px solid #f1f5f9; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                                <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png'; this.style.opacity=0.3;">
+                    <div class="detail-order-card">
+                        <div class="detail-order-top">
+                            <div class="detail-order-thumb">
+                                <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" alt="${escapeHtml(i.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png'; this.style.opacity=0.3;">
                             </div>
-                            <div style="flex:1; min-width:0;">
-                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                                    <div style="font-size:1.1rem; font-weight:900; color:#1e293b; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
-                                    <div style="text-align:right; flex-shrink:0; margin-left:1rem;">
-                                         <div class="pf-spec-key" style="margin:0; font-size:9px;">Total</div>
+                            <div class="detail-order-body">
+                                <div class="detail-order-summary">
+                                    <div style="min-width:0; flex:1;">
+                                        <div class="detail-order-title" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
+                                        <div class="detail-order-meta" style="margin-top:0.65rem;">
+                                            <span class="detail-order-chip category">${escapeHtml(i.category || 'Service')}</span>
+                                            <span class="detail-order-chip">Units: ${i.quantity}</span>
+                                        </div>
+                                    </div>
+                                    <div class="detail-order-price">
+                                         <div class="pf-spec-key">Total</div>
                                          <div style="font-size:1.1rem; font-weight:900; color:#06A1A1;">${i.subtotal || '—'}</div>
                                     </div>
                                 </div>
-                                <div style="display:flex; align-items:center; gap:8px;">
+                                <div style="display:none;">
                                     <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${escapeHtml(i.category)}</span>
                                     <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${i.quantity}</span>
                                 </div>
                                 
-                                <div class="pf-spec-grid" style="margin-top:1rem; gap:6px;">
+                                <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
                                     ${entries.map(([k,v]) => `
-                                        <div class="pf-spec-box" style="padding:6px 8px; border-radius:8px;">
+                                        <div class="pf-spec-box">
                                             <div class="pf-spec-key" style="font-size:8px;">${k.replace(/_/g,' ').replace('shirt ','')}</div>
-                                            <div class="pf-spec-val" style="word-break: break-all; font-size:11px;">${v}</div>
+                                            <div class="pf-spec-val" style="font-size:11px;">${v}</div>
                                         </div>
                                     `).join('')}
                                 </div>
