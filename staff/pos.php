@@ -1046,6 +1046,14 @@ try {
 
         <div class="main-content"
             style="padding: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; width: 100%; min-height: 0;">
+            
+            <!-- Mobile Header for Burger Menu Injection -->
+            <header style="display: none; border-bottom: 1px solid #e2e8f0;">
+                <div class="pf-mobile-title-group" style="display:flex; align-items:center; flex:1; min-width:0; margin-left: 12px;">
+                    <h1 class="page-title" style="margin: 0; font-size: 18px; color: #1e293b; font-weight: 700;">Point of Sale</h1>
+                </div>
+            </header>
+
             <main style="flex: 1; display: flex; flex-direction: column; width: 100%; min-height: 0;">
                 <div class="pos-wrapper" style="width: 100%; flex: 1; min-height: 0;">
 
