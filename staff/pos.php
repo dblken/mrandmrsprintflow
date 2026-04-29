@@ -991,11 +991,41 @@ try {
             .pos-cart-list {
                 min-height: 350px;
             }
+            
+            /* Fix squished headers */
             .pos-search-header {
-                flex-wrap: wrap;
+                flex-direction: column;
+                align-items: stretch !important;
+                padding: 16px !important;
+                gap: 12px !important;
             }
-            .pos-category-select {
+            .pos-search-box {
+                max-width: none !important;
                 width: 100%;
+            }
+            .pos-search-header .pos-category-select,
+            .pos-search-header button {
+                width: 100% !important;
+                justify-content: center;
+            }
+            
+            .pos-services-header {
+                flex-direction: column;
+                align-items: stretch !important;
+                text-align: center;
+                gap: 16px !important;
+                padding: 16px !important;
+            }
+            .pos-services-header button {
+                width: 100% !important;
+                justify-content: center;
+            }
+            
+            /* Fix grid squishing */
+            .pos-services-grid {
+                grid-template-columns: 1fr 1fr !important;
+                padding: 16px !important;
+                gap: 8px !important;
             }
         }
     </style>
@@ -1112,7 +1142,7 @@ try {
 
                         <!-- Services View -->
                         <div id="services-view" style="display: none; height: 100%; flex-direction: column;">
-                            <div
+                            <div class="pos-services-header"
                                 style="padding: 24px; border-bottom: 1px solid #e2e8f0; background: #fff; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <h2 style="font-weight:700; font-size:18px; color:#1e293b; margin:0;">Available
