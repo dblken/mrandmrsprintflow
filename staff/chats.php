@@ -2053,6 +2053,8 @@ function getOrderCardData(m) {
         customer_name: customerName,
         messageText: m.message || meta.message || `${customerName} sent an inquiry for ${serviceName}`,
         buttonLabel: m.button_label || meta.button_label || 'Manage Order',
+        actionUrl: (meta.action_url ?? '') || (m.action_url ?? ''),
+        amount: (meta.amount ?? null) || (orderUpdate.amount ?? null),
         step: meta.step || ''
     };
 }
@@ -2076,7 +2078,8 @@ function renderOrderCard(m) {
                     </div>
                 </div>
                 <div class="oc-footer">
-                    <button class="oc-btn">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></button>
+                    ${data.amount ? `<div class="oc-price">Final price: ${formatCurrency ? formatCurrency(data.amount) : ('$' + Number(data.amount).toFixed(2))}</div>` : ''}
+                    ${data.actionUrl ? `<a href="${data.actionUrl}" class="oc-btn" onclick="event.stopPropagation();">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></a>` : `<button class="oc-btn">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></button>`}
                 </div>
             </div>
         </div>`;

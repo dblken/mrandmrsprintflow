@@ -3508,6 +3508,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'payment_status' => (string)($order['payment_status'] ?? ''),
         'thumbnail'      => $thumbnail,
         'button_label'   => $button_label,
+        'action_url'     => $action_url,
     ]);
 
     // 6. Avoid duplicate/legacy order_card messages for the same order.
