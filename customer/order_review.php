@@ -1206,6 +1206,8 @@ require_once __DIR__ . '/../includes/header.php';
         .review-order-item .order-item-content {
             width: 100% !important;
             padding-top: 0 !important;
+            align-items: center !important;
+            text-align: center !important;
         }
         .review-order-item .order-item-content h3 {
             font-size: 1rem !important;
@@ -1213,15 +1215,25 @@ require_once __DIR__ . '/../includes/header.php';
             white-space: normal !important;
             overflow: visible !important;
             text-overflow: clip !important;
+            width: 100% !important;
+            max-width: 18rem !important;
+            margin: 0 auto 0.55rem !important;
+            text-align: center !important;
         }
         .review-order-item .order-item-category-badge {
-            margin-bottom: 1rem !important;
+            align-self: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            margin: 0 auto 1rem !important;
+            padding: 0.4rem 0.95rem !important;
+            line-height: 1.35 !important;
         }
         .review-order-item .order-item-details {
             display: grid !important;
             grid-template-columns: 1fr !important;
             gap: 0.75rem !important;
             margin-top: 0 !important;
+            width: 100% !important;
         }
         .review-order-item .review-detail-row,
         .review-order-item .review-total-row {
@@ -1259,10 +1271,26 @@ require_once __DIR__ . '/../includes/header.php';
         }
         .review-order-item .order-item-spec-grid {
             grid-template-columns: 1fr !important;
-            gap: 0.75rem !important;
+            gap: 0.8rem !important;
+        }
+        .review-order-item .order-item-specs {
+            padding: 1rem !important;
+        }
+        .review-order-item .order-item-specs h4 {
+            margin-bottom: 0.85rem !important;
+            padding-bottom: 0.75rem !important;
         }
         .review-order-item .order-item-spec-tile {
-            padding: 0.8rem 0.9rem !important;
+            padding: 0.95rem 1rem !important;
+            border-radius: 12px !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+        }
+        .review-order-item .order-item-spec-tile > div:first-child {
+            margin-bottom: 0.35rem !important;
+            line-height: 1.35 !important;
+        }
+        .review-order-item .order-item-spec-tile > div:last-child {
+            line-height: 1.45 !important;
         }
         .review-total-banner-row {
             flex-direction: column !important;
