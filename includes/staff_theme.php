@@ -504,7 +504,7 @@
         }
 
         html.printflow-staff .kpi-row {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: repeat(2, 1fr) !important;
         }
 
         html.printflow-staff .kpi-card,
