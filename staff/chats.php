@@ -2380,129 +2380,116 @@ document.getElementById('mediaInput').onchange = function() {
 function openDetails(id) {
     const modal = document.getElementById('detailsModal');
     const body = document.getElementById('detailsBody');
-    
+
     modal.classList.add('active');
     body.innerHTML = `
-        <div style="text-align:center; padding: 3rem 0;">
-            <div style="display:inline-block; width:32px; height:32px; border:3px solid #f1f5f9; border-top-color:#06A1A1; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <p style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-top:1rem; letter-spacing:0.1em;">Analyzing Workflow...</p>
+        <div style="grid-column:1/-1; text-align:center; padding:3rem 0;">
+            <div style="display:inline-block; width:32px; height:32px; border:3px solid #f1f5f9; border-top-color:#06A1A1; border-radius:50%; animation:spin .8s linear infinite;"></div>
+            <p style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-top:1rem; letter-spacing:.1em;">Analyzing Workflow...</p>
         </div>`;
-    
+
     api(`/public/api/chat/order_details.php?order_id=${id}`).then(data => {
-        if (!data.success) { 
-            body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">Access Denied: ${escapeHtml(data.error || 'Unknown')}</div>`; 
-            return; 
+        if (!data.success) {
+            body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">Access Denied: ${escapeHtml(data.error || 'Unknown')}</div>`;
+            return;
         }
+
         const c = data.customer || {};
         const o = data.order || {};
         const it = data.items || [];
-        const compact = window.matchMedia('(max-width: 1023px)').matches;
-        
+        const compact = window.matchMedia('(max-width: 768px)').matches;
+
+        const actionUrl = o.manage_url || `${window.baseUrl}/staff/customizations.php?order_id=${o.order_id}`;
+        const actionLabel = o.manage_url ? 'MANAGE ORDER' : 'MANAGE ORDER';
+
         let h = `
-        <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #f1f5f9;padding:1rem;' : ''}">
-            <!-- Customer Info -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
-                <div style="display:flex; align-items:center; gap:0.75rem;">
-                    <div style="width:32px; height:32px; border-radius:8px; background:#06A1A1; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:0.8rem; overflow:hidden;">
-                        ${c.profile_picture && !c.profile_picture.includes('default.png') ? `<img src="${c.profile_picture}" style="width:100%;height:100%;object-fit:cover;">` : (c.full_name || '?')[0].toUpperCase()}
-                    </div>
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:0.85rem; font-weight:900; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.full_name || 'Guest')}</div>
-                        <div style="font-size:8px; font-weight:700; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.email || '')}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Workflow -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
-                     <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.status)}</div>
-                     <span style="width:8px; height:8px; border-radius:50%; background:${o.status === 'Completed' ? '#10b981' : '#3b82f6'};"></span>
-                </div>
-            </div>
-
-            <!-- Payment -->
-            <div class="pf-mini-card" style="padding:0.75rem;">
-                <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Payment Summary</div>
-                <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
-                     <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.payment_status || 'Unverified')}</div>
-                     <span style="width:8px; height:8px; border-radius:50%; background:${o.payment_status === 'Paid' ? '#10b981' : '#f59e0b'};"></span>
-                </div>
-            </div>
-
-            <!-- Finance -->
-            <div class="pf-mini-card" style="background:#0f172a; color:#fff; border:none; padding:0.75rem; margin-bottom:0;">
-                 <div class="pf-spec-key" style="color:#06A1A1; margin-bottom:2px; font-size:9px;">Total</div>
-                 <div style="font-size:1.1rem; font-weight:900; line-height:1; margin-bottom:0.5rem;">${o.total_amount || '—'}</div>
-                 <a href="${window.baseUrl}/staff/customizations.php?order_id=${o.order_id}" style="display:block; text-align:center; background:#06A1A1; color:#fff; padding:6px; border-radius:8px; font-size:10px; font-weight:900; text-decoration:none !important; border:1px solid rgba(255,255,255,0.05); box-shadow:0 4px 8px rgba(0,0,0,0.3);">
-                    MANAGE ORDER
-                 </a>
-            </div>
-        </div>
-
-        <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
-            <div class="details-main-heading" style="${compact ? 'padding:0 0 0.85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
-            <div class="details-items">
-                ${it.length ? it.map(i => {
-                    const specs = i.customization || {};
-                    const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
-                    
-                    // Advanced Placement Preview Logic (Priority: Service Image > Design Preview)
-                    let displayImg = i.service_image || i.design_url;
-                    if (!displayImg) {
-                         const placement = specs['print_placement'] || specs['placement'] || '';
-                         if (placement.includes('Front Center')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
-                         } else if (placement.includes('Sleeve')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
-                         } else if (placement.includes('Upper')) {
-                             displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
-                         } else if (specs.design_file) {
-                             displayImg = `${window.baseUrl}/uploads/orders/${specs.design_file}`;
-                         }
-                    }
-
-                    return `
-                    <div class="detail-order-card">
-                        <div class="detail-order-top">
-                            <div class="detail-order-thumb">
-                                <img src="${displayImg}" style="width:100%; height:100%; object-fit:cover;" alt="${escapeHtml(i.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png'; this.style.opacity=0.3;">
-                            </div>
-                            <div class="detail-order-body">
-                                <div class="detail-order-summary">
-                                    <div style="min-width:0; flex:1;">
-                                        <div class="detail-order-title" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
-                                        <div class="detail-order-meta" style="margin-top:0.65rem;">
-                                            <span class="detail-order-chip category">${escapeHtml(i.category || 'Service')}</span>
-                                            <span class="detail-order-chip">Units: ${i.quantity}</span>
-                                        </div>
-                                    </div>
-                                    <div class="detail-order-price">
-                                         <div class="pf-spec-key">Total</div>
-                                         <div style="font-size:1.1rem; font-weight:900; color:#06A1A1;">${i.subtotal || '—'}</div>
-                                    </div>
-                                </div>
-                                <div style="display:none;">
-                                    <span style="font-size:9px; font-weight:900; color:#64748b; text-transform:uppercase;">${escapeHtml(i.category)}</span>
-                                    <span style="background:#f1f5f9; padding:2px 8px; border-radius:12px; font-size:9px; font-weight:900; color:#475569;">UNITS: ${i.quantity}</span>
-                                </div>
-                                
-                                <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
-                                    ${entries.map(([k,v]) => `
-                                        <div class="pf-spec-box">
-                                            <div class="pf-spec-key" style="font-size:8px;">${k.replace(/_/g,' ').replace('shirt ','')}</div>
-                                            <div class="pf-spec-val" style="font-size:11px;">${v}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
+            <div class="details-sidebar" style="gap:1rem; ${compact ? 'border-right:none;border-bottom:1px solid #f1f5f9;padding:1rem;' : ''}">
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Customer Profile</div>
+                    <div style="display:flex; align-items:center; gap:.75rem;">
+                        <div style="width:52px; height:52px; border-radius:14px; background:#06A1A1; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1rem; overflow:hidden; flex-shrink:0;">
+                            ${c.profile_picture ? `<img src="${c.profile_picture}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : escapeHtml((c.full_name || '?').charAt(0).toUpperCase())}
                         </div>
-                    </div>`;
-                }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:.85rem; font-weight:900; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.full_name || 'Guest')}</div>
+                            <div style="font-size:11px; font-weight:700; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(c.email || '')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.status || 'Pending')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${(o.status || '').toLowerCase().includes('complete') ? '#10b981' : '#3b82f6'};"></span>
+                    </div>
+                </div>
+
+                <div class="pf-mini-card" style="padding:.75rem;">
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Payment Summary</div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
+                         <div style="font-size:10px; font-weight:900; color:#1e293b;">${escapeHtml(o.payment_status || 'Unverified')}</div>
+                         <span style="width:10px; height:10px; border-radius:50%; background:${(o.payment_status || '').toLowerCase().includes('paid') ? '#10b981' : '#f59e0b'};"></span>
+                    </div>
+                </div>
+
+                <div class="pf-mini-card" style="background:#0f172a; color:#fff; border:none; padding:.75rem; margin-bottom:0;">
+                     <div class="pf-spec-key" style="color:#06A1A1; margin-bottom:2px; font-size:9px;">Total</div>
+                     <div style="font-size:1.1rem; font-weight:900; line-height:1; margin-bottom:.75rem;">${o.total_amount || 'To be finalized'}</div>
+                     <a href="${actionUrl}" style="display:block; text-align:center; background:#06A1A1; color:#fff; padding:8px; border-radius:10px; font-size:10px; font-weight:900; text-decoration:none;">${actionLabel}</a>
+                </div>
             </div>
-        </div>`;
+
+            <div class="details-main" style="${compact ? 'padding:1rem;' : 'padding-left:1rem;'}">
+                <div class="details-main-heading" style="${compact ? 'padding:0 0 .85rem; border-bottom:1px solid #f1f5f9;' : ''}">Order Details</div>
+                <div class="details-items">
+                    ${it.length ? it.map(i => {
+                        const specs = i.customization || {};
+                        const entries = Object.entries(specs).filter(([k,v]) => v && v !== 'null' && typeof v !== 'object' && k !== 'service_type' && k !== 'branch_id');
+                        let displayImg = i.service_image || i.design_url || `${window.baseUrl}/public/assets/images/services/default.png`;
+                        if (!displayImg) {
+                            const placement = specs['print_placement'] || specs['placement'] || '';
+                            if (placement.includes('Front Center')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Front Center Print.webp`;
+                            if (placement.includes('Sleeve')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Sleeve Print.webp`;
+                            if (placement.includes('Upper')) displayImg = `${window.baseUrl}/public/assets/images/tshirt_replacement/Back Upper Print.webp`;
+                            if (specs.design_file) displayImg = `${window.baseUrl}/uploads/orders/${specs.design_file}`;
+                        }
+
+                        return `
+                            <div class="detail-order-card">
+                                <div class="detail-order-top">
+                                    <div class="detail-order-thumb">
+                                        <img src="${displayImg}" alt="${escapeHtml(i.product_name || 'Order Item')}" onerror="this.onerror=null; this.src='${window.baseUrl}/public/assets/images/services/default.png';">
+                                    </div>
+                                    <div class="detail-order-body">
+                                        <div class="detail-order-summary">
+                                            <div style="min-width:0; flex:1;">
+                                                <div class="detail-order-title" title="${escapeHtml(i.product_name || 'Order Item')}">${escapeHtml(i.product_name || 'Order Item')}</div>
+                                                <div class="detail-order-meta" style="margin-top:.65rem;">
+                                                    <span class="detail-order-chip category">${escapeHtml(i.category || 'Service')}</span>
+                                                    <span class="detail-order-chip">Units: ${i.quantity}</span>
+                                                </div>
+                                            </div>
+                                            <div class="detail-order-price">
+                                                <div class="pf-spec-key">Total</div>
+                                                <strong>${i.subtotal || 'TBA'}</strong>
+                                            </div>
+                                        </div>
+                                        <div class="pf-spec-grid" style="margin-top:0; gap:8px;">
+                                            ${entries.map(([k,v]) => `
+                                                <div class="pf-spec-box">
+                                                    <div class="pf-spec-key" style="font-size:8px;">${escapeHtml(k.replace(/_/g,' ').replace('shirt ',''))}</div>
+                                                    <div class="pf-spec-val" style="font-size:11px;">${escapeHtml(String(v))}</div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                    }).join('') : '<div style="text-align:center; padding:4rem; color:#cbd5e1; font-style:italic;">Order details are currently empty.</div>'}
+                </div>
+            </div>`;
+
         body.innerHTML = h;
     }).catch(err => {
         body.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:5rem; color:#ef4444; font-weight:800;">System Error: ${escapeHtml(err.message)}</div>`;
