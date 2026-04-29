@@ -3378,60 +3378,75 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         }
     }
 
-    // 4. Step â†’ message, action_type, action_url
-    $step_configs = [
+    // 4. Step -> message, action_type, action_url, message_type
+    $step_configs = [ // UPDATED
         'inquiry' => [
-            'message'     => "{$customer_name} inquired about \"{$product_name}\".",
+            'message'      => "{$customer_name} inquired about \"{$product_name}\".",
+            'message_type' => 'order_card',
             'action_type' => 'view_inquiry',
             'action_url'  => '',
         ],
         'approved' => [
-            'message'     => "Your inquiry for \"{$product_name}\" has been approved for pricing. We are now preparing your quotation.",
+            'message'      => "Your inquiry has been approved! We're now preparing the final price based on your request.",
+            'message_type' => 'text',
             'action_type' => 'view_details',
             'action_url'  => '',
         ],
         'send_to_payment' => [
-            'message'     => "Your order for \"{$product_name}\" is ready for payment (â‚±{$amount}). Tap this card to proceed.",
+            'message'      => "Your order is ready for payment! We've finalized the details and pricing for your request.",
+            'message_type' => 'order_card',
+            'button_label' => 'Proceed to Payment',
             'action_type' => 'to_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'payment_submitted' => [
-            'message'     => "We have received your payment. It is now under verification.",
+            'message'      => "We have received your payment. It is now under verification.",
+            'message_type' => 'text',
             'action_type' => 'verify_payment',
             'action_url'  => '',
         ],
         'payment_verified' => [
-            'message'     => "Your payment has been approved. We will now proceed with production.",
+            'message'      => "Payment Approved! We’re now processing your order. You’ll be notified once it’s ready.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'payment_rejected' => [
-            'message'     => "Your payment was not approved. Please try again or update your payment details.",
+            'message'      => "Payment Rejected. The proof you uploaded was not accepted. Please re-upload your payment proof.",
+            'message_type' => 'order_card',
+            'button_label' => 'Upload Payment Again',
             'action_type' => 'retry_payment',
             'action_url'  => "{$base}/customer/payment.php?order_id={$order_id}",
         ],
         'in_production' => [
-            'message'     => "Your order is now in production. Our team is currently working on it.",
+            'message'      => "Your order is now in production. Our team is currently working on it.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'ready_to_pickup' => [
-            'message'     => "Your order is ready for pickup. Please visit our store to claim it.",
+            'message'      => "Order Ready! Your order is now ready for pickup/delivery. Thank you for choosing PrintFlow!",
+            'message_type' => 'text',
             'action_type' => 'pickup_details',
             'action_url'  => '',
         ],
         'completed' => [
-            'message'     => "Your order has been completed. Thank you for your purchase!",
+            'message'      => "Order Completed. Your order has been successfully picked up/delivered.",
+            'message_type' => 'order_card',
+            'button_label' => 'Leave a Review',
             'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
         'cancelled' => [
-            'message'     => "Your order has been cancelled. Please contact our team if you need help with the next step.",
+            'message'      => "Your order has been cancelled. Please contact our team if you need help with the next step.",
+            'message_type' => 'text',
             'action_type' => 'view_status',
             'action_url'  => '',
         ],
         'rate' => [
-            'message'     => "How was your experience? Please rate your order.",
+            'message'      => "How was your experience? Please rate your order.",
+            'message_type' => 'order_card',
+            'button_label' => 'Leave a Review',
             'action_type' => 'rate',
             'action_url'  => "{$base}/customer/rate_order.php?order_id={$order_id}",
         ],
@@ -3457,7 +3472,9 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         $config['message'] = "Your order is now ready for payment. Please proceed to complete your transaction.";
     }
 
-    $message     = $custom_text ?: $config['message'];
+    $message      = $custom_text ?: $config['message'];
+    $message_type = $config['message_type'] ?? 'text';
+    $button_label = $config['button_label'] ?? '';
     $action_type = $config['action_type'];
     $action_url  = $config['action_url'];
     $origin_actor_map = [
@@ -3491,7 +3508,7 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         $sender_id = max(0, (int) get_user_id());
     }
 
-    // 5. meta_json for extra context (used by frontend card renderer)
+    // 5. meta_json for extra context
     $meta = json_encode([
         'step'         => $step,
         'order_id'     => $order_id,
@@ -3499,21 +3516,23 @@ function printflow_send_order_update($order_id, $step, $custom_text = '') {
         'amount'       => (float)($order['total_amount'] ?? 0),
         'origin_actor' => $sender_type,
         'sender_type'  => $sender_type,
-        'order_status' => (string) ($order['status'] ?? ''),
-        'payment_status' => (string) ($order['payment_status'] ?? ''),
-        'thumbnail'    => $thumbnail,
+        'order_status'   => (string)($order['status'] ?? ''),
+        'payment_status' => (string)($order['payment_status'] ?? ''),
+        'thumbnail'      => $thumbnail,
+        'button_label'   => $button_label,
     ]);
 
     // 6. Insert into order_messages using dedicated schema columns
     $sql = "INSERT INTO order_messages
                 (order_id, sender, sender_id, message, message_type, thumbnail, action_type, action_url, meta_json, read_receipt)
-            VALUES (?, ?, ?, ?, 'order_update', ?, ?, ?, ?, 0)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
 
-    return db_execute($sql, 'isissss', [
+    return db_execute($sql, 'isissssss', [
         $order_id,
         $db_sender,
         $sender_id,
         $message,
+        $message_type,
         $thumbnail,
         $action_type,
         $action_url,

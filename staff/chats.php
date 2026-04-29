@@ -3,7 +3,8 @@
  * Staff Chat Dashboard - Professional Enterprise UI (Fixed)
  * High-end communication interface for staff members.
  */
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/auth.php'; // Test
+
 require_once __DIR__ . '/../includes/functions.php';
 // Load environment config first so BASE_URL/BASE_PATH are correct for production
 if (!defined('BASE_URL') && file_exists(__DIR__ . '/../config.php')) {
@@ -1108,7 +1109,119 @@ $current_user = get_logged_in_user();
             0% { background: rgba(0, 35, 43, 0.1); transform: scale(1.02); }
             100% { background: transparent; transform: scale(1); }
         }
+            /* Rich Order Card V2 (Messenger Style) */
+        .order-card-v2 {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            width: min(100%, 300px);
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(15,23,42,0.06);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            margin: 4px 0;
+            text-align: left;
+        }
+        .order-card-v2:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(15,23,42,0.12);
+            border-color: #cbd5e1;
+        }
+        .oc-header {
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fbff;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .oc-badge {
+            font-size: 0.6rem;
+            font-weight: 900;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .oc-status {
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 3px 8px;
+            border-radius: 999px;
+            text-transform: capitalize;
+        }
+        .oc-body {
+            padding: 12px 14px;
+            display: flex;
+            gap: 12px;
+        }
+        .oc-thumb {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            object-fit: cover;
+            background: #f1f5f9;
+            flex-shrink: 0;
+            border: 1px solid #f1f5f9;
+        }
+        .oc-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .oc-title {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .oc-desc {
+            font-size: 0.78rem;
+            color: #475569;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .oc-footer {
+            padding: 8px 12px 12px;
+        }
+        .oc-btn {
+            width: 100%;
+            padding: 9px;
+            background: #0a2530;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(10,37,48,0.15);
+        }
+        .oc-btn:hover {
+            background: #0f172a;
+            transform: scale(1.02);
+        }
+        
+        .oc-status.tone-pending { background: #fff7ed; color: #c2410c; }
+        .oc-status.tone-approved { background: #eff6ff; color: #1d4ed8; }
+        .oc-status.tone-payment { background: #eef2ff; color: #4338ca; }
+        .oc-status.tone-production { background: #ecfeff; color: #0f766e; }
+        .oc-status.tone-ready { background: #ecfccb; color: #3f6212; }
+        .oc-status.tone-complete { background: #dcfce7; color: #166534; }
+        .oc-status.tone-alert { background: #fef2f2; color: #b91c1c; }
+        .oc-status.tone-neutral { background: #f1f5f9; color: #475569; }
     </style>
+
 </head>
 <body class="bg-slate-50" data-turbo="false">
 
@@ -1871,6 +1984,13 @@ function getOrderUpdateActionLabel() {
     return 'Open order';
 }
 
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function normalizeSenderType(value) {
     const senderType = String(value || '').toLowerCase();
     return senderType === 'customer' || senderType === 'staff' ? senderType : '';
@@ -1879,9 +1999,9 @@ function normalizeSenderType(value) {
 function getMessageSide(message) {
     const senderType = normalizeSenderType(message?.sender_type);
     if (senderType) {
-        return senderType === CURRENT_USER_TYPE ? 'self' : 'other';
+        return senderType === 'staff' ? 'self' : 'other';
     }
-    return (message?.is_system && message?.message_type !== 'order_update') ? 'system' : (message?.is_self ? 'self' : 'other');
+    return (message?.is_system && message?.message_type !== 'order_update' && message?.message_type !== 'order_card') ? 'system' : (message?.is_self ? 'self' : 'other');
 }
 
 function getMessageSenderKey(message) {
@@ -1907,21 +2027,17 @@ function getOrderStatusTone(statusText) {
     return 'neutral';
 }
 
-function getOrderCardData(message) {
-    const orderUpdate = message.order_update || {};
+function getOrderCardData(m) {
+    const orderUpdate = m.order_update || {};
     let meta = {};
-    try { meta = JSON.parse(message.meta_json || '{}'); } catch (e) {}
+    try { meta = JSON.parse(m.meta_json || '{}'); } catch (e) {}
 
-    let imagePath = orderUpdate.thumbnail || message.image || message.image_path || message.file_path || message.thumbnail || meta.image || meta.thumbnail || '';
-    if (imagePath) {
-        imagePath = resolveAppUrl(imagePath);
-    }
-    if (!imagePath) {
-        imagePath = '/public/default.png';
-    }
+    let imagePath = orderUpdate.thumbnail || m.image || m.image_path || m.file_path || m.thumbnail || meta.image || meta.thumbnail || '';
+    if (imagePath) imagePath = resolveAppUrl(imagePath);
+    if (!imagePath) imagePath = '/public/default.png';
 
-    const serviceName = orderUpdate.product_name || meta.product_name || message.service_name || message.message || 'Order update';
-    const customerName = message.customer_name || meta.customer_name || message.sender_name || 'Customer';
+    const serviceName = orderUpdate.product_name || meta.product_name || m.service_name || m.message || 'Order update';
+    const customerName = m.customer_name || meta.customer_name || m.sender_name || 'Customer';
 
     return {
         orderId: Number(orderUpdate.order_id || meta.order_id || activeId || 0),
@@ -1931,8 +2047,35 @@ function getOrderCardData(message) {
         image: imagePath,
         service_name: serviceName,
         customer_name: customerName,
-        messageText: `${customerName} sent an inquiry for ${serviceName}`,
+        messageText: m.message || meta.message || `${customerName} sent an inquiry for ${serviceName}`,
+        buttonLabel: m.button_label || meta.button_label || 'Manage Order',
+        step: meta.step || ''
     };
+}
+
+function renderOrderCard(m) {
+    const data = getOrderCardData(m);
+    const statusTone = getOrderStatusTone(data.statusLabel);
+    
+    return `
+        <div class="msg-content-col">
+            <div class="order-card-v2" onclick="openOrderModal(${data.orderId})">
+                <div class="oc-header">
+                    <div class="oc-badge">Order Update</div>
+                    <div class="oc-status tone-${statusTone}">${escapeHtml(data.statusLabel)}</div>
+                </div>
+                <div class="oc-body">
+                    ${data.thumbnail ? `<img src="${resolveAppUrl(data.thumbnail)}" class="oc-thumb" onerror="this.src='/public/default.png'">` : `<div class="oc-thumb" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:#f8fafc;">📦</div>`}
+                    <div class="oc-content">
+                        <div class="oc-title">${escapeHtml(data.productName)}</div>
+                        <div class="oc-desc">${escapeHtml(data.messageText)}</div>
+                    </div>
+                </div>
+                <div class="oc-footer">
+                    <button class="oc-btn">${escapeHtml(data.buttonLabel)} <i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>`;
 }
 
 function openOrderModal(orderId) {
@@ -1956,29 +2099,13 @@ function appendMsgUI(m) {
     const rowClass = (rowSide === 'system' && !isCallLog) ? 'system' : rowSide;
     const isSelf = rowClass === 'self';
 
-    if (m.message_type === 'order_update') {
-        const data = getOrderCardData(m);
-        if (!data.image) {
-            data.image = '/public/default.png';
-        }
-        console.log("Order Card Rendered:", data);
-        console.log("Image path:", data.image);
+    if (m.message_type === 'order_update' || m.message_type === 'order_card') {
         const row = document.createElement('div');
         row.id = `ms-${m.id}`;
         row.className = `bubble-row order-update staff-view ${rowSide === 'system' ? 'other' : rowSide}`;
         row.setAttribute('data-sender', senderKey);
         row.setAttribute('data-time', messageTimeKey);
-        row.innerHTML = `
-            <div class="chat-message left">
-                <div class="order-card" data-order-id="${data.orderId}">
-                    <img src="${data.image}" class="order-img" onerror="this.onerror=null;this.src='/public/default.png'">
-                    <div class="order-info">
-                        <strong>${escapeHtml(data.service_name)}</strong>
-                        <p>${escapeHtml(data.customer_name)} sent an inquiry</p>
-                    </div>
-                </div>
-            </div>
-        `;
+        row.innerHTML = renderOrderCard(m);
         box.appendChild(row);
         return;
     }
