@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Staff Reviews Page
  * Enhanced with Filtering by Type and improved data mapping.
@@ -1094,7 +1094,7 @@ $page_title = 'Review Management - Staff';
         <?php endif; ?>
 
         <div class="main-content" x-data="reviewManager()" x-init="init()">
-            <header>
+            <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
                 <div>
                     <h1 class="page-title">Review Management</h1>
                     <p class="page-subtitle">Track and respond to customer feedback and service ratings</p>
@@ -1153,9 +1153,9 @@ $page_title = 'Review Management - Staff';
 
                 <!-- Standardized Toolbar -->
                 <div class="card overflow-visible pf-reviews-table-card">
-                    <div class="toolbar-container">
+                    <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
                         <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Reviews Feed</h3>
-                        <div class="toolbar-group" style="margin-left: auto;">
+                        <div class="toolbar-group">
 
 
                             <!-- Sort Button -->
@@ -1399,8 +1399,8 @@ $page_title = 'Review Management - Staff';
                             <?php endforeach; ?>
                         </div>
 
-                        <div class="rv-pager">
-                            <?php echo get_pagination_links($current_page, $total_pages, $page_query_params); ?>
+                        <div class="rv-pager" style="padding: 24px 0; border-top: 1px solid #f3f4f6;">
+                            <?php echo render_pagination($current_page, $total_pages, $page_query_params); ?>
                         </div>
                     <?php endif; ?>
                 </div>

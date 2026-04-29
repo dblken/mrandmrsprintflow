@@ -225,16 +225,16 @@ $page_title = 'Visual Reports & Analytics';
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
     <div class="main-content" x-data="{ filterOpen: false, activeStatus: '<?php echo $_GET['status'] ?? 'ALL'; ?>', activeRange: '<?php echo $range; ?>', hasActiveFilters: <?php echo (($_GET['status']??'ALL') !== 'ALL' || $range !== 'week') ? 'true' : 'false'; ?> }">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
             <div>
                 <h1 class="page-title">Visual Reports & Analytics</h1>
                 <p class="page-subtitle">A quick overview of business performance and metrics.</p>
             </div>
             
-            <div class="toolbar-group">
+            <div class="toolbar-group" style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
                 <!-- Filter Button -->
                 <div style="position:relative;">
-                    <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen">
+                    <button class="toolbar-btn" :class="{ active: filterOpen || hasActiveFilters }" @click="filterOpen = !filterOpen" style="height: 38px;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                         Filter
                         <template x-if="hasActiveFilters">
@@ -283,17 +283,18 @@ $page_title = 'Visual Reports & Analytics';
                     </div>
                 </div>
 
-                <!-- Export Button -->
-                <a href="export_reports.php?range=<?php echo $range; ?>&status=<?php echo $_GET['status'] ?? 'ALL'; ?>" class="toolbar-btn" style="background: linear-gradient(135deg, #0d9488 0%, #065f46 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Export
-                </a>
-                
-                <!-- PDF Report Button -->
-                <a href="export_order_summary_pdf.php?range=<?php echo $range; ?>&status=<?php echo $_GET['status'] ?? 'ALL'; ?>" class="toolbar-btn" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);" target="_blank">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                    PDF Report
-                </a>
+                <!-- Export Buttons Group -->
+                <div style="display: flex; gap: 8px;">
+                    <a href="export_reports.php?range=<?php echo $range; ?>&status=<?php echo $_GET['status'] ?? 'ALL'; ?>" class="toolbar-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); height: 38px; font-weight: 700;">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width: 2;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Excel
+                    </a>
+                    
+                    <a href="export_order_summary_pdf.php?range=<?php echo $range; ?>&status=<?php echo $_GET['status'] ?? 'ALL'; ?>" class="toolbar-btn" style="background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(244, 63, 94, 0.2); height: 38px; font-weight: 700;" target="_blank">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width: 2;"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        PDF
+                    </a>
+                </div>
             </div>
         </header>
 

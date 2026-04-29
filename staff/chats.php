@@ -2131,16 +2131,20 @@ function appendMsgUI(m) {
     }
 
     if (m.is_system && !isCallLog) {
-        const logoUrl = typeof BASE !== 'undefined' ? `${BASE}/public/assets/images/favicon.png` : '/public/assets/images/favicon.png';
-        const avHtml = `<div class="msg-avatar" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center; overflow:hidden;"><img src="${logoUrl}" style="width:18px;height:18px;object-fit:contain;opacity:0.8;"></div>`;
-        row.innerHTML = `${avHtml}<div class="msg-content-col"><div class="bubble">${escapeHtml(m.message)}</div></div>`;
+        const avHtml = `<div class="msg-avatar" style="background:#f1f5f9; color:#94a3b8; font-size:11px; font-weight:900;">SYS</div>`;
+        row.innerHTML = `${avHtml}<div class="msg-content-col"><div class="bubble" style="background:#f8fafc; color:#64748b; border:1px dashed #e2e8f0; font-style:italic;">${escapeHtml(m.message)}</div></div>`;
         box.appendChild(row); return;
     }
 
     let avatarHtml = '';
     if (!isSelf) {
         const initial = (m.sender_name || 'C')[0].toUpperCase();
-        avatarHtml = `<div class="msg-avatar">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="width:100%;height:100%;border-radius:50%;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${initial}</span>`}</div>`;
+        avatarHtml = `<div class="msg-avatar">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${initial}</span>`}</div>`;
+    } else {
+        // Optional: Show staff's own avatar for 'self' messages if requested by UI/UX standards
+        const myAvatar = window.PFConfig.userAvatar;
+        const myInitial = (window.PFConfig.userName || 'S')[0].toUpperCase();
+        avatarHtml = `<div class="msg-avatar">${myAvatar ? `<img src="${myAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${myInitial}</span>`}</div>`;
     }
 
     const isCallMsg = (m.message && m.message.includes('📞'));

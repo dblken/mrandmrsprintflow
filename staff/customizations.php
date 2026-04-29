@@ -995,7 +995,7 @@ if ($showLatestCustomizationOnly) {
     ?>
     <div class="main-content">
         <div id="staffJoCustomizationsPage" x-data="joManager('ALL')" x-init="init()" class="pf-staff-customizations-root" @keydown.escape.window="onSvcEscape()">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
             <div>
                 <h1 class="page-title">Customizations</h1>
                 <p class="page-subtitle">Track and manage all custom jobs</p>
@@ -1036,8 +1036,8 @@ if ($showLatestCustomizationOnly) {
 
             <!-- Jobs List & Filters (matching Enterprise reference) -->
             <div class="card overflow-visible pf-customizations-table-card">
-                <div class="toolbar-container">
-                    <div class="toolbar-group toolbar-group--title" style="margin-right:auto;">
+                <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div class="toolbar-group toolbar-group--title">
                         <h3 style="font-size:16px;font-weight:700;color:#1f2937;margin:0;white-space:nowrap;">Customization List</h3>
                     </div>
                     <div class="toolbar-group toolbar-group--actions">
@@ -1268,20 +1268,44 @@ if ($showLatestCustomizationOnly) {
                     </table>
                 </div>
 
-                <div x-show="totalPages > 1" style="display:block; width:100%; text-align:center; margin-top:20px; padding-top:16px; border-top:1px solid #f3f4f6;">
-                    <div style="display:inline-flex; align-items:center; justify-content:center; gap:4px;">
-                        <button x-show="currentPage > 1" @click="currentPage--" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;font-size:13px;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='#f5f7fa'" onmouseout="this.style.background='white'">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    </button>
-                    <template x-for="(p, i) in pageNumbers" :key="i">
-                        <span style="display:inline-flex;">
-                            <span x-show="p === '...'" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;">···</span>
-                            <button x-show="p !== '...'" @click="currentPage = p" :style="currentPage === p ? 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #0d9488;background:#0d9488;color:white;text-decoration:none;font-size:13px;font-weight:600;' : 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;text-decoration:none;font-size:13px;font-weight:500;transition:all 0.2s;'" x-text="p"></button>
-                        </span>
-                    </template>
-                    <button x-show="currentPage < totalPages" @click="currentPage++" style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;font-size:13px;font-weight:500;transition:all 0.2s;" onmouseover="this.style.background='#f5f7fa'" onmouseout="this.style.background='white'">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </button>
+                <!-- Standardized Premium Pagination -->
+                <div x-show="totalPages > 1" class="pagination-container" style="display:flex; width:100%; justify-content:center; padding: 24px 0; border-top:1px solid #f3f4f6; margin-top: auto;">
+                    <div style="display:inline-flex; align-items:center; gap:6px;">
+                        <!-- Previous Button -->
+                        <button x-show="currentPage > 1" 
+                                @click="currentPage--" 
+                                style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; color:#64748b; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer;"
+                                onmouseover="this.style.borderColor='#06A1A1'; this.style.color='#06A1A1'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(6, 161, 161, 0.1)';" 
+                                onmouseout="this.style.borderColor='#e2e8f0'; this.style.color='#64748b'; this.style.transform='none'; this.style.boxShadow='none';">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+
+                        <template x-for="(p, i) in pageNumbers" :key="i">
+                            <div style="display:flex; align-items:center;">
+                                <template x-if="p === '...'">
+                                    <span style="width:38px; height:38px; display:inline-flex; align-items:center; justify-content:center; color:#94a3b8; font-weight:600; font-size:14px; letter-spacing:1px;">...</span>
+                                </template>
+                                <template x-if="p !== '...'">
+                                    <button @click="currentPage = p" 
+                                            :style="currentPage === p 
+                                                ? 'display:inline-flex; align-items:center; justify-content:center; min-width:38px; height:38px; padding:0 12px; border-radius:10px; border:none; background:linear-gradient(135deg, #06A1A1 0%, #047676 100%); color:white; font-size:14px; font-weight:700; box-shadow: 0 4px 12px rgba(6, 161, 161, 0.25); cursor:pointer;'
+                                                : 'display:inline-flex; align-items:center; justify-content:center; min-width:38px; height:38px; padding:0 12px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; color:#64748b; font-size:14px; font-weight:600; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer;'"
+                                            x-text="p"
+                                            @mouseover="if(currentPage !== p) { $el.style.borderColor='#06A1A1'; $el.style.color='#06A1A1'; $el.style.transform='translateY(-1px)'; $el.style.boxShadow='0 4px 12px rgba(6, 161, 161, 0.1)'; }"
+                                            @mouseout="if(currentPage !== p) { $el.style.borderColor='#e2e8f0'; $el.style.color='#64748b'; $el.style.transform='none'; $el.style.boxShadow='none'; }">
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Next Button -->
+                        <button x-show="currentPage < totalPages" 
+                                @click="currentPage++" 
+                                style="display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:10px; border:1px solid #e2e8f0; background:#fff; color:#64748b; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor:pointer;"
+                                onmouseover="this.style.borderColor='#06A1A1'; this.style.color='#06A1A1'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(6, 161, 161, 0.1)';" 
+                                onmouseout="this.style.borderColor='#e2e8f0'; this.style.color='#64748b'; this.style.transform='none'; this.style.boxShadow='none';">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -3126,8 +3150,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const total = this.totalPages;
                 if (total <= 1) return [];
                 let pages = [1];
-                const window = 2;
-                for (let i = Math.max(2, this.currentPage - window); i <= Math.min(total - 1, this.currentPage + window); i++) {
+                const windowSize = 3; // Increased window size for better accessibility
+                for (let i = Math.max(2, this.currentPage - windowSize); i <= Math.min(total - 1, this.currentPage + windowSize); i++) {
                     pages.push(i);
                 }
                 if (total > 1 && !pages.includes(total)) pages.push(total);

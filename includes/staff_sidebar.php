@@ -284,7 +284,19 @@ $_pf_uid   = isset($_SESSION['user_id'])   ? (int)$_SESSION['user_id']   : 0;
 $_pf_utype = isset($_SESSION['user_type']) ? $_SESSION['user_type']       : 'Staff';
 ?>
 <script>
-window.PFConfig = { userId: <?php echo json_encode($_pf_uid); ?>, userType: <?php echo json_encode($_pf_utype); ?>, sessionId: <?php echo json_encode(session_id()); ?>, basePath: <?php echo json_encode($base_path); ?>, logoUrl: <?php echo json_encode($shop_logo_url); ?>, logoutUrl: <?php echo json_encode($base_path . '/logout'); ?>, loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>, apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>, sessionStatusUrl: <?php echo json_encode($base_path . '/public/api_session_status.php'); ?> };
+window.PFConfig = { 
+    userId: <?php echo json_encode($_pf_uid); ?>, 
+    userType: <?php echo json_encode($_pf_utype); ?>, 
+    userAvatar: <?php echo json_encode($sidebar_profile_pic); ?>,
+    userName: <?php echo json_encode($user_name); ?>,
+    sessionId: <?php echo json_encode(session_id()); ?>, 
+    basePath: <?php echo json_encode($base_path); ?>, 
+    logoUrl: <?php echo json_encode($shop_logo_url); ?>, 
+    logoutUrl: <?php echo json_encode($base_path . '/logout'); ?>, 
+    loginUrl: <?php echo json_encode($base_path . '/?auth_modal=login'); ?>, 
+    apiCartUrl: <?php echo json_encode($base_path . '/public/api_cart.php'); ?>, 
+    sessionStatusUrl: <?php echo json_encode($base_path . '/public/api_session_status.php'); ?> 
+};
 (function() {
     function supportPresenceBeat() {
         var base = (window.PFConfig && window.PFConfig.basePath) || '';

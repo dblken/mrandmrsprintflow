@@ -329,6 +329,7 @@ $page_title = 'Staff Dashboard - PrintFlow';
             100% { transform: scale(1); opacity: 1; }
         }
         .metric-pulse { animation: kpiPulse 0.4s ease-in-out; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body>
@@ -348,20 +349,20 @@ $page_title = 'Staff Dashboard - PrintFlow';
             return type.charAt(0).toUpperCase() + type.slice(1);
         }
     }">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
             <div>
                 <h1 class="page-title">Dashboard</h1>
                 <p class="page-subtitle" id="kpi-subtitle">Metrics for <?php echo htmlspecialchars($timeframe_label); ?> at <?php echo htmlspecialchars($branch_name); ?></p>
             </div>
 
-            <div class="toolbar-group" style="display: flex; gap: 12px; align-items: center;">
+            <div class="toolbar-group" style="display: flex; gap: 10px; align-items: center; margin-left: auto;">
                 <!-- Timeframe (Sort) -->
                 <div style="position:relative;">
-                    <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700;">
-                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <button class="toolbar-btn" :class="{ active: sortOpen }" @click="sortOpen = !sortOpen; filterOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #475569; font-weight: 600; height: 38px;">
+                        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span x-text="getButtonLabel(activeTimeframe)">Today</span>
                     </button>
-                    <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false">
+                    <div class="dropdown-panel sort-dropdown" x-show="sortOpen" x-cloak @click.outside="sortOpen = false" style="right: 0; left: auto;">
                         <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'today' }" @click.prevent="activeTimeframe = 'today'; sortOpen = false; refreshDashboard(1, activeStatus, 'today')">Today</a>
                         <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'week' }" @click.prevent="activeTimeframe = 'week'; sortOpen = false; refreshDashboard(1, activeStatus, 'week')">This Week</a>
                         <a href="#" class="sort-option" :class="{ active: activeTimeframe === 'month' }" @click.prevent="activeTimeframe = 'month'; sortOpen = false; refreshDashboard(1, activeStatus, 'month')">This Month</a>
@@ -370,11 +371,11 @@ $page_title = 'Staff Dashboard - PrintFlow';
 
                 <!-- Status Filter -->
                 <div style="position:relative;">
-                    <button class="toolbar-btn" :class="{ active: filterOpen || activeStatus }" @click="filterOpen = !filterOpen; sortOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #64748b; font-weight: 700;">
+                    <button class="toolbar-btn" :class="{ active: filterOpen || activeStatus }" @click="filterOpen = !filterOpen; sortOpen = false" style="background: #fff; border: 1px solid #e2e8f0; color: #475569; font-weight: 600; height: 38px;">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                         Status: <span x-text="activeStatus ? activeStatus : 'All'"></span>
                     </button>
-                    <div class="dropdown-panel sort-dropdown" x-show="filterOpen" x-cloak @click.outside="filterOpen = false">
+                    <div class="dropdown-panel sort-dropdown" x-show="filterOpen" x-cloak @click.outside="filterOpen = false" style="right: 0; left: auto;">
                         <a href="#" class="sort-option" :class="{ active: !activeStatus }" @click.prevent="activeStatus = ''; filterOpen = false; refreshDashboard(1, '', activeTimeframe)">All Statuses</a>
                         <a href="#" class="sort-option" :class="{ active: activeStatus === 'Pending' }" @click.prevent="activeStatus = 'Pending'; filterOpen = false; refreshDashboard(1, 'Pending', activeTimeframe)">To Verify</a>
                         <a href="#" class="sort-option" :class="{ active: activeStatus === 'Ready for Pickup' }" @click.prevent="activeStatus = 'Ready for Pickup'; filterOpen = false; refreshDashboard(1, 'Ready for Pickup', activeTimeframe)">To Pick Up</a>
@@ -387,8 +388,8 @@ $page_title = 'Staff Dashboard - PrintFlow';
                 <input type="hidden" id="filter-status" :value="activeStatus">
                 <input type="hidden" id="filter-timeframe" :value="activeTimeframe">
 
-                <a href="pos.php" class="toolbar-btn" style="background: linear-gradient(135deg, #0d9488 0%, #065f46 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2); font-weight: 700;">
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                <a href="pos.php" class="toolbar-btn" style="background: linear-gradient(135deg, #0d9488 0%, #065f46 100%); border: none; color:#fff; box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2); font-weight: 700; height: 38px;">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     POS
                 </a>
             </div>

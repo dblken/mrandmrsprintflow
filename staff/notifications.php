@@ -391,7 +391,7 @@ $page_title = 'Notifications - Staff';
     <?php include __DIR__ . '/../includes/staff_sidebar.php'; ?>
 
     <div class="main-content">
-        <header>
+        <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
             <div>
                 <h1 class="page-title">Notifications</h1>
                 <p class="page-subtitle">Stay updated with system alerts and order events</p>
@@ -426,7 +426,7 @@ $page_title = 'Notifications - Staff';
             <?php else: ?>
                 <!-- Standardized Toolbar -->
                 <div class="card overflow-visible" style="margin-bottom: 24px;">
-                    <div class="toolbar-container" x-data="notifFilterPanel()">
+                    <div class="toolbar-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;" x-data="notifFilterPanel()">
                         <div>
                             <h3 style="font-size:16px; font-weight:700; color:#1f2937; margin:0;">Activity Feed</h3>
                             <div style="font-size:12px; color:#6b7280; margin-top:2px;">
