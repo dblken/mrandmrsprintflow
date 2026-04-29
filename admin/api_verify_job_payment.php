@@ -236,7 +236,7 @@ if ($action === 'verify_payment') {
 
         // If linked to a store order, sync the store order status
         if ($job['order_id'] && !$should_move_to_production) {
-            $store_status = 'Paid – In Process';
+            $store_status = 'Processing';
             if ($new_order_status === 'APPROVED') $store_status = 'Approved';
             if ($new_order_status === 'TO_RECEIVE') $store_status = 'Ready for Pickup';
             if ($new_order_status === 'COMPLETED') $store_status = 'Completed';
@@ -263,6 +263,27 @@ if ($action === 'verify_payment') {
         }
         if ($new_order_status !== $job['status'] && !empty($job['customer_id'])) {
             create_notification((int)$job['customer_id'], 'Customer', "Custom Job #{$job_id} payment verified and moved into production!", 'Job Order', true, true);
+        }
+        
+        // Send order update message for approval
+        if (!empty($job['order_id'])) {
+            try {
+                if (!function_exists('printflow_send_order_update')) {
+                    require_once __DIR__ . '/../includes/order_chat_system.php';
+                }
+                $approval_message = "Your payment has been approved. We will now proceed with processing your order.";
+                $meta = [
+                    'order_id' => (int)$job['order_id'],
+                    'job_id' => $job_id,
+                    'order_status' => 'Processing',
+                    'payment_status' => $new_payment_status,
+                    'step' => 'payment_verified'
+                ];
+                printflow_send_order_update((int)$job['order_id'], $approval_message, 'view_status', '', '', $meta);
+            } catch (Exception $chatEx) {
+                // Log but don't fail the approval if chat message fails
+                error_log("Failed to send approval chat message for job #{$job_id}: " . $chatEx->getMessage());
+            }
         }
 
         $conn->commit();
@@ -336,17 +357,24 @@ elseif ($action === 'reject_payment') {
         
         // Send order update message for rejection
         if (!empty($job['order_id'])) {
-            require_once __DIR__ . '/../includes/order_chat_system.php';
-            $rejection_message = "Your payment proof was rejected. Reason: {$reason}. Please resubmit your payment proof.";
-            $meta = [
-                'order_id' => (int)$job['order_id'],
-                'job_id' => $job_id,
-                'order_status' => 'Rejected',
-                'payment_status' => 'Rejected',
-                'rejection_reason' => $reason,
-                'step' => 'payment_rejected'
-            ];
-            printflow_send_order_update((int)$job['order_id'], $rejection_message, 'retry_payment', '', '', $meta);
+            try {
+                if (!function_exists('printflow_send_order_update')) {
+                    require_once __DIR__ . '/../includes/order_chat_system.php';
+                }
+                $rejection_message = "Your payment proof was rejected. Reason: {$reason}. Please resubmit your payment proof.";
+                $meta = [
+                    'order_id' => (int)$job['order_id'],
+                    'job_id' => $job_id,
+                    'order_status' => 'Rejected',
+                    'payment_status' => 'Rejected',
+                    'rejection_reason' => $reason,
+                    'step' => 'payment_rejected'
+                ];
+                printflow_send_order_update((int)$job['order_id'], $rejection_message, 'retry_payment', '', '', $meta);
+            } catch (Exception $chatEx) {
+                // Log but don't fail the rejection if chat message fails
+                error_log("Failed to send rejection chat message for job #{$job_id}: " . $chatEx->getMessage());
+            }
         }
         
         echo json_encode(['success' => true]);
