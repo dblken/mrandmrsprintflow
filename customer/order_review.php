@@ -1284,24 +1284,33 @@ require_once __DIR__ . '/../includes/header.php';
         }
         .review-order-item .order-item-spec-tile {
             display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
+            flex-direction: row !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 1rem !important;
             width: 100% !important;
             box-sizing: border-box !important;
-            padding: 1rem 1.1rem !important;
-            min-height: 4.75rem !important;
+            padding: 0.8rem 0.9rem !important;
+            min-height: auto !important;
             border-radius: 12px !important;
-            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(83, 197, 224, 0.18) !important;
+            background: rgba(255, 255, 255, 0.03) !important;
             margin: 0 !important;
         }
         .review-order-item .order-item-spec-tile > div:first-child {
-            margin-bottom: 0.45rem !important;
-            line-height: 1.35 !important;
-            padding-right: 0.35rem !important;
+            margin-bottom: 0 !important;
+            font-size: 0.76rem !important;
+            line-height: 1.3 !important;
+            max-width: 42% !important;
+            padding-top: 0.1rem !important;
+            text-align: left !important;
         }
         .review-order-item .order-item-spec-tile > div:last-child {
-            line-height: 1.45 !important;
-            padding-right: 0.35rem !important;
+            font-size: 1rem !important;
+            line-height: 1.35 !important;
+            max-width: 58% !important;
+            text-align: right !important;
+            padding-left: 0.5rem !important;
         }
         .review-total-banner-row {
             flex-direction: column !important;
