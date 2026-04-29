@@ -2456,51 +2456,60 @@ function setActiveMessageRow(row) {
 }
 
         function positionFloatingMenu(menu, trigger, options = {}) {
-    if (!menu || !trigger) return;
-    const gap = options.gap ?? 10;
-    const preferred = options.preferred || 'bottom';
-    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+            if (!menu || !trigger) return;
+            const gap = options.gap ?? 10;
+            const preferred = options.preferred || 'bottom';
 
-    if (!isMobile) {
-        menu.style.position = 'absolute';
-        menu.style.left = '';
-        menu.style.right = preferred === 'bottom' ? '0' : '';
-        menu.style.top = preferred === 'bottom' ? '100%' : '';
-        menu.style.bottom = preferred === 'top' ? 'calc(100% + 10px)' : '';
-        menu.style.transform = '';
-        return;
-    }
+            // Ensure the menu is measurable even when hidden: temporarily force visible (but keep it invisible to user)
+            const prevDisplay = menu.style.display;
+            const prevVisibility = menu.style.visibility;
+            menu.style.display = 'block';
+            menu.style.visibility = 'hidden';
 
-    const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble, .order-update-bubble.staff');
-    menu.style.position = 'fixed';
-    menu.style.left = '50%';
-    menu.style.right = 'auto';
-    menu.style.top = '0';
-    menu.style.bottom = 'auto';
-    menu.style.transform = 'translateX(-50%)';
-    menu.style.visibility = 'hidden';
+            const triggerRect = trigger.getBoundingClientRect();
+            const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble, .order-update-bubble.staff');
+            const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
+            const menuRect = menu.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
 
-    const triggerRect = trigger.getBoundingClientRect();
-    const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
-    const menuRect = menu.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const menuHeight = menuRect.height || 56;
-    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
-    let left = anchorRect.left + (anchorRect.width / 2);
-    left = Math.max((menuWidth / 2) + 12, Math.min(left, viewportWidth - (menuWidth / 2) - 12));
+            const menuHeight = menuRect.height || 56;
+            const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
 
-    const spaceAbove = anchorRect.top;
-    const spaceBelow = viewportHeight - anchorRect.bottom;
-    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
-    const top = shouldOpenAbove
-        ? Math.max(12, anchorRect.top - menuHeight - gap)
-        : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
+            // Prefer opening above/below based on available space and preference
+            const spaceAbove = anchorRect.top;
+            const spaceBelow = viewportHeight - anchorRect.bottom;
+            const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+            const top = shouldOpenAbove
+                ? Math.max(12, anchorRect.top - menuHeight - gap)
+                : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
 
-    menu.style.left = `${left}px`;
-    menu.style.top = `${top}px`;
-    menu.style.transform = 'translateX(-50%)';
-    menu.style.visibility = 'visible';
+            // Align horizontally based on message side (self => align to right side, other => align to left)
+            const row = trigger.closest('.bubble-row');
+            const alignRight = row ? row.classList.contains('self') : false;
+            let left;
+            if (alignRight) {
+                // try to align to the right edge of anchor
+                left = anchorRect.right - menuWidth + 8;
+            } else {
+                // align to left edge with slight offset
+                left = anchorRect.left - 8;
+            }
+            // Clamp within viewport with padding
+            left = Math.max(12, Math.min(left, viewportWidth - menuWidth - 12));
+
+            // Apply fixed positioning so menus are not clipped by parent containers
+            menu.style.position = 'fixed';
+            menu.style.left = `${left}px`;
+            menu.style.top = `${top}px`;
+            menu.style.width = `${menuWidth}px`;
+            menu.style.transform = 'none';
+            menu.style.visibility = 'visible';
+
+            // restore original display if it was empty (we left it visible so `active` class controls final display)
+            if (!prevDisplay) menu.style.display = '';
+            else menu.style.display = prevDisplay;
+            menu.style.visibility = prevVisibility;
 }
 
 function closeAllMenus() {

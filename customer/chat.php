@@ -2042,36 +2042,22 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     if (!menu || !trigger) return;
     const gap = options.gap ?? 10;
     const preferred = options.preferred || 'bottom';
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
-    if (!isMobile) {
-        menu.style.position = 'absolute';
-        menu.style.left = '';
-        menu.style.right = preferred === 'bottom' ? '0' : '';
-        menu.style.top = preferred === 'bottom' ? '100%' : '';
-        menu.style.bottom = preferred === 'top' ? 'calc(100% + 10px)' : '';
-        menu.style.transform = '';
-        return;
-    }
-
-    const bubble = trigger.closest('.b-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
-    menu.style.position = 'fixed';
-    menu.style.left = '50%';
-    menu.style.right = 'auto';
-    menu.style.top = '0';
-    menu.style.bottom = 'auto';
-    menu.style.transform = 'translateX(-50%)';
+    // Temporarily make menu measurable even when hidden
+    const prevDisplay = menu.style.display;
+    const prevVisibility = menu.style.visibility;
+    menu.style.display = 'block';
     menu.style.visibility = 'hidden';
 
     const triggerRect = trigger.getBoundingClientRect();
+    const bubble = trigger.closest('.b-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
     const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
     const menuRect = menu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
+
     const menuHeight = menuRect.height || 56;
-    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 180, viewportWidth - 24);
-    let left = anchorRect.left + (anchorRect.width / 2);
-    left = Math.max((menuWidth / 2) + 12, Math.min(left, viewportWidth - (menuWidth / 2) - 12));
+    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
 
     const spaceAbove = anchorRect.top;
     const spaceBelow = viewportHeight - anchorRect.bottom;
@@ -2080,10 +2066,23 @@ function positionFloatingMenu(menu, trigger, options = {}) {
         ? Math.max(12, anchorRect.top - menuHeight - gap)
         : Math.min(viewportHeight - menuHeight - 12, anchorRect.bottom + gap);
 
+    const row = trigger.closest('.brow');
+    const alignRight = row ? row.classList.contains('self') : false;
+    let left;
+    if (alignRight) left = anchorRect.right - menuWidth + 8;
+    else left = anchorRect.left - 8;
+    left = Math.max(12, Math.min(left, viewportWidth - menuWidth - 12));
+
+    menu.style.position = 'fixed';
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
-    menu.style.transform = 'translateX(-50%)';
+    menu.style.width = `${menuWidth}px`;
+    menu.style.transform = 'none';
     menu.style.visibility = 'visible';
+
+    if (!prevDisplay) menu.style.display = '';
+    else menu.style.display = prevDisplay;
+    menu.style.visibility = prevVisibility;
 }
 function bindMobileMessageHold(row) {
     if (!row || row.dataset.mobileHoldBound === '1' || !window.matchMedia('(max-width: 768px)').matches) return;
