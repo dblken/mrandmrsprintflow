@@ -252,9 +252,12 @@ function push_dispatch_user(int $user_id, string $user_type, array $payload, int
                 }
             }
         } catch (RuntimeException $e) {
-            if ($e->getMessage() === 'subscription_expired') {
+            if ($e->getMessage() === 'subscription_expired' || $e->getMessage() === 'subscription_invalid_auth') {
                 db_execute('DELETE FROM push_subscriptions WHERE id = ?', 'i', [(int)$row['id']]);
                 $expired++;
+                if ($e->getMessage() === 'subscription_invalid_auth') {
+                    $lastError = 'subscription_invalid_auth';
+                }
             } else {
                 error_log('[push_notify_user] Unexpected error: ' . $e->getMessage());
                 $failed++;
@@ -324,7 +327,7 @@ function push_notify_role(array $user_types, array $payload, int $ttl = 86400): 
             );
             if ($ok) $sent++;
         } catch (RuntimeException $e) {
-            if ($e->getMessage() === 'subscription_expired') {
+            if ($e->getMessage() === 'subscription_expired' || $e->getMessage() === 'subscription_invalid_auth') {
                 db_execute('DELETE FROM push_subscriptions WHERE id = ?', 'i', [(int)$row['id']]);
             }
         }

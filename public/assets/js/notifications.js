@@ -140,6 +140,10 @@
         return 'pf_push_subscription_version:' + getAuthSessionKey();
     }
 
+    function getPushVapidKeyStorageKey() {
+        return 'pf_push_vapid_public_key:' + getAuthSessionKey();
+    }
+
     function getStoredPushVersion() {
         try {
             return localStorage.getItem(getPushVersionKey()) || '';
@@ -154,9 +158,26 @@
         } catch (e) {}
     }
 
+    function getStoredPushVapidKey() {
+        try {
+            return localStorage.getItem(getPushVapidKeyStorageKey()) || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function rememberPushVapidKey(publicKey) {
+        try {
+            localStorage.setItem(getPushVapidKeyStorageKey(), String(publicKey || ''));
+        } catch (e) {}
+    }
+
     function clearPushVersion() {
         try {
             localStorage.removeItem(getPushVersionKey());
+        } catch (e) {}
+        try {
+            localStorage.removeItem(getPushVapidKeyStorageKey());
         } catch (e) {}
     }
 
@@ -303,6 +324,27 @@
             .catch(function() { return ''; });
     }
 
+    function bytesToBase64Url(bytes) {
+        if (!bytes || typeof bytes.length !== 'number') return '';
+        var binary = '';
+        for (var i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    }
+
+    function subscriptionMatchesServerKey(subscription, expectedPublicKey) {
+        if (!subscription || !expectedPublicKey) return true;
+        try {
+            var options = subscription.options || {};
+            var currentKey = options.applicationServerKey;
+            if (!currentKey) return false;
+            return bytesToBase64Url(new Uint8Array(currentKey)) === String(expectedPublicKey);
+        } catch (e) {
+            return false;
+        }
+    }
+
     function sendSubscription(sub, action) {
         var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
         payload = payload || {};
@@ -398,6 +440,7 @@
                     applicationServerKey: urlB64ToUint8Array(pubKey)
                 }).then(function(sub) {
                     return sendSubscription(sub, 'subscribe').then(function() {
+                        rememberPushVapidKey(pubKey);
                         return sub;
                     });
                 }).catch(function(err) {
@@ -614,14 +657,22 @@
 
         return ensureServiceWorker()
             .then(function(reg) {
-                return reg.pushManager.getSubscription().then(function(existing) {
+                return fetchVapidPublicKey().then(function(serverPublicKey) {
+                    return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
-                        if (getStoredPushVersion() !== PUSH_CLIENT_VERSION) {
+                        var requiresRefresh = getStoredPushVersion() !== PUSH_CLIENT_VERSION;
+                        if (!requiresRefresh && serverPublicKey) {
+                            requiresRefresh = !subscriptionMatchesServerKey(existing, serverPublicKey)
+                                || getStoredPushVapidKey() !== String(serverPublicKey);
+                        }
+
+                        if (requiresRefresh) {
                             return refreshSubscription(reg, isUserAction);
                         }
 
                         return sendSubscription(existing, 'subscribe').then(function() {
                             rememberPushVersion();
+                            if (serverPublicKey) rememberPushVapidKey(serverPublicKey);
                             return existing;
                         }).catch(function() {
                             return refreshSubscription(reg, isUserAction);
@@ -632,6 +683,7 @@
                         if (sub) rememberPushVersion();
                         return sub;
                     });
+                });
                 });
             })
             .catch(function(err) {
@@ -646,15 +698,18 @@
         if (!isPushSupported()) return;
         if (Notification.permission !== 'granted') return;
 
-        try {
-            if (localStorage.getItem(getAutoRestoreKey()) === 'done') return;
-        } catch (e) {}
-
         ensureServiceWorker()
             .then(function(reg) {
-                return reg.pushManager.getSubscription().then(function(existing) {
+                return fetchVapidPublicKey().then(function(serverPublicKey) {
+                    return reg.pushManager.getSubscription().then(function(existing) {
                     if (existing) {
-                        if (getStoredPushVersion() !== PUSH_CLIENT_VERSION) {
+                        var requiresRefresh = getStoredPushVersion() !== PUSH_CLIENT_VERSION;
+                        if (!requiresRefresh && serverPublicKey) {
+                            requiresRefresh = !subscriptionMatchesServerKey(existing, serverPublicKey)
+                                || getStoredPushVapidKey() !== String(serverPublicKey);
+                        }
+
+                        if (requiresRefresh) {
                             return refreshSubscription(reg, false).then(function(sub) {
                                 if (sub) {
                                     try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
@@ -665,6 +720,7 @@
 
                         return sendSubscription(existing, 'subscribe').then(function() {
                             rememberPushVersion();
+                            if (serverPublicKey) rememberPushVapidKey(serverPublicKey);
                             try { localStorage.setItem(getAutoRestoreKey(), 'done'); } catch (e) {}
                             return existing;
                         }).catch(function() {
@@ -683,6 +739,7 @@
                         }
                         return sub;
                     });
+                });
                 });
             })
             .then(function() {

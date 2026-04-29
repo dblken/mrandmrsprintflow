@@ -101,6 +101,10 @@ class WebPush
             throw new RuntimeException('subscription_expired');
         }
 
+        if ($code === 401 || $code === 403) {
+            throw new RuntimeException('subscription_invalid_auth');
+        }
+
         if ($code < 200 || $code >= 300) {
             error_log('[WebPush] Push service returned HTTP ' . $code . ': ' . substr((string)$response, 0, 300));
             return false;
