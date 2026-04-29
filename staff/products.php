@@ -236,6 +236,7 @@ $page_title = 'Products & Inventory - Staff';
         .truncate-ellipsis {
             display: block;
             width: 100%;
+            max-width: 220px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
