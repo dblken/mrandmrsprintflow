@@ -98,10 +98,10 @@ $current_user = get_logged_in_user();
         .dot-online.busy { display: block; background: #f59e0b; }
         
         .conv-info { flex: 1; min-width: 0; }
-        .conv-name-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .conv-name-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
         .conv-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .conv-time { font-size: 0.7rem; color: #94a3b8; font-weight: 600; }
-        .conv-sub { font-size: 0.75rem; color: #1e293b; font-weight: 700; text-transform: capitalize; letter-spacing: 0.02em; margin-top: 2px; }
+        .conv-time { font-size: 0.7rem; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
+        .conv-sub { font-size: 0.75rem; color: #1e293b; font-weight: 700; text-transform: capitalize; letter-spacing: 0.02em; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .conv-preview { font-size: 0.8rem; color: #64748b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
 
         /* Main Window */
@@ -111,8 +111,8 @@ $current_user = get_logged_in_user();
             background: #fff; z-index: 20;
         }
         .window-title-area { flex: 1; min-width: 0; }
-        .window-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px; }
-        .window-meta { font-size: 0.85rem; color: #1e293b; margin: 0; text-transform: capitalize; }
+        .window-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .window-meta { font-size: 0.85rem; color: #1e293b; margin: 0; text-transform: capitalize; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         
         .header-actions { display: flex; gap: 8px; }
         .h-btn { 
