@@ -105,6 +105,7 @@ if ($ok === false) {
 printflow_push_debug_log('subscribe_saved', [
     'existing' => !empty($existing),
     'user_agent_present' => !empty($_SERVER['HTTP_USER_AGENT']),
+    'client_fingerprint' => substr((string)($data['client_fingerprint'] ?? ''), 0, 255),
 ], $user_id, (string)$user_type, $endpoint);
 
 echo json_encode(['success' => true, 'message' => 'Subscription saved.']);

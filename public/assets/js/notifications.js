@@ -78,6 +78,17 @@
             || window.navigator.standalone === true;
     }
 
+    function getPushClientFingerprint() {
+        var parts = [
+            String(window.navigator.userAgent || ''),
+            String(window.navigator.platform || ''),
+            String(window.screen && window.screen.width ? window.screen.width : ''),
+            String(window.screen && window.screen.height ? window.screen.height : ''),
+            isStandaloneDisplay() ? 'standalone' : 'browser'
+        ];
+        return parts.join(' | ');
+    }
+
     /* -- Export Early ------------------------------------------------------ */
     // Using simple var to ensure global access without modern scoping issues
     window.PFNotifications = {
@@ -92,7 +103,8 @@
             return fetch(API_PUSH_STATUS, { credentials: 'include' }).then(function(res) {
                 return res.ok ? res.json() : null;
             });
-        }
+        },
+        getClientFingerprint: getPushClientFingerprint
     };
 
     /* -- Helpers ----------------------------------------------------------- */
@@ -374,6 +386,9 @@
 
     function logPushClientEvent(eventType, payload) {
         payload = payload || {};
+        if (!Object.prototype.hasOwnProperty.call(payload, 'client_fingerprint')) {
+            payload.client_fingerprint = getPushClientFingerprint();
+        }
         return fetch(API_PUSH_DEBUG, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -390,6 +405,7 @@
         var payload = sub && typeof sub.toJSON === 'function' ? sub.toJSON() : sub;
         payload = payload || {};
         payload.action = action || 'subscribe';
+        payload.client_fingerprint = getPushClientFingerprint();
 
         return fetch(API_SUBSCRIBE, {
             method: 'POST',
