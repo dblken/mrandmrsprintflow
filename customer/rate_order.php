@@ -312,9 +312,118 @@ require_once __DIR__ . '/../includes/header.php';
 @media (max-width: 768px) {
     .rate-columns,
     .rate-info-grid { grid-template-columns: 1fr; }
-    .rate-body { padding: 1rem; }
+    .rate-page { padding-top: 1rem !important; padding-bottom: 1.5rem !important; }
+    .rate-wrap { padding: 0 0.75rem; }
+    .rate-shell { border-radius: 16px; }
+    .rate-shell-head {
+        padding: 1rem;
+        align-items: flex-start;
+    }
+    .rate-shell-title,
+    .rate-shell-head .rate-shell-title,
+    .rate-shell-head h1.rate-shell-title {
+        font-size: 1.15rem;
+        line-height: 1.2;
+    }
+    .rate-shell-sub {
+        font-size: 0.84rem;
+        line-height: 1.45;
+        margin-top: 0.35rem;
+        max-width: 18rem;
+    }
+    .rate-back-link {
+        width: 100%;
+        justify-content: flex-start;
+        padding-top: 0.1rem;
+    }
+    .rate-body { padding: 0.9rem; }
     .rate-card,
-    .rate-panel { padding: 1rem; }
+    .rate-panel { padding: 1rem; border-radius: 14px; }
+    .rate-info-item {
+        padding: 0.85rem 0.95rem;
+        border-radius: 12px;
+    }
+    .rate-info-value {
+        font-size: 0.96rem;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+    .rate-stars {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    .rate-star-btn {
+        width: 100%;
+        min-width: 0;
+        height: 3rem;
+        font-size: 1.7rem;
+        border-radius: 0.8rem;
+    }
+    .rate-textarea {
+        min-height: 180px;
+        padding: 0.95rem 0.95rem;
+        font-size: 0.95rem;
+    }
+    .upload-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+    #videoContainer {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    #addVideoBtn {
+        width: 100% !important;
+        max-width: 140px;
+        height: 100px !important;
+    }
+    #videoPreviewArea {
+        margin-top: 0 !important;
+    }
+    #videoPreviewArea > div {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    .rate-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+    .rate-btn-primary,
+    .rate-btn-secondary {
+        width: 100%;
+        min-height: 48px;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+@media (max-width: 480px) {
+    .rate-wrap { padding: 0 0.6rem; }
+    .rate-body { padding: 0.75rem; }
+    .rate-card,
+    .rate-panel { padding: 0.9rem; }
+    .rate-shell-title,
+    .rate-shell-head .rate-shell-title,
+    .rate-shell-head h1.rate-shell-title { font-size: 1.05rem; }
+    .rate-label {
+        font-size: 0.76rem;
+        margin-bottom: 0.55rem;
+    }
+    .rate-stars {
+        gap: 0.45rem;
+    }
+    .rate-star-btn {
+        height: 2.8rem;
+        font-size: 1.5rem;
+    }
+    .upload-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .rate-success {
+        align-items: flex-start;
+    }
 }
 </style>
 
