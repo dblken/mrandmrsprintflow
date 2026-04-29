@@ -374,11 +374,11 @@ try {
             color: white;
             text-align: center;
             line-height: 1.3;
-            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
-            width: 100%;
-            display: block;
+            word-break: break-word;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
         }
 
