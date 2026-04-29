@@ -102,6 +102,17 @@ if (!$is_job) {
 if ($update_success) {
     if (!$is_job) {
         printflow_send_order_update($order_id, 'payment_submitted');
+
+        // Fixed product orders: send a specific customer-side message to staff
+        $order_type_row = db_query("SELECT order_type FROM orders WHERE order_id = ?", 'i', [$order_id]);
+        if (!empty($order_type_row) && ($order_type_row[0]['order_type'] ?? '') === 'product') {
+            $prod_pay_msg = "A new product order has been paid. Please verify the payment and process the order.";
+            db_execute(
+                "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Customer', ?, ?, 'text', 0)",
+                'iis', [$order_id, $customer_id, $prod_pay_msg]
+            );
+        }
+
     }
 
     // Keep linked production jobs in sync so staff Customizations → TO_VERIFY tab shows this row

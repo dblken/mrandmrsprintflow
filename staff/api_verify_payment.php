@@ -102,15 +102,25 @@ try {
             // Send order update chat message (ONLY if not handled by JobOrderService below)
             if (!$hasProductionJobs || $isPlainProductOrder) {
                 require_once __DIR__ . '/../includes/order_chat_system.php';
-                $meta = [
-                    'order_id' => $order_id,
-                    'product_name' => $product_name,
-                    'order_status' => $new_status,
-                    'payment_status' => $payment_status,
-                    'step' => 'payment_verified'
-                ];
-                printflow_send_order_update($order_id, 'payment_verified', 'view_status', '', '', $meta);
+                if ($isPlainProductOrder) {
+                    // Fixed product order: send specific pickup message from staff
+                    $pickup_msg = "Your payment has been approved. Your order is now ready for pickup.";
+                    db_execute(
+                        "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Staff', ?, ?, 'order_update', 0)",
+                        'iis', [$order_id, $staff_id, $pickup_msg]
+                    );
+                } else {
+                    $meta = [
+                        'order_id' => $order_id,
+                        'product_name' => $product_name,
+                        'order_status' => $new_status,
+                        'payment_status' => $payment_status,
+                        'step' => 'payment_verified'
+                    ];
+                    printflow_send_order_update($order_id, 'payment_verified', 'view_status', '', '', $meta);
+                }
             }
+
             
             $log_desc = $isPlainProductOrder 
                 ? "Approved payment for Order #{$order_id}, moved to Ready for Pickup" 
@@ -181,15 +191,25 @@ try {
             
             // Send order update chat message for rejection
             require_once __DIR__ . '/../includes/order_chat_system.php';
-            $meta = [
-                'order_id' => $order_id,
-                'product_name' => $product_name,
-                'order_status' => $new_status,
-                'payment_status' => 'Rejected',
-                'reason' => $reason,
-                'step' => 'payment_rejected'
-            ];
-            printflow_send_order_update($order_id, 'payment_rejected', 'retry_payment', '', '', $meta);
+            if (($order['order_type'] ?? '') === 'product') {
+                // Fixed product order: use specific rejection message from staff
+                $prod_reject_msg = "Your payment has been rejected. Reason: {$reason}. Please resubmit your payment based on the feedback provided.";
+                db_execute(
+                    "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Staff', ?, ?, 'order_update', 0)",
+                    'iis', [$order_id, $staff_id, $prod_reject_msg]
+                );
+            } else {
+                $meta = [
+                    'order_id' => $order_id,
+                    'product_name' => $product_name,
+                    'order_status' => $new_status,
+                    'payment_status' => 'Rejected',
+                    'reason' => $reason,
+                    'step' => 'payment_rejected'
+                ];
+                printflow_send_order_update($order_id, 'payment_rejected', 'retry_payment', '', '', $meta);
+            }
+
             
             log_activity($staff_id, 'Payment Rejected', "Rejected payment for Order #{$order_id}. Reason: {$reason}");
             db_execute(

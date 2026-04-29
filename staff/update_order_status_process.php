@@ -34,14 +34,16 @@ if (!$order_id || !$new_status) {
 printflow_assert_order_branch_access($order_id);
 
 // 1. Get current status to avoid double-deduction
-$order_row = db_query("SELECT status, branch_id, customer_id FROM orders WHERE order_id = ?", 'i', [$order_id]);
+$order_row = db_query("SELECT status, branch_id, customer_id, order_type FROM orders WHERE order_id = ?", 'i', [$order_id]);
 if (empty($order_row)) {
     echo json_encode(['success' => false, 'error' => 'Order not found']);
     exit;
 }
 
-$old_status = $order_row[0]['status'];
+$old_status  = $order_row[0]['status'];
 $customer_id = (int)($order_row[0]['customer_id'] ?? 0);
+$is_product_order = ($order_row[0]['order_type'] ?? '') === 'product';
+
 
 // 2. Update Status
 $update_sql = "UPDATE orders SET status = ?, updated_at = NOW() WHERE order_id = ?";
@@ -109,9 +111,19 @@ $chat_steps = [
 ];
 $chat_step = $chat_steps[$new_status] ?? null;
 if ($chat_step) {
-    printflow_send_order_update($order_id, $chat_step);
-    if ($chat_step === 'completed') {
-        printflow_send_order_update($order_id, 'rate');
+    if ($is_product_order && $chat_step === 'completed') {
+        // Fixed product order: use specific completion message from staff
+        $staff_sender_id = (int)($_SESSION['user_id'] ?? 0);
+        $prod_complete_msg = "Order Completed. Your order has been successfully picked up. We hope you are satisfied with our service! Feel free to share your feedback to help us improve even more.";
+        db_execute(
+            "INSERT INTO order_messages (order_id, sender, sender_id, message, message_type, read_receipt) VALUES (?, 'Staff', ?, ?, 'order_update', 0)",
+            'iis', [$order_id, $staff_sender_id, $prod_complete_msg]
+        );
+    } else {
+        printflow_send_order_update($order_id, $chat_step);
+        if ($chat_step === 'completed') {
+            printflow_send_order_update($order_id, 'rate');
+        }
     }
 }
 
