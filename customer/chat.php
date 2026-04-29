@@ -2344,7 +2344,7 @@ function openOrderDetails(id) {
                     </div>
                 </div>
                 <div class="pf-mini-card" style="padding:.75rem;">
-                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Workflow Status</div>
+                    <div class="pf-spec-key" style="margin-bottom:6px; font-size:9px;">Order Status</div>
                     <div style="display:flex; align-items:center; justify-content:space-between; background:#f8fafc; padding:6px 10px; border-radius:8px; border:1px solid #f1f5f9;">
                          <div style="font-size:10px; font-weight:900; color:#1e293b;">${esc(o.status || 'Pending')}</div>
                          <span style="width:10px; height:10px; border-radius:50%; background:${o.status === 'Completed' ? '#10b981' : '#3b82f6'};"></span>
