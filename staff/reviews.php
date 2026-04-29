@@ -1033,6 +1033,20 @@ $page_title = 'Review Management - Staff';
             font-size: 13px;
             font-weight: 500;
         }
+        .pagination-container .pagination-link.is-active,
+        .pagination-container .pagination-link[aria-current="page"] {
+            background: linear-gradient(135deg, #06A1A1 0%, #047676 100%) !important;
+            border-color: #06A1A1 !important;
+            color: #ffffff !important;
+            box-shadow: 0 8px 20px rgba(6, 161, 161, 0.22) !important;
+        }
+        .pagination-container .pagination-link:not(.is-active) {
+            color: #475569 !important;
+        }
+        .pagination-container .pagination-link:not(.is-active):hover {
+            border-color: #06A1A1 !important;
+            color: #06A1A1 !important;
+        }
 
         @media (max-width: 960px) {
             .pf-reviews-table-card table,

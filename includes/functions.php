@@ -2416,7 +2416,7 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
         $params[$page_param] = $current_page - 1;
         $url = '?' . http_build_query($params);
         $onclick = "if(window.fetchUpdatedTable){ event.preventDefault(); fetchUpdatedTable({page:".($current_page - 1)."}); }";
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">
+        $html .= '<a class="pagination-link pagination-prev" href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </a>';
     }
@@ -2432,9 +2432,9 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
         $onclick = "if(window.fetchUpdatedTable){ event.preventDefault(); fetchUpdatedTable({page:".$p."}); }";
         
         if ((int)$p === (int)$current_page) {
-            $html .= '<a href="javascript:void(0)" style="' . $active_btn . '">' . $p . '</a>';
+            $html .= '<a class="pagination-link is-active" aria-current="page" href="javascript:void(0)" style="' . $active_btn . '">' . $p . '</a>';
         } else {
-            $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">' . $p . '</a>';
+            $html .= '<a class="pagination-link" href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">' . $p . '</a>';
         }
         $prev_p = $p;
     }
@@ -2444,7 +2444,7 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
         $params[$page_param] = $current_page + 1;
         $url = '?' . http_build_query($params);
         $onclick = "if(window.fetchUpdatedTable){ event.preventDefault(); fetchUpdatedTable({page:".($current_page + 1)."}); }";
-        $html .= '<a href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">
+        $html .= '<a class="pagination-link pagination-next" href="' . htmlspecialchars($url) . '" style="' . $base_btn . '"' . $hover_script . ' onclick="' . $onclick . '">
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
         </a>';
     }

@@ -1490,7 +1490,7 @@ let currentReactions = [];
 
 function resolveAppUrl(path, fallback = '') {
     if (!path || path === 'null' || path === 'undefined') return fallback;
-    const value = String(path).trim();
+    let value = String(path).trim();
     if (!value) return fallback;
     if (value.startsWith('/')) value = value.substring(1);
     
