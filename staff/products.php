@@ -222,10 +222,20 @@ $page_title = 'Products & Inventory - Staff';
         .staff-products-readonly-card {
             margin-top: 0;
         }
+        .products-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+        .products-table th:nth-child(1) { width: 90px; }
+        .products-table th:nth-child(2) { width: auto; }
+        .products-table th:nth-child(3) { width: 140px; }
+        .products-table th:nth-child(4) { width: 110px; }
+        .products-table th:nth-child(5) { width: 90px; }
+        .products-table th:nth-child(6) { width: 90px; }
+
         .truncate-ellipsis {
             display: block;
             width: 100%;
-            max-width: 250px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -349,6 +359,11 @@ $page_title = 'Products & Inventory - Staff';
             color: #111827;
             font-size: 13px;
             line-height: 1.45;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #view-product-name.view-value-box {
+            white-space: nowrap;
         }
         .view-status-box {
             min-height: 38px;
@@ -543,7 +558,7 @@ $page_title = 'Products & Inventory - Staff';
 
                 <!-- Products Table -->
                 <div class="overflow-x-auto">
-                    <table>
+                    <table class="products-table">
                         <thead>
                             <tr>
                                 <th>SKU</th>
