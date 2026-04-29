@@ -814,17 +814,21 @@ $current_user = get_logged_in_user();
                 gap: 12px;
             }
             .details-modal-content {
+                display: flex;
+                flex-direction: column;
                 grid-template-columns: 1fr;
                 overflow-y: auto;
                 overflow-x: hidden;
             }
             .details-sidebar {
+                width: 100%;
                 border-right: none;
                 border-bottom: 1px solid #f1f5f9;
                 padding: 1rem;
                 overflow: visible;
             }
             .details-main {
+                width: 100%;
                 padding: 1rem;
                 overflow: visible;
             }
@@ -846,6 +850,15 @@ $current_user = get_logged_in_user();
                 min-width: 0;
                 width: 100%;
                 text-align: left;
+            }
+            .details-modal-content,
+            .details-sidebar,
+            .details-main,
+            .detail-order-card,
+            .detail-order-body,
+            .detail-order-summary,
+            .pf-spec-grid {
+                min-width: 0;
             }
             .gallery-panel {
                 position: fixed !important;
@@ -1360,8 +1373,17 @@ function initCallSystem() {
     window.PFCallState.activeId = activeId;
 
     // Real-time status updates
+    const pfCallDebug = (...args) => {
+        if (!window.PF_CALL_DEBUG || !window.console || typeof console.log !== 'function') return;
+        console.log(...args);
+    };
+    const pfCallWarn = (...args) => {
+        if (!window.PF_CALL_DEBUG || !window.console || typeof console.warn !== 'function') return;
+        console.warn(...args);
+    };
+
     window.PFCall.socket.on('user-status-change', (data) => {
-        console.log('[PFCall][UI] Status changed:', data);
+        pfCallDebug('[PFCall][UI] Status changed:', data);
         // Find the conversation card and update the dot
         const cards = document.querySelectorAll('.conv-card');
         cards.forEach(card => {
@@ -1376,7 +1398,9 @@ function initCallSystem() {
 
 // Enable/Disable call buttons based on connection
 window.addEventListener('PFCallConnected', () => {
-    console.log('[PFCall][UI] Socket connected, enabling call UI');
+    if (window.PF_CALL_DEBUG && window.console && typeof console.log === 'function') {
+        console.log('[PFCall][UI] Socket connected, enabling call UI');
+    }
     document.querySelectorAll('.call-btns').forEach(btn => {
         btn.classList.remove('pf-not-ready');
         btn.disabled = false;
@@ -1385,7 +1409,7 @@ window.addEventListener('PFCallConnected', () => {
 });
 
 window.addEventListener('PFCallDisconnected', () => {
-    console.warn('[PFCall][UI] Socket disconnected, disabling call UI');
+    pfCallWarn('[PFCall][UI] Socket disconnected, disabling call UI');
     document.querySelectorAll('.call-btns').forEach(btn => {
         btn.classList.add('pf-not-ready');
         btn.disabled = true;
@@ -1401,7 +1425,7 @@ function initiateCall(type) {
 
     // Check if system is ready
     if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
-        console.warn('[PFCall] System not ready, waiting for initialization before starting call...');
+        pfCallWarn('[PFCall] System not ready, waiting for initialization before starting call...');
         
         // Attempt manual recovery if possible
         if (window.PFCall && typeof initCallSystem === 'function') {
@@ -1409,7 +1433,7 @@ function initiateCall(type) {
         }
 
         const handler = () => {
-            console.log('[PFCall] System ready, retrying call...');
+            pfCallDebug('[PFCall] System ready, retrying call...');
             initiateCall(type);
         };
         window.addEventListener('PFCallGlobalReady', handler, { once: true });

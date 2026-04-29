@@ -130,19 +130,23 @@
         }
 
         init(config) {
+            const debug = (...args) => {
+                if (!window.PF_CALL_DEBUG || !window.console || typeof console.log !== 'function') return;
+                console.log(...args);
+            };
             if (window.__PFCallInitialized && this._initialized && this.userId === config.userId) {
-                console.log("[PFCall] Already initialized, verifying UI...");
+                debug("[PFCall] Already initialized, verifying UI...");
                 this._ensureUI();
                 return;
             }
             if (window.__PFCallInitialized && this.userId === config.userId) {
-                console.log("[PFCall] Already initialized - skipping");
+                debug("[PFCall] Already initialized - skipping");
                 this._ensureUI();
                 return;
             }
             window.__PFCallInitialized = true;
             this._initialized = true;
-            console.log("[PFCall] Initializing system...");
+            debug("[PFCall] Initializing system...");
 
             this.userId = config.userId;
             this.userType = config.userType;
@@ -173,7 +177,9 @@
                 ? 'http://localhost:3000' 
                 : 'https://mrandmrsprintflow-production.up.railway.app';
 
-            console.log(`[PFCall] Connecting to signaling server: ${url}`);
+            if (window.PF_CALL_DEBUG) {
+                console.log(`[PFCall] Connecting to signaling server: ${url}`);
+            }
 
             this.socket = io(url, {
                 transports: ['websocket', 'polling'],
@@ -187,7 +193,9 @@
             });
 
             this.socket.on('connect', () => {
-                console.log("[PFCall] Socket connected successfully.");
+                if (window.PF_CALL_DEBUG) {
+                    console.log("[PFCall] Socket connected successfully.");
+                }
                 this.isSocketConnected = true;
                 window.PFCallSocketConnected = true;
                 window.dispatchEvent(new CustomEvent('PFCallConnected'));

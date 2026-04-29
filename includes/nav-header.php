@@ -1147,26 +1147,18 @@ if ($initials === '') {
     // ── Realtime search ──────────────────────────────────────────
     <?php if ($show_header_search): ?>
     (function(){
-        console.log('Search script initializing...');
         var input = document.getElementById('pf-search-input');
-        console.log('Search input element:', input);
         var dropdown = document.getElementById('pf-search-dropdown');
-        console.log('Search dropdown element:', dropdown);
         if (!input) {
-            console.error('Search input not found!');
             return;
         }
         if (!dropdown) {
-            console.log('Dropdown not found, creating it...');
             dropdown = document.createElement('div');
             dropdown.id = 'pf-search-dropdown';
             dropdown.style.cssText = 'display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;background:#0a2530;border:1px solid rgba(83,197,224,0.3);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.5);z-index:9999;overflow:hidden;';
             var wrap = input.closest('.pf-search-wrap');
             if (wrap) {
                 wrap.appendChild(dropdown);
-                console.log('Dropdown created and appended');
-            } else {
-                console.error('Could not find .pf-search-wrap parent');
             }
         }
 
