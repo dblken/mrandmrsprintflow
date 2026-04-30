@@ -1496,8 +1496,8 @@ $page_title = 'Orders - Staff';
         })
         .then(function(r) {
             var ct = r.headers.get('content-type') || '';
-        .then(function(r) {
-            var ct = r.headers.get('content-type') || '';
+
+
             if (!ct.includes('application/json')) {
                 return r.text().then(function(txt) {
                     console.error('Non-JSON response:', txt);
