@@ -62,10 +62,11 @@ if ($user_type === 'Customer') {
         FROM users u 
         WHERE u.user_id = (
             SELECT COALESCE(
-                (SELECT us.user_id FROM user_status us WHERE us.order_id = ? AND us.user_type = 'Staff' AND us.last_activity >= NOW() - INTERVAL 5 MINUTE ORDER BY us.last_activity DESC LIMIT 1),
-                (SELECT m.sender_id FROM order_messages m WHERE m.order_id = ? AND m.sender_id > 0 AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1),
-                (SELECT jo.assigned_to FROM job_orders jo WHERE jo.order_id = ? AND jo.assigned_to IS NOT NULL ORDER BY jo.updated_at DESC LIMIT 1),
-                (SELECT u2.user_id FROM users u2 JOIN orders o ON o.branch_id = u2.branch_id WHERE o.order_id = ? AND u2.role IN ('Staff','Manager','Admin') ORDER BY (u2.last_activity >= NOW() - INTERVAL 5 MINUTE) DESC, u2.user_id ASC LIMIT 1)
+                (SELECT us.user_id FROM user_status us JOIN users u2 ON u2.user_id = us.user_id WHERE us.order_id = ? AND us.user_type = 'Staff' ORDER BY us.last_activity DESC LIMIT 1),
+                (SELECT m.sender_id FROM order_messages m JOIN users u3 ON u3.user_id = m.sender_id WHERE m.order_id = ? AND m.sender_id > 0 AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1),
+                (SELECT jo.assigned_to FROM job_orders jo JOIN users u4 ON u4.user_id = jo.assigned_to WHERE jo.order_id = ? AND jo.assigned_to IS NOT NULL ORDER BY jo.updated_at DESC LIMIT 1),
+                (SELECT u5.user_id FROM users u5 JOIN orders o ON o.branch_id = u5.branch_id WHERE o.order_id = ? AND u5.role IN ('Staff','Manager','Admin') ORDER BY u5.last_activity DESC, u5.user_id ASC LIMIT 1),
+                (SELECT u6.user_id FROM users u6 WHERE u6.role IN ('Staff','Manager','Admin') ORDER BY u6.last_activity DESC LIMIT 1)
             )
         ) LIMIT 1";
     

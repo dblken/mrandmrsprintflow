@@ -1328,6 +1328,10 @@ $current_user = get_logged_in_user();
                             </h3>
                             <p class="window-meta" id="activeMeta">—</p>
                         </div>
+                        <div id="pfCallStatus" class="pf-call-status" style="margin-right: 15px; font-size: 0.75rem; font-weight: 700; color: #94a3b8; display: flex; align-items: center; gap: 5px;">
+                            <span class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
+                            <span class="status-text">Connecting...</span>
+                        </div>
                         <div class="header-actions">
                              <!-- Call Actions -->
                              <button class="h-btn call-btns" onclick="initiateCall('voice')" title="Voice Call" style="display:none;">
@@ -3820,6 +3824,29 @@ function initStaffChatPage() {
     } else {
         window.addEventListener('PFCallGlobalReady', initCallSystem, { once: true });
     }
+    
+    // Call Connection Status UI Sync
+    const updatePFStatusUI = () => {
+        const el = document.getElementById('pfCallStatus');
+        if (!el) return;
+        const dot = el.querySelector('.status-dot');
+        const txt = el.querySelector('.status-text');
+        
+        const isConnected = !!(window.PFCall && window.PFCall.isSocketConnected);
+        if (isConnected) {
+            dot.style.background = '#22c55e';
+            txt.textContent = 'Connected';
+            txt.style.color = '#22c55e';
+        } else {
+            dot.style.background = '#ef4444';
+            txt.textContent = 'Offline';
+            txt.style.color = '#ef4444';
+        }
+    };
+    window.addEventListener('PFCallConnected', updatePFStatusUI);
+    window.addEventListener('PFCallDisconnected', updatePFStatusUI);
+    window.addEventListener('PFCallGlobalReady', updatePFStatusUI);
+    setTimeout(updatePFStatusUI, 2000);
 }
 
 if (document.readyState === 'loading') {

@@ -205,6 +205,19 @@
                     name: this.userName,
                     avatar: this.userAvatar
                 });
+
+                // Heartbeat to keep registry fresh
+                if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
+                this._heartbeatInterval = setInterval(() => {
+                    if (this.isSocketConnected) {
+                        this.socket.emit('register', {
+                            userId: this.userId,
+                            userType: this.userType,
+                            name: this.userName,
+                            avatar: this.userAvatar
+                        });
+                    }
+                }, 30000);
             });
 
             this.socket.on('connect_error', () => {
@@ -320,9 +333,13 @@
             if (this.state === PF_STATE.ENDED) {
                 this._cleanUp();
             }
-            if (this.state !== PF_STATE.IDLE) {
+            if (this.state === PF_STATE.IN_CALL) {
                 this.socket.emit('pf-call-busy', { toUserId: data.fromUserId, toUserType: data.fromUserType });
                 return;
+            }
+            if (this.state !== PF_STATE.IDLE) {
+                // Ghost state from previous session? Just clean up.
+                this._cleanUp();
             }
             this.state = PF_STATE.INCOMING;
             this.partnerId = data.fromUserId || data.callerId;
