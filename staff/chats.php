@@ -25,7 +25,13 @@ $current_user = get_logged_in_user();
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/output.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/chat_actions_fix.css?v=<?php echo time(); ?>">
+    <?php
+        $__pf_chat_actions_css = __DIR__ . '/../public/assets/css/chat_actions_fix.css';
+        $__pf_chat_actions_ver = is_file($__pf_chat_actions_css) ? (string) filemtime($__pf_chat_actions_css) : '1';
+        $__pf_voice_fix_js = __DIR__ . '/../public/assets/js/voice_duration_fix.js';
+        $__pf_voice_fix_ver = is_file($__pf_voice_fix_js) ? (string) filemtime($__pf_voice_fix_js) : '1';
+    ?>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/chat_actions_fix.css?v=<?php echo $__pf_chat_actions_ver; ?>">
     
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
@@ -1512,7 +1518,7 @@ $current_user = get_logged_in_user();
 </div>
 
 <!-- Global Call System is now initialized via admin_style.php -->
-<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo time(); ?>"></script>
+<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo $__pf_voice_fix_ver; ?>" defer></script>
 <script>
 window.baseUrl = <?= json_encode(BASE_URL); ?>;
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;

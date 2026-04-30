@@ -409,7 +409,7 @@ try {
     $partner['avatar'] = get_profile_image($partner['avatar'] ?? null);
 
     // 4. Fetch order metadata (archive status)
-    $has_archived_col = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
+    $has_archived_col = db_table_has_column('orders', 'is_archived');
     $order_meta = $has_archived_col
         ? db_query("SELECT is_archived FROM orders WHERE order_id = ?", 'i', [$order_id])
         : [];

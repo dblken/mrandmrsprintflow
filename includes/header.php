@@ -35,8 +35,9 @@ $base_url = defined('BASE_URL') ? BASE_URL : (defined('BASE_PATH') ? BASE_PATH :
 $base_path = defined('BASE_PATH') ? BASE_PATH : (defined('BASE_URL') ? BASE_URL : '');
 $asset_base = rtrim($base_url, '/') . '/public';
 
-// Timestamp for cache busting
-$ver = time();
+// Stable asset versioning so pages can cache between navigations
+$ver_seed = __DIR__ . '/../public/assets/css/output.css';
+$ver = is_file($ver_seed) ? (string) filemtime($ver_seed) : '1';
 $url_index    = $base_url . '/';
 $url_products = $base_url . '/public/products.php';
 
@@ -200,10 +201,16 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     
     <!-- PrintFlow Call & Signaling System (Global) -->
     <?php if ($is_logged_in): ?>
-    <script src="<?php echo ASSET_PATH; ?>/js/pf-utils.js?v=<?php echo $ver; ?>"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="<?php echo ASSET_PATH; ?>/css/printflow_call.css?v=<?php echo $ver; ?>">
-    <script src="<?php echo ASSET_PATH; ?>/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
+    <?php
+        $__pf_call_css_file = __DIR__ . '/../public/assets/css/printflow_call.css';
+        $__pf_call_css_ver = is_file($__pf_call_css_file) ? (string) filemtime($__pf_call_css_file) : $ver;
+        $__pf_call_js_file = __DIR__ . '/../public/assets/js/printflow_call.js';
+        $__pf_call_js_ver = is_file($__pf_call_js_file) ? (string) filemtime($__pf_call_js_file) : $ver;
+    ?>
+    <script src="<?php echo htmlspecialchars(rtrim($asset_base, '/') . '/assets/js/pf-utils.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $ver; ?>" defer></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($asset_base, '/') . '/assets/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_call_css_ver; ?>">
+    <script src="<?php echo htmlspecialchars(rtrim($asset_base, '/') . '/assets/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_call_js_ver; ?>" defer></script>
         <script>
         (function() {
             function initPFCall() {

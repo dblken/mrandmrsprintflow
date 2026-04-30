@@ -47,7 +47,7 @@ try {
 
     if ($user_type === 'Customer') {
         // Check if is_archived column exists
-        $has_archived = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
+        $has_archived = db_table_has_column('orders', 'is_archived');
         $archive_col = $has_archived ? "o.is_archived" : "0";
 
         $sql = "
@@ -140,9 +140,9 @@ try {
             throw new Exception("Database lookup failed on orders.");
     } else {
         // Check if is_archived column exists
-        $has_archived = !empty(db_query("SHOW COLUMNS FROM orders LIKE 'is_archived'"));
+        $has_archived = db_table_has_column('orders', 'is_archived');
         $archive_col = $has_archived ? "o.is_archived" : "0";
-        $has_activity = !empty(db_query("SHOW COLUMNS FROM customers LIKE 'last_activity'"));
+        $has_activity = db_table_has_column('customers', 'last_activity');
         $activity_sel = $has_activity ? "c.last_activity as partner_last_activity," : "NULL as partner_last_activity,";
         $sql = "
         SELECT o.order_id, o.customer_id, o.status, o.order_date, $archive_col as is_archived,
