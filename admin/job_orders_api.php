@@ -94,6 +94,31 @@ function jo_api_normalize_customer_type($customerType, $transactionCount = null)
     return ((int)$transactionCount >= 5) ? 'REGULAR' : 'NEW';
 }
 
+function jo_api_resolve_order_source(?int $orderId, $currentSource = null): string {
+    $source = strtolower(trim((string)$currentSource));
+    if (in_array($source, ['pos', 'walk-in'], true)) {
+        return $source;
+    }
+
+    if (($source === '' || $source === 'customer') && !empty($orderId)) {
+        $posCheck = db_query(
+            "SELECT 1 FROM customizations WHERE order_id = ? AND customization_details LIKE '%\"source\":\"POS\"%' LIMIT 1",
+            'i',
+            [$orderId]
+        );
+        if (!empty($posCheck)) {
+            db_execute(
+                "UPDATE orders SET order_source = 'pos' WHERE order_id = ? AND (order_source IS NULL OR order_source = 'customer' OR order_source = '')",
+                'i',
+                [$orderId]
+            );
+            return 'pos';
+        }
+    }
+
+    return $source !== '' ? $source : 'customer';
+}
+
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $serviceOnly = in_array(strtolower((string)($_GET['service_only'] ?? $_POST['service_only'] ?? '')), ['1', 'true', 'yes'], true);
 
@@ -104,8 +129,10 @@ try {
             $sql = "SELECT jo.*, c.first_name, c.last_name, c.customer_type, c.transaction_count,
                            c.profile_picture AS customer_profile_picture,
                            TRIM(CONCAT_WS(', ', NULLIF(TRIM(c.street_address), ''), NULLIF(TRIM(c.barangay), ''), NULLIF(TRIM(c.city), ''))) AS customer_address,
-                           COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact
+                           COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
+                           o.order_source
                     FROM job_orders jo 
+                    LEFT JOIN orders o ON o.order_id = jo.order_id
                     LEFT JOIN customers c ON jo.customer_id = c.customer_id 
                     WHERE 1=1";
             $params = []; $types = '';
@@ -222,6 +249,10 @@ try {
                 $visibleOrders = [];
                 foreach ($orders as $jo) {
                     $jo['order_type'] = 'JOB';
+                    $jo['order_source'] = jo_api_resolve_order_source(
+                        (int)($jo['order_id'] ?? 0),
+                        $jo['order_source'] ?? null
+                    );
                     if (!empty($jo['order_id'])) {
                         $payload = JobOrderService::getStoreOrderItemsPayload((int)$jo['order_id'], $serviceOnly);
                         if ($serviceOnly && empty($payload['items'])) {
@@ -875,7 +906,10 @@ try {
                 'payment_submitted_amount' => (float)($cust['downpayment_amount'] ?? 0),
                 'payment_status'           => 'NO',
                 'readiness'                => $linked_job['readiness'] ?? 'READY',
-                'order_source'             => $cust['order_source'] ?? 'pos',
+                'order_source'             => jo_api_resolve_order_source(
+                    (int)($cust['order_id'] ?? 0),
+                    $cust['order_source'] ?? null
+                ),
                 'items'                    => $items,
                 'materials'                => $linked_job['materials'] ?? [],
                 'ink_usage'                => $linked_job['ink_usage'] ?? [],
@@ -1030,7 +1064,7 @@ try {
                 'payment_proof_uploaded_at' => $o['payment_submitted_at'] ?? null,
                 'payment_status'       => 'NO',
                 'readiness'            => $linked_job['readiness'] ?? 'READY',
-                'order_source'         => $o['order_source'] ?? 'customer',
+                'order_source'         => jo_api_resolve_order_source($order_id, $o['order_source'] ?? null),
                 'items'                => $items_out,
                 'materials'            => $linked_job_materials,
                 'ink_usage'            => $linked_job_ink_usage,
