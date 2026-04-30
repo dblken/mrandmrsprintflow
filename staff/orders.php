@@ -1540,6 +1540,10 @@ $page_title = 'Orders - Staff';
                 }
                 return;
             }
+            if ((String(data.order_type || '').toLowerCase() === 'custom') || orderNeedsCustomizationRedirect(data)) {
+                window.location.replace(buildCustomizationRedirectUrl(data));
+                return;
+            }
             var orderCode = data.order_code || ('ORD-' + orderId);
             document.getElementById('omSubtitle').textContent = orderCode + (data.order_date ? ' • ' + data.order_date : '');
             currentOrderModalData = data;
