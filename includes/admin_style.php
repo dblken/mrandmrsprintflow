@@ -96,11 +96,8 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <link rel="stylesheet" href="<?php echo htmlspecialchars(ASSET_PATH . '/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>">
     <script src="<?php echo htmlspecialchars(ASSET_PATH . '/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>" defer></script>
-<?php endif; ?>
 
-<?php
-unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css_ver);
-?>
+
 
     <script>
         (function() {
@@ -134,7 +131,9 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
             }
         })();
     </script>
-<?php endif; ?>
+<?php 
+unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css_ver);
+endif; ?>
 <script>
     (function () {
         var root = document.documentElement;
