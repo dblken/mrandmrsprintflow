@@ -136,11 +136,11 @@ $current_user = get_logged_in_user();
             padding: 10px 16px; border-radius: 18px; font-size: 0.9rem; font-weight: 500; line-height: 1.45; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.2s ease;
             display: inline-block; width: auto; max-width: 100%; position: relative;
-            word-break: break-word; overflow-wrap: anywhere;
+            word-break: break-word; overflow-wrap: break-word;
         }
         .bubble span {
             display: block; max-width: 100%;
-            white-space: normal; word-break: break-word; overflow-wrap: anywhere;
+            white-space: normal; word-break: break-word; overflow-wrap: break-word;
         }
         .bubble:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
         .bubble-row.self .bubble { background: #0a2530; color: #fff; border-radius: 18px 18px 4px 18px; }
