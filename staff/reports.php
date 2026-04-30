@@ -49,6 +49,91 @@ function staff_reports_service_status_sql(string $status_filter): string {
 }
 $service_status_sql = staff_reports_service_status_sql($status_filter);
 
+function staff_reports_period_subtitle(string $range, string $entity): string {
+    if ($range === 'month') {
+        return "Most popular {$entity} this month";
+    }
+    if ($range === 'today') {
+        return "Most popular {$entity} today";
+    }
+    return "Most popular {$entity} this week";
+}
+
+function staff_reports_top_services_query(string $date_condition, int $staffBranchId, string $range, string $status_filter): array {
+    $service_status_sql = staff_reports_service_status_sql($status_filter);
+    $service_date_condition = str_replace('o.order_date', 'so.created_at', $date_condition);
+
+    return db_query("
+        SELECT
+            COALESCE(NULLIF(TRIM(so.service_name), ''), NULLIF(TRIM(so.service_type), ''), 'Service Order') AS service_name,
+            COUNT(*) AS order_count,
+            SUM(COALESCE(so.quantity, 1)) AS total_sold,
+            SUM(
+                CASE
+                    WHEN UPPER(COALESCE(so.payment_status, '')) = 'PAID' THEN COALESCE(so.total_price, so.estimated_price, 0)
+                    ELSE 0
+                END
+            ) AS total_revenue,
+            MAX(so.created_at) AS last_order_at
+        FROM service_orders so
+        WHERE {$service_date_condition}
+          AND (so.branch_id = ? OR so.branch_id IS NULL)
+          {$service_status_sql}
+        GROUP BY COALESCE(NULLIF(TRIM(so.service_name), ''), NULLIF(TRIM(so.service_type), ''), 'Service Order')
+        ORDER BY total_sold DESC, order_count DESC, service_name ASC
+        LIMIT 8
+    ", 'i', [$staffBranchId]) ?: [];
+}
+
+function staff_reports_render_top_services_table(array $top_services): string {
+    ob_start();
+    if (empty($top_services)) {
+        ?>
+        <div class="top-service-empty">No service orders found for this selected period.</div>
+        <?php
+        return trim(ob_get_clean());
+    }
+    ?>
+    <div class="top-service-table-wrap">
+        <table class="top-service-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Service</th>
+                    <th>Orders</th>
+                    <th>Units Sold</th>
+                    <th>Revenue</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($top_services as $index => $service): ?>
+                    <tr>
+                        <td data-label="Rank">
+                            <span class="top-service-rank">#<?php echo (int)($index + 1); ?></span>
+                        </td>
+                        <td data-label="Service">
+                            <div class="top-service-name" title="<?php echo htmlspecialchars((string)$service['service_name']); ?>">
+                                <?php echo htmlspecialchars((string)$service['service_name']); ?>
+                            </div>
+                        </td>
+                        <td data-label="Orders">
+                            <span class="top-service-metric"><?php echo number_format((int)($service['order_count'] ?? 0)); ?></span>
+                        </td>
+                        <td data-label="Units Sold">
+                            <span class="top-service-metric top-service-metric--accent"><?php echo number_format((int)($service['total_sold'] ?? 0)); ?></span>
+                        </td>
+                        <td data-label="Revenue">
+                            <span class="top-service-revenue"><?php echo format_currency((float)($service['total_revenue'] ?? 0)); ?></span>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php
+    return trim(ob_get_clean());
+}
+
 // ---- 1. RANGE-AWARE KPI METRICS (DYNAMIC) ----
 // Total revenue for THE SELECTED PERIOD (Paid only)
 $rev_res = db_query("SELECT SUM(t.total) AS total FROM (
@@ -173,6 +258,18 @@ $top_products = db_query("
     LIMIT 5
 ", 'i', [$staffBranchId]);
 
+$top_services = staff_reports_top_services_query($date_condition, $staffBranchId, $range, $status_filter);
+
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'top_services') {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'html' => staff_reports_render_top_services_table($top_services),
+        'updated_at' => date('c'),
+    ]);
+    exit;
+}
+
 $page_title = 'Visual Reports & Analytics';
 ?>
 <!DOCTYPE html>
@@ -216,6 +313,149 @@ $page_title = 'Visual Reports & Analytics';
         .tp-name { font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; }
         .tp-rank { width: 24px; height: 24px; background: #f1f5f9; color: #475569; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
         .tp-sold { font-size: 14px; font-weight: 800; color: #059669; }
+        .top-service-card {
+            min-width: 0;
+        }
+        .top-service-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .top-service-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 560px;
+        }
+        .top-service-table th,
+        .top-service-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            text-align: left;
+            vertical-align: middle;
+        }
+        .top-service-table th {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .top-service-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .top-service-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .top-service-name {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+        .top-service-metric {
+            font-size: 14px;
+            font-weight: 700;
+            color: #334155;
+        }
+        .top-service-metric--accent {
+            color: #059669;
+        }
+        .top-service-revenue {
+            font-size: 14px;
+            font-weight: 800;
+            color: #0f766e;
+            white-space: nowrap;
+        }
+        .top-service-empty {
+            padding: 24px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .top-service-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f766e;
+        }
+        .top-service-live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+        }
+        .top-service-refreshing {
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+        @media (max-width: 1024px) {
+            .dashboard-grid--top-sellers {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .top-service-card {
+                padding: 20px;
+            }
+        }
+        @media (max-width: 640px) {
+            .top-service-table-wrap {
+                overflow: visible;
+            }
+            .top-service-table {
+                min-width: 0;
+                border-collapse: separate;
+                border-spacing: 0 10px;
+            }
+            .top-service-table thead {
+                display: none;
+            }
+            .top-service-table tbody,
+            .top-service-table tr,
+            .top-service-table td {
+                display: block;
+                width: 100%;
+            }
+            .top-service-table tr {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 14px;
+                padding: 12px 14px;
+            }
+            .top-service-table td {
+                border-bottom: none;
+                padding: 6px 0;
+            }
+            .top-service-table td::before {
+                content: attr(data-label);
+                display: block;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: #64748b;
+                margin-bottom: 4px;
+            }
+            .top-service-name {
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -377,7 +617,7 @@ $page_title = 'Visual Reports & Analytics';
             </div>
 
             <!-- ROW 3: LISTS & INSIGHTS -->
-            <div class="dashboard-grid">
+            <div class="dashboard-grid dashboard-grid--top-sellers">
                 
                 <!-- Top Selling Products -->
                 <div class="chart-card">
@@ -411,6 +651,23 @@ $page_title = 'Visual Reports & Analytics';
                     <?php endif; ?>
                 </div>
 
+                <!-- Top Selling Services -->
+                <div class="chart-card top-service-card">
+                    <div class="chart-header" style="margin-bottom:12px;">
+                        <div>
+                            <div class="chart-title">Top Selling Services</div>
+                            <div class="chart-subtitle"><?php echo htmlspecialchars(staff_reports_period_subtitle($range, 'services')); ?></div>
+                            <div class="top-service-live">
+                                <span class="top-service-live-dot"></span>
+                                <span id="top-services-live-label">Live data</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="topServicesTableMount">
+                        <?php echo staff_reports_render_top_services_table($top_services); ?>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
@@ -427,6 +684,7 @@ $page_title = 'Visual Reports & Analytics';
  */
 var revenueChartInstance = null;
 var statusChartInstance = null;
+var topServicesRefreshTimer = null;
 
 function renderReportsCharts() {
     // ⚙️ Global Chart.js Defaults
@@ -570,6 +828,52 @@ function renderReportsCharts() {
     }
 }
 
+function initTopServicesLiveTable() {
+    var mount = document.getElementById('topServicesTableMount');
+    if (!mount) return;
+
+    if (topServicesRefreshTimer) {
+        clearInterval(topServicesRefreshTimer);
+        topServicesRefreshTimer = null;
+    }
+
+    var liveLabel = document.getElementById('top-services-live-label');
+    var refreshUrl = 'reports.php?ajax=top_services&range=<?php echo rawurlencode($range); ?>&status=<?php echo rawurlencode($status_filter); ?>';
+
+    function refreshTopServices() {
+        mount.classList.add('top-service-refreshing');
+        fetch(refreshUrl, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            cache: 'no-store'
+        })
+        .then(function(response) {
+            return response.ok ? response.json() : Promise.reject(new Error('Failed to load top services'));
+        })
+        .then(function(payload) {
+            if (!payload || payload.success !== true || typeof payload.html !== 'string') {
+                throw new Error('Invalid response');
+            }
+            mount.innerHTML = payload.html;
+            if (liveLabel) {
+                var now = new Date();
+                liveLabel.textContent = 'Live data • updated ' + now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            }
+        })
+        .catch(function() {
+            if (liveLabel) {
+                liveLabel.textContent = 'Live data unavailable';
+            }
+        })
+        .finally(function() {
+            mount.classList.remove('top-service-refreshing');
+        });
+    }
+
+    topServicesRefreshTimer = window.setInterval(refreshTopServices, 30000);
+}
+
 // Initial Load + Turbo Navigation
 if (typeof renderReportsChartsScheduled === 'undefined') {
     var renderReportsChartsScheduled = true;
@@ -583,6 +887,7 @@ if (typeof renderReportsChartsScheduled === 'undefined') {
 } else {
     // If script re-runs via Turbo, just run the direct call
     renderReportsCharts();
+    initTopServicesLiveTable();
 }
 </script>
 
