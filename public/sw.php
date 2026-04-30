@@ -23,7 +23,7 @@ header('X-Content-Type-Options: nosniff');
  */
 
 const BASE_PATH = '<?php echo $base_path; ?>';
-const CACHE_VERSION = 'v16';
+const CACHE_VERSION = 'v17';
 const SHELL_CACHE = 'printflow-shell-' + CACHE_VERSION;
 const PAGE_CACHE = 'printflow-pages-' + CACHE_VERSION;
 const IMG_CACHE = 'printflow-img-' + CACHE_VERSION;
@@ -192,6 +192,10 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
     if (!url.origin.includes(self.location.hostname) &&
         !url.hostname.includes('localhost')) return;
+
+    if (request.destination === 'video' || request.destination === 'audio' || url.pathname.match(/\.(mp4|webm|ogg|mp3|wav)$/i)) {
+        return;
+    }
 
     if (url.pathname.includes('/api/') || url.pathname.includes('api_') || url.pathname.includes('ajax')) {
         event.respondWith(
