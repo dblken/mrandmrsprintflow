@@ -220,9 +220,9 @@ require_once __DIR__ . '/../includes/header.php';
     .cart-item-name {
         display: block;
         min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow: visible;
+        white-space: normal;
+        word-break: break-word;
         font-weight: 600;
         color: #0f172a;
     }
@@ -356,7 +356,7 @@ require_once __DIR__ . '/../includes/header.php';
             padding-right: 3.25rem;
         }
 
-        /* Product name - keep a single line so long titles do not push the layout */
+        /* Product name */
         .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child,
         .cart-item-name {
             font-size: 0.85rem !important;
@@ -364,9 +364,10 @@ require_once __DIR__ . '/../includes/header.php';
             line-height: 1.3;
             color: #0f172a !important;
             padding-right: 0 !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            word-break: break-word !important;
         }
         
         /* Product badge - position in upper right */
