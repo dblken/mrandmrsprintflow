@@ -136,7 +136,17 @@ $job_rows = db_query(
             c.transaction_count,
             c.profile_picture AS customer_profile_picture,
             COALESCE(NULLIF(TRIM(c.contact_number), ''), NULLIF(TRIM(c.email), '')) AS customer_contact,
-            COALESCE(ord.order_source, 'customer') AS order_source
+            CASE
+                WHEN LOWER(TRIM(COALESCE(ord.order_source, ''))) IN ('pos', 'walk-in') THEN LOWER(TRIM(ord.order_source))
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM customizations cpos
+                    WHERE cpos.order_id = jo.order_id
+                      AND cpos.customization_details LIKE '%\"source\":\"POS\"%'
+                    LIMIT 1
+                ) THEN 'pos'
+                ELSE COALESCE(ord.order_source, 'customer')
+            END AS order_source
      FROM job_orders jo
      LEFT JOIN customers c ON jo.customer_id = c.customer_id
      LEFT JOIN orders ord ON ord.order_id = jo.order_id
