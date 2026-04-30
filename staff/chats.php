@@ -351,11 +351,11 @@ $current_user = get_logged_in_user();
         
         .reaction-display { 
             position: absolute; bottom: -12px; background: #fff; border: 1px solid #e2e8f0; 
-            border-radius: 12px; padding: 4px 8px; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; 
+            border-radius: 999px; padding: 2px 6px; font-size: 0.68rem; display: flex; align-items: center; gap: 3px; 
             z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.08); cursor: pointer; white-space: nowrap; transition: all 0.2s;
-            min-height: 24px;
+            min-height: 20px;
         }
-        .reaction-display:hover { transform: scale(1.05); background: #f8fafc; box-shadow: 0 6px 15px rgba(0,0,0,0.12); }
+        .reaction-display:hover { transform: scale(1.03); background: #f8fafc; box-shadow: 0 6px 15px rgba(0,0,0,0.12); }
         .bubble-row.self .reaction-display { right: 8px; }
         .bubble-row.other .reaction-display { left: 8px; }
         
@@ -599,24 +599,24 @@ $current_user = get_logged_in_user();
 
         .reaction-display-container { margin-top: 6px; display: none; }
         .reaction-display {
-            display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;
         }
         .reaction-bubble {
-            display: inline-flex; align-items: center; gap: 4px;
+            display: inline-flex; align-items: center; gap: 3px;
             background: #fff; border: 1px solid #e2e8f0;
-            border-radius: 999px; padding: 4px 12px; font-size: 1.1rem;
+            border-radius: 999px; padding: 2px 8px; font-size: 0.9rem;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); color: #334155;
             cursor: pointer; transition: all 0.2s;
-            line-height: 1.2;
-            min-height: 28px;
+            line-height: 1;
+            min-height: 22px;
         }
         .reaction-bubble:hover {
-            transform: scale(1.1); background: #f8fafc; border-color: #cbd5e1;
+            transform: scale(1.04); background: #f8fafc; border-color: #cbd5e1;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .reaction-count {
-            font-size: 0.8rem; font-weight: 800; color: #475569;
-            margin-left: 2px;
+            font-size: 0.7rem; font-weight: 800; color: #475569;
+            margin-left: 1px;
         }
 
         /* Seen Indicators (Messenger Style) */
@@ -886,7 +886,7 @@ $current_user = get_logged_in_user();
                 flex: 0 0 auto;
             }
             .reaction-display-container {
-                margin-top: 8px;
+                margin-top: 6px;
             }
             .details-modal-overlay {
                 padding: 0.75rem;

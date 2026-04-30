@@ -358,15 +358,16 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Reactions Attached to Bubble */
     .react-display {
-        display:flex; gap:6px; position: absolute; bottom: -10px; z-index: 10;
-        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 4px 12px;
+        display:flex; gap:4px; position: relative; z-index: 10;
+        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 2px 8px;
         box-shadow: 0 4px 10px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
-        min-height: 28px; align-items: center;
+        min-height: 22px; align-items: center; width: max-content; max-width: 100%;
+        margin-top: 4px;
     }
-    .brow.self .react-display { right: 8px; }
-    .brow.other .react-display { left: 8px; }
-    .react-chip { font-size:1.1rem; display:flex; align-items:center; gap:4px; color: #0f172a; line-height: 1.2; }
-    .react-chip b { font-weight: 800; font-size: 0.85rem; color: var(--pf-cyan); margin-left: 2px; }
+    .brow.self .react-display { align-self: flex-end; }
+    .brow.other .react-display { align-self: flex-start; }
+    .react-chip { font-size:0.9rem; display:flex; align-items:center; gap:3px; color: #0f172a; line-height: 1; }
+    .react-chip b { font-weight: 800; font-size: 0.72rem; color: var(--pf-cyan); margin-left: 1px; }
 
     /* Reaction Picker */
     .react-picker {
@@ -1531,8 +1532,8 @@ function appendMsgUI(m) {
                 ${m.is_forwarded ? `<div style="font-size:0.65rem; color:var(--pf-dim); margin-bottom:4px; font-style:italic; display:flex; align-items:center; gap:3px;"><i class="bi bi-arrow-90deg-right"></i> Forwarded</div>` : ''}
                 ${m.reply_id ? `<div style="background:#f1f5f9; padding:6px 10px; border-radius:8px; border-left:3px solid var(--pf-cyan); font-size:0.75rem; color:var(--pf-dim); margin-bottom:6px; cursor:pointer;" onclick="document.getElementById('ms-${m.reply_id}')?.scrollIntoView({behavior:'smooth',block:'center'})">↳ Replying: ${esc(m.reply_message||'Attachment')}</div>` : ''}
                 ${contentHtml}
-                <div class="react-display" id="rd-${m.id}" style="display:none;"></div>
             </div>
+            <div class="react-display" id="rd-${m.id}" style="display:none;"></div>
             <div class="b-meta">${fmtShort(m.created_at)}</div>
             ${isSelf ? `<div class="seen-wrapper" id="sw-${m.id}"></div>` : ''}
         </div>`;
