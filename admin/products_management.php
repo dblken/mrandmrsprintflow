@@ -215,6 +215,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Invalid product.';
         } elseif ($add_stock_quantity <= 0) {
             $error = 'Add stock quantity must be greater than 0.';
+        } elseif ($add_stock_quantity > 99999) {
+            $error = 'Add stock quantity must not exceed 5 digits.';
         } elseif ($is_manager && $mgr_branch_id < 1) {
             $error = 'No branch is assigned to your account.';
         } else {
@@ -1745,7 +1747,7 @@ if (isset($_GET['ajax'])) {
                         </div>
                         <div class="form-group" id="fg-add-stock">
                             <label for="stock-modal-add-qty">Add stock quantity <span style="color:#dc2626">*</span></label>
-                            <input type="number" id="stock-modal-add-qty" min="1" value="" step="1" disabled autocomplete="off" placeholder="0" maxlength="5">
+                            <input type="number" id="stock-modal-add-qty" min="1" max="99999" value="" step="1" disabled autocomplete="off" inputmode="numeric" placeholder="0">
                             <span id="err-add-stock" class="field-error"></span>
                         </div>
                     </div>
