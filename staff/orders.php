@@ -15,6 +15,21 @@ $branch_ctx    = init_branch_context(false);
 $staffBranchId = (int)$branch_ctx['selected_branch_id'];
 $branchName    = $branch_ctx['branch_name'];
 
+$deepLinkOrderId = (int)($_GET['order_id'] ?? 0);
+if ($deepLinkOrderId > 0) {
+    $deepLinkPreview = printflow_order_notification_preview($deepLinkOrderId);
+    $deepLinkKind = strtolower(trim((string)($deepLinkPreview['item_kind'] ?? '')));
+    if ($deepLinkKind === 'service') {
+        $redirectUrl = (defined('BASE_PATH') ? BASE_PATH : '') . '/staff/customizations.php?order_id=' . $deepLinkOrderId . '&job_type=ORDER&from=pos';
+        $deepLinkOrderSource = db_query("SELECT order_source FROM orders WHERE order_id = ? LIMIT 1", 'i', [$deepLinkOrderId]);
+        $orderSource = strtolower(trim((string)($deepLinkOrderSource[0]['order_source'] ?? '')));
+        if (in_array($orderSource, ['pos', 'walk-in'], true)) {
+            $redirectUrl .= '&return_to_pos=1';
+        }
+        redirect($redirectUrl);
+    }
+}
+
 // Handle status update via AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     if (verify_csrf_token($_POST['csrf_token'] ?? '')) {
