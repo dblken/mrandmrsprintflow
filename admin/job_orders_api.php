@@ -856,13 +856,15 @@ try {
             $final_price = (float)($cust['order_total'] ?? 0);
             $linked_job_id = 0;
             $linked_job = null;
+            $linked_job_materials = [];
+            $linked_job_ink_usage = [];
             if (!empty($cust['order_id'])) {
                 JobOrderService::ensureJobsForStoreOrder((int)$cust['order_id']);
                 $linked_job_rows = db_query(
-                    "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
+                    "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC",
                     'i',
                     [(int)$cust['order_id']]
-                );
+                ) ?: [];
                 $linked_job_id = (int)($linked_job_rows[0]['id'] ?? 0);
                 if ($linked_job_id > 0) {
                     $linked_job = JobOrderService::getOrder($linked_job_id);
@@ -885,11 +887,7 @@ try {
             $items[0]['quantity'] = $summary['quantity'];
 
             if (!empty($cust['order_id'])) {
-                $linked_job_candidates = db_query(
-                    "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC",
-                    'i',
-                    [(int)$cust['order_id']]
-                ) ?: [];
+                $linked_job_candidates = $linked_job_rows ?? [];
 
                 if (!empty($linked_job_candidates)) {
                     $targetService = strtoupper(trim((string)($summary['service_type'] ?? '')));
@@ -953,6 +951,66 @@ try {
                 }
             }
 
+            $linked_job_ids = array_values(array_filter(array_map(static function ($row) {
+                return (int)($row['id'] ?? 0);
+            }, $linked_job_rows ?? [])));
+
+            $materialClauses = [];
+            $materialParams = [];
+            $materialTypes = '';
+            if (!empty($linked_job_ids)) {
+                $jobIdPlaceholders = implode(',', array_fill(0, count($linked_job_ids), '?'));
+                $materialClauses[] = "m.job_order_id IN ($jobIdPlaceholders)";
+                $materialParams = array_merge($materialParams, $linked_job_ids);
+                $materialTypes .= str_repeat('i', count($linked_job_ids));
+            }
+            if (!empty($cust['order_id']) && db_table_has_column('job_order_materials', 'std_order_id')) {
+                $materialClauses[] = "(m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+                $materialParams[] = (int)$cust['order_id'];
+                $materialTypes .= 'i';
+            }
+            if (!empty($materialClauses)) {
+                $linked_job_materials = db_query(
+                    "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
+                            (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
+                     FROM job_order_materials m
+                     JOIN inv_items i ON m.item_id = i.id
+                     LEFT JOIN inv_rolls r ON m.roll_id = r.id
+                     WHERE " . implode(' OR ', $materialClauses),
+                    $materialTypes,
+                    $materialParams
+                ) ?: [];
+                foreach ($linked_job_materials as &$material) {
+                    $material['metadata'] = $material['metadata'] ? json_decode($material['metadata'], true) : null;
+                }
+                unset($material);
+            }
+
+            $inkClauses = [];
+            $inkParams = [];
+            $inkTypes = '';
+            if (!empty($linked_job_ids)) {
+                $jobIdPlaceholders = implode(',', array_fill(0, count($linked_job_ids), '?'));
+                $inkClauses[] = "u.job_order_id IN ($jobIdPlaceholders)";
+                $inkParams = array_merge($inkParams, $linked_job_ids);
+                $inkTypes .= str_repeat('i', count($linked_job_ids));
+            }
+            if (!empty($cust['order_id']) && db_table_has_column('job_order_ink_usage', 'std_order_id')) {
+                $inkClauses[] = "(u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+                $inkParams[] = (int)$cust['order_id'];
+                $inkTypes .= 'i';
+            }
+            if (!empty($inkClauses)) {
+                $linked_job_ink_usage = db_query(
+                    "SELECT u.*, i.name as item_name
+                     FROM job_order_ink_usage u
+                     JOIN inv_items i ON u.item_id = i.id
+                     WHERE " . implode(' OR ', $inkClauses),
+                    $inkTypes,
+                    $inkParams
+                ) ?: [];
+            }
+
             $data = [
                 'id'                       => $cust['customization_id'],
                 'order_id'                 => $cust['order_id'],
@@ -989,8 +1047,8 @@ try {
                     $cust['order_source'] ?? null
                 ),
                 'items'                    => $items,
-                'materials'                => $linked_job['materials'] ?? [],
-                'ink_usage'                => $linked_job['ink_usage'] ?? [],
+                'materials'                => $linked_job_materials,
+                'ink_usage'                => $linked_job_ink_usage,
                 'customization_details'    => $details,
             ];
 
