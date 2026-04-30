@@ -581,16 +581,44 @@ require_once __DIR__ . '/../includes/header.php';
 }
 
 .empty-view {
-    text-align: center; padding: 6rem 2rem;
-    background: rgba(0, 21, 27, 0.3); border-radius: 12px; border: 1px dashed rgba(83, 197, 224, 0.2);
+    text-align: center;
+    padding: 5.5rem 2rem;
+    background: #ffffff;
+    border-radius: 18px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
 }
-.empty-view-title { font-size: 1.5rem; font-weight: 800; color: #eaf6fb; margin-bottom: 0.75rem; letter-spacing: 0.03em; }
-.empty-view-sub { color: #9fc4d4; font-size: 0.95rem; margin-bottom: 2rem; }
+.empty-view-title {
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 0.75rem;
+    letter-spacing: 0.01em;
+}
+.empty-view-sub {
+    color: #64748b;
+    font-size: 1rem;
+    margin-bottom: 2rem;
+}
 .empty-view-btn {
-    display: inline-block; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 0.95rem; font-weight: 800; text-align: center; text-transform: uppercase; background: transparent; color: #eaf6fb; border: 2px solid #53c5e0; letter-spacing: 0.05em; transition: all 0.3s;
+    display: inline-block;
+    text-decoration: none;
+    padding: 12px 28px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    background: #ffffff;
+    color: #0891b2;
+    border: 2px solid #67e8f9;
+    letter-spacing: 0.05em;
+    transition: all 0.3s;
 }
 .empty-view-btn:hover {
-    background: rgba(83, 197, 224, 0.15); box-shadow: 0 0 20px rgba(83, 197, 224, 0.2);
+    background: #ecfeff;
+    border-color: #22d3ee;
+    box-shadow: 0 14px 28px rgba(34, 211, 238, 0.16);
 }
 
 /* Modal stays dark — it overlays everything */
