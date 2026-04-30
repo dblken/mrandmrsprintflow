@@ -160,6 +160,50 @@ $souvenir_type_options = ['Mug', 'Keychain', 'Tote Bag', 'Pen', 'Tumbler', 'T-Sh
 </div>
 
 <script>
+function pfBuildCustomerUrl(path) {
+    var base = <?php echo json_encode(rtrim((string)BASE_URL, '/')); ?>;
+    path = '/' + String(path || '').replace(/^\/+/, '');
+    return window.location.origin + base + path;
+}
+
+function pfSafeCustomerRedirect(targetUrl) {
+    var url;
+    try {
+        url = new URL(targetUrl, window.location.origin);
+    } catch (err) {
+        throw new Error('Invalid redirect URL.');
+    }
+
+    if (window.location.protocol === 'https:' && url.protocol !== 'https:') {
+        url.protocol = 'https:';
+    }
+    if (url.origin !== window.location.origin) {
+        throw new Error('Blocked unsafe redirect target.');
+    }
+
+    try {
+        if (window.top && window.top !== window.self) {
+            window.top.location.assign(url.toString());
+            return;
+        }
+    } catch (err) {
+        // Fall through to same-window navigation.
+    }
+
+    window.location.assign(url.toString());
+}
+
+async function pfParseJsonResponse(response) {
+    if (!response || !response.ok) {
+        throw new Error('Request failed' + (response ? ' (' + response.status + ')' : '.'));
+    }
+    var contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (contentType.indexOf('application/json') === -1) {
+        throw new Error('Unexpected server response.');
+    }
+    return response.json();
+}
+
 function souvenirUpdateOpt(input) {
     const name = input.name;
     document.querySelectorAll('input[name="' + name + '"]').forEach(function(r) {
@@ -362,25 +406,31 @@ if (souvenirFormEl) {
         const formData = new FormData(this);
         formData.append('action', action);
 
-        fetch('api_add_to_cart_souvenirs.php', {
+        fetch(pfBuildCustomerUrl('/customer/api_add_to_cart_souvenirs.php'), {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         })
-        .then(r => r.json())
+        .then(pfParseJsonResponse)
         .then(data => {
-            if (data.success) {
-                if (action === 'buy_now') {
-                    window.location.href = 'order_review.php?item=' + data.item_key;
-                } else {
-                    window.location.href = 'cart.php';
-                }
-            } else {
-                alert(data.message);
+            if (!data || data.success !== true) {
+                alert((data && data.message) ? data.message : 'Unable to continue. Please try again.');
                 buttons.forEach(btn => btn.disabled = false);
+                return;
             }
+
+            if (action === 'buy_now' && !data.item_key) {
+                throw new Error('Missing order review item key.');
+            }
+
+            var nextUrl = action === 'buy_now'
+                ? (data.redirect_url || pfBuildCustomerUrl('/customer/order_review.php?item=' + encodeURIComponent(data.item_key || '')))
+                : (data.cart_url || pfBuildCustomerUrl('/customer/cart.php'));
+
+            pfSafeCustomerRedirect(nextUrl);
         })
         .catch(err => {
-            alert('An error occurred. Please try again.');
+            alert(err && err.message ? err.message : 'An error occurred. Please try again.');
             console.error(err);
             buttons.forEach(btn => btn.disabled = false);
         });

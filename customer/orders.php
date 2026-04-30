@@ -1975,10 +1975,20 @@ async function refreshOrdersList() {
     }
 
     function poll() {
+        if (document.visibilityState !== 'visible') {
+            window.__ordersPollingInterval = setTimeout(poll, 5000);
+            return;
+        }
         fetch(`${CUSTOMER_BASE_URL}/customer/api_customer_orders.php?_=${Date.now()}`, { cache: 'no-store' })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) throw new Error('Network response was not ok');
+            return r.json();
+        })
         .then(data => {
-            if (!data.success) return;
+            if (!data.success) {
+                window.__ordersPollingInterval = setTimeout(poll, 2000);
+                return;
+            }
             const cards = Array.from(document.querySelectorAll('.ct-order-card'));
             const existingIds = new Set(cards.map(card => parseInt(card.dataset.orderId, 10)).filter(id => !Number.isNaN(id)));
             const highestVisibleId = cards.reduce((max, card) => {
@@ -2019,10 +2029,15 @@ async function refreshOrdersList() {
                 card.style.background = 'rgba(83, 197, 224, 0.12)'; // Brief teal highlight
                 setTimeout(() => { card.style.background = ''; card.style.transition = ''; }, 1800);
             });
+            window.__ordersPollingInterval = setTimeout(poll, 2000);
+        })
+        .catch(err => {
+            console.error('Polling error:', err);
+            window.__ordersPollingInterval = setTimeout(poll, 5000); // exponential backoff fallback
         });
     }
+    if (window.__ordersPollingInterval) clearTimeout(window.__ordersPollingInterval);
     poll();
-    window.__ordersPollingInterval = setInterval(poll, 2000);
 })();
 
 initOrdersTabsScroller();

@@ -271,6 +271,7 @@ foreach ($items as $item) {
 
     $items_out[] = [
         'order_item_id' => $item['order_item_id'],
+        'product_id'    => (int)($item['product_id'] ?? 0),
         'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Custom Order', $custom_data, 'Custom Order'),
         'sku'           => $item['sku'] ?? '',
         'category'      => $item['category'] ?? '',
@@ -308,7 +309,7 @@ $revisions_out = [];
 
 // Normalize status for product orders — production statuses are not valid for fixed products
 $display_status = $order['status'];
-if (($order['order_type'] ?? '') === 'product') {
+if (($order['order_type'] ?? '') === 'product' && !array_filter($items_out, fn($io) => !in_array(strtolower(trim((string)($io['product_type'] ?? ''))), ['fixed', 'fixed product'], true))) {
     $production_statuses = ['Processing', 'In Production', 'Printing', 'Approved Design'];
     if (in_array($display_status, $production_statuses)) {
         $display_status = 'Ready for Pickup';

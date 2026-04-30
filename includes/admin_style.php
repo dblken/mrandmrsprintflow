@@ -73,7 +73,7 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
     $__pf_admin_mobile_js_file = __DIR__ . '/../public/assets/js/admin-mobile.js';
     $__pf_admin_mobile_js_ver = file_exists($__pf_admin_mobile_js_file) ? (string) filemtime($__pf_admin_mobile_js_file) : '1';
     ?>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <script src="<?php echo $__pf_asset_js; ?>/alpine.min.js" defer></script>
     <script src="<?php echo $__pf_asset_js; ?>/admin-mobile.js?v=<?php echo $__pf_admin_mobile_js_ver; ?>" defer></script>
     <?php
@@ -93,9 +93,15 @@ unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
 
 <!-- PrintFlow Call & Signaling System (Global for Admin/Staff/Manager) -->
 <?php if (function_exists('is_logged_in') && is_logged_in()): ?>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="<?php echo htmlspecialchars(ASSET_PATH . '/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>">
-    <script src="<?php echo htmlspecialchars(ASSET_PATH . '/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>" defer></script>
+    <?php
+        $__pf_call_css_file = __DIR__ . '/../public/assets/css/printflow_call.css';
+        $__pf_call_css_ver = is_file($__pf_call_css_file) ? (string) filemtime($__pf_call_css_file) : '1';
+        $__pf_call_js_file = __DIR__ . '/../public/assets/js/printflow_call.js';
+        $__pf_call_js_ver = is_file($__pf_call_js_file) ? (string) filemtime($__pf_call_js_file) : '1';
+    ?>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(rtrim($__pf_base_path, '/') . '/public/assets/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_call_css_ver; ?>">
+    <script src="<?php echo htmlspecialchars(rtrim($__pf_base_path, '/') . '/public/assets/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo $__pf_call_js_ver; ?>" defer></script>
 
 
 
@@ -144,9 +150,6 @@ endif; ?>
             var collapsed = v === 'true' || v === '1';
             if (collapsed) {
                 root.classList.add('sidebar-preload-collapsed');
-                if (!shell) {
-                    root.classList.add('sidebar-boot-pending');
-                }
             }
         } catch (e) { }
         setTimeout(function () {
@@ -154,7 +157,7 @@ endif; ?>
                 root.classList.remove('sidebar-boot-pending');
                 root.classList.add('sidebar-layout-ready', 'ready');
             }
-        }, 2500);
+        }, 400);
     })();
 </script>
 <style>
@@ -233,7 +236,7 @@ endif; ?>
      * - Failsafe timeout clears pending if boot script never runs.
      */
     html.sidebar-boot-pending {
-        visibility: hidden;
+        visibility: visible;
     }
 
     html.sidebar-layout-ready,

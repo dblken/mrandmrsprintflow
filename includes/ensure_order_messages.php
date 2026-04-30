@@ -5,6 +5,13 @@
  */
 if (!function_exists('db_query')) return;
 
+if (session_status() === PHP_SESSION_ACTIVE) {
+    $schema_checked_at = (int)($_SESSION['pf_schema_order_messages_checked_at'] ?? 0);
+    if ($schema_checked_at > 0 && (time() - $schema_checked_at) < 900) {
+        return;
+    }
+}
+
 $check = db_query("SHOW TABLES LIKE 'order_messages'");
 if (empty($check)) return; // Table must exist; run migrate_order_messages_system.php or import schema
 
@@ -90,3 +97,7 @@ if (empty($existing['meta_json'])) {
     PRIMARY KEY (id),
     UNIQUE KEY unique_user_order (user_type, user_id, order_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+if (session_status() === PHP_SESSION_ACTIVE) {
+    $_SESSION['pf_schema_order_messages_checked_at'] = time();
+}

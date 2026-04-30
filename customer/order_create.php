@@ -469,6 +469,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div style="margin-bottom: 0.75rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">
                                     <?php foreach($rev_imgs as $img): 
                                         $ipath = $img['image_path'];
+                                        if (!preg_match('/\.(jpg|jpeg|png|webp|gif|svg)$/i', (string)$ipath)) continue;
                                         if (strpos($ipath, 'http') === false && (!isset($ipath[0]) || $ipath[0] !== '/')) $ipath = '/printflow/' . $ipath;
                                     ?>
                                         <button type="button" class="poc-media-trigger" data-media-type="image" data-media-src="<?php echo htmlspecialchars($ipath); ?>" aria-label="View review image">
@@ -478,7 +479,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 </div>
                             <?php endif; ?>
 
-                            <?php if($has_video): 
+                            <?php if($has_video && preg_match('/\.(mp4|webm|ogg|mov)$/i', (string)$review['video_path'])): 
                                 $vpath = $review['video_path'];
                                 if (strpos($vpath, 'http') === false && (!isset($vpath[0]) || $vpath[0] !== '/')) $vpath = '/printflow/' . $vpath;
                             ?>

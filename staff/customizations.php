@@ -18,7 +18,7 @@ if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
 
 $deepLinkOrderId = (int)($_GET['order_id'] ?? 0);
 $deepLinkJobType = strtoupper(trim((string)($_GET['job_type'] ?? '')));
-if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
+if ($deepLinkOrderId > 0 && !in_array($deepLinkJobType, ['JOB', 'CUSTOMIZATION'], true)) {
     $deepLinkOrder = db_query(
         "SELECT order_type FROM orders WHERE order_id = ? LIMIT 1",
         'i',
@@ -26,9 +26,14 @@ if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
     );
     $deepLinkOrderType = strtolower(trim((string)($deepLinkOrder[0]['order_type'] ?? '')));
     if ($deepLinkOrderType === 'product') {
-        // Strictly a product order — redirect to orders.php
-        redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+        // Check if it's a service (needs customization/production tracking)
+        $preview = printflow_order_notification_preview($deepLinkOrderId);
+        if (strtolower(trim((string)($preview['item_kind'] ?? ''))) !== 'service') {
+            // Strictly a product order with no service components — redirect to orders.php
+            redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+        }
     }
+
     // For custom/service orders: try to find a linked job_orders row for a cleaner display
     $linkedJob = db_query(
         "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
@@ -76,7 +81,7 @@ $jobCustomizationScopeSql = " AND (
         JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
         LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
         WHERE o_scope.order_id = jo.order_id
-          AND o_scope.order_type = 'custom'
+          AND o_scope.order_type IN ('custom', 'product')
           AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
     )
 )";
@@ -158,7 +163,7 @@ $job_rows = db_query(
             JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
             LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
             WHERE o_scope.order_id = jo.order_id
-              AND o_scope.order_type = 'custom'
+              AND o_scope.order_type IN ('custom', 'product')
               AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
         )
      )" . $joBranchSql . "
@@ -3818,6 +3823,52 @@ window.pfCustomizationPreloadedOrders = (() => {
                     console.log('Is NaN?', isNaN(priceValue));
                     if (!priceValue || priceValue <= 0 || isNaN(priceValue)) {
                         this.setFooterActionError('Please enter a valid final price before approving.');
+                        return;
+                    }
+                    const jid = await this.resolveEffectiveJobId();
+                    if (!jid) {
+                        this.setFooterActionError('No linked production job was found for this customization.');
+                        return;
+                    }
+                    const materialsToSave = [...this.pendingMaterials];
+                    const currentMaterial = this.buildCurrentMaterialPayload();
+                    if (currentMaterial) {
+                        materialsToSave.push(currentMaterial);
+                    }
+                    const inkPayload = this.buildInkPayload();
+                    for (const pm of materialsToSave) {
+                        const fdMaterial = new FormData();
+                        fdMaterial.append('action', 'add_material');
+                        fdMaterial.append('order_id', jid);
+                        fdMaterial.append('order_type', 'JOB');
+                        fdMaterial.append('item_id', pm.item_id);
+                        fdMaterial.append('quantity', pm.qty);
+                        fdMaterial.append('uom', pm.uom);
+                        fdMaterial.append('roll_id', pm.roll_id);
+                        fdMaterial.append('notes', pm.notes);
+                        fdMaterial.append('metadata', JSON.stringify(pm.metadata || {}));
+                        const materialRes = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fdMaterial })).json();
+                        if (!materialRes.success) {
+                            this.showStaffAlert('Material Error', 'Failed to save material: ' + (materialRes.error || 'Unknown error'));
+                            return;
+                        }
+                    }
+                    this.pendingMaterials = [];
+                    if (inkPayload.length > 0) {
+                        const fdInk = new FormData();
+                        fdInk.append('action', 'save_ink_usage');
+                        fdInk.append('order_id', jid);
+                        fdInk.append('order_type', 'JOB');
+                        fdInk.append('ink_data', JSON.stringify(inkPayload));
+                        const inkRes = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fdInk })).json();
+                        if (!inkRes.success) {
+                            this.showStaffAlert('Ink Error', 'Failed to save ink usage: ' + (inkRes.error || 'Unknown error'));
+                            return;
+                        }
+                    }
+                    await this.refreshMaterials();
+                    if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
+                        this.setFooterActionError('Please add at least one production material or ink before approving.');
                         return;
                     }
                     if (!this.beginModalAction()) return;

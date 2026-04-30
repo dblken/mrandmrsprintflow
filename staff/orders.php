@@ -15,6 +15,9 @@ $branch_ctx    = init_branch_context(false);
 $staffBranchId = (int)$branch_ctx['selected_branch_id'];
 $branchName    = $branch_ctx['branch_name'];
 
+// Auto-open modal if order_id is in URL
+$deepLinkOrderId = (int)($_GET['order_id'] ?? 0);
+
 // Handle status update via AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     if (verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -1485,6 +1488,7 @@ $page_title = 'Orders - Staff';
 
     // ── Open / close order modal ─────────────────────────
     var currentOrderId = null;
+    var currentOrderModalData = null;
 
     function refreshOrderModalData(orderId, preserveOpen) {
         fetch(staffUrl('staff/get_order_data.php?id=') + orderId, {
@@ -1492,6 +1496,8 @@ $page_title = 'Orders - Staff';
         })
         .then(function(r) {
             var ct = r.headers.get('content-type') || '';
+
+
             if (!ct.includes('application/json')) {
                 return r.text().then(function(txt) {
                     console.error('Non-JSON response:', txt);
@@ -1526,6 +1532,7 @@ $page_title = 'Orders - Staff';
             }
             var orderCode = data.order_code || ('ORD-' + orderId);
             document.getElementById('omSubtitle').textContent = orderCode + (data.order_date ? ' • ' + data.order_date : '');
+            currentOrderModalData = data;
             try { renderOrderModal(data); }
             catch (err) {
                 console.error('Render Error:', err);
@@ -1563,6 +1570,7 @@ $page_title = 'Orders - Staff';
         if (modal) modal.classList.remove('open');
         document.body.style.overflow = '';
         currentOrderId = null;
+        currentOrderModalData = null;
     }
     window.closeOrderModal = closeOrderModal;
 
@@ -1751,6 +1759,31 @@ $page_title = 'Orders - Staff';
         .catch(function() { alert('Network error'); });
     }
 
+    function orderNeedsCustomizationRedirect(orderData) {
+        if (!orderData || !Array.isArray(orderData.items) || !orderData.items.length) return false;
+        return orderData.items.some(function(item) {
+            var productType = String(item && item.product_type ? item.product_type : '').trim().toLowerCase();
+            return productType !== '' && productType !== 'fixed';
+        });
+    }
+
+    function buildCustomizationRedirectUrl(orderData) {
+        var params = new URLSearchParams();
+        params.set('order_id', orderData.order_id);
+        params.set('from', 'pos');
+        if (String(orderData.order_source || '').toLowerCase() === 'pos') {
+            params.set('return_to_pos', '1');
+        }
+        var firstCustomItem = (orderData.items || []).find(function(item) {
+            var productType = String(item && item.product_type ? item.product_type : '').trim().toLowerCase();
+            return productType !== 'fixed';
+        });
+        if (firstCustomItem && Number(firstCustomItem.product_id) > 0) {
+            params.set('product_id', firstCustomItem.product_id);
+        }
+        return staffUrl('staff/customizations.php?') + params.toString();
+    }
+
     async function setOrderPrice(orderId) {
         var price = parseFloat(document.getElementById('omPriceInput').value);
         if (isNaN(price) || price <= 0) {
@@ -1780,8 +1813,6 @@ $page_title = 'Orders - Staff';
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
-                // After setting price, also move to "Ready for Pickup" or "To Pay"
-                // For POS, let's just refresh the modal
                 showStatusOverlay('', 'Price set successfully!');
                 setTimeout(function() { openOrderModal(orderId); fetchUpdatedTable(); }, 1200);
             } else {

@@ -224,6 +224,31 @@ require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
 $customer_id = get_user_id();
 
+function pf_customer_absolute_url(string $path, array $query = []): string {
+    $base = rtrim((string)(defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '')), '/');
+    $path = '/' . ltrim($path, '/');
+    $relative = $base . $path;
+    if (!empty($query)) {
+        $relative .= '?' . http_build_query($query);
+    }
+
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return $relative;
+    }
+
+    $is_https = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+        || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443
+        || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+
+    return ($is_https ? 'https://' : 'http://') . $host . $relative;
+}
+
+function pf_post_redirect(string $path, array $query = []): void {
+    header('Location: ' . pf_customer_absolute_url($path, $query), true, 303);
+    exit;
+}
+
 $service_id = (int)($_GET['service_id'] ?? 0);
 $edit_item_key = $_GET['edit_item'] ?? '';
 $error = '';
@@ -500,10 +525,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             ];
             
             if (($_POST['action'] ?? '') === 'inquire_now' || isset($_POST['inquire_now'])) {
-                redirect("order_review.php?item=" . urlencode($item_key));
+                pf_post_redirect('/customer/order_review.php', ['item' => $item_key]);
             } else {
                 // Add to cart action
-                redirect("cart.php");
+                pf_post_redirect('/customer/cart.php');
             }
         }
     }
@@ -793,7 +818,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
                     <div class="text-sm text-gray-500"><?php echo $sold_display; ?> Sold</div>
                 </div>
 
-                <form action="" method="POST" enctype="multipart/form-data" id="serviceForm" data-pf-skip-validation="true" novalidate>
+                <form action="" method="POST" enctype="multipart/form-data" id="serviceForm" data-pf-skip-validation="true" target="_top" novalidate>
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="calculated_unit_price" id="calculated-unit-price" value="0">
                     <input type="hidden" name="calculated_estimated_price" id="calculated-estimated-price" value="0">

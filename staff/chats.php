@@ -25,7 +25,13 @@ $current_user = get_logged_in_user();
     <title><?php echo $page_title; ?></title>
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/output.css">
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/chat_actions_fix.css?v=<?php echo time(); ?>">
+    <?php
+        $__pf_chat_actions_css = __DIR__ . '/../public/assets/css/chat_actions_fix.css';
+        $__pf_chat_actions_ver = is_file($__pf_chat_actions_css) ? (string) filemtime($__pf_chat_actions_css) : '1';
+        $__pf_voice_fix_js = __DIR__ . '/../public/assets/js/voice_duration_fix.js';
+        $__pf_voice_fix_ver = is_file($__pf_voice_fix_js) ? (string) filemtime($__pf_voice_fix_js) : '1';
+    ?>
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>/public/assets/css/chat_actions_fix.css?v=<?php echo $__pf_chat_actions_ver; ?>">
     
     <?php include __DIR__ . '/../includes/admin_style.php'; ?>
     <style>
@@ -1512,7 +1518,7 @@ $current_user = get_logged_in_user();
 </div>
 
 <!-- Global Call System is now initialized via admin_style.php -->
-<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo time(); ?>"></script>
+<script src="<?php echo BASE_URL; ?>/public/assets/js/voice_duration_fix.js?v=<?php echo $__pf_voice_fix_ver; ?>" defer></script>
 <script>
 window.baseUrl = <?= json_encode(BASE_URL); ?>;
 const DEFAULT_PROFILE_IMAGE = `${window.baseUrl}/public/assets/uploads/profiles/default.png`;
@@ -1735,7 +1741,48 @@ function loadConvs() {
                 list.innerHTML = `<div class="p-8 text-center text-slate-400 text-sm">No conversations found</div>`;
                 return;
             }
-            list.innerHTML = data.conversations.map(c => {
+            const normalizedConversations = data.conversations.map((c, index) => {
+                const normalized = {
+                    ...c,
+                    customer_name: typeof c?.customer_name === 'string' && c.customer_name.trim() ? c.customer_name : 'Customer',
+                    product_name: typeof c?.product_name === 'string' && c.product_name.trim()
+                        ? c.product_name
+                        : (typeof c?.service_name === 'string' && c.service_name.trim() ? c.service_name : 'Order'),
+                    customer_avatar: typeof c?.customer_avatar === 'string' ? c.customer_avatar : '',
+                    online_status: typeof c?.online_status === 'string'
+                        ? c.online_status
+                        : (typeof c?.customer_status === 'string' ? c.customer_status : 'offline')
+                };
+
+                if (!c || typeof c !== 'object') {
+                    console.warn('[Staff Chat] Invalid conversation entry received from API', { index, conversation: c });
+                    return normalized;
+                }
+
+                const missingFields = ['order_id', 'customer_name', 'product_name'].filter(field => {
+                    const value = normalized[field];
+                    return value === undefined || value === null || value === '';
+                });
+
+                if (missingFields.length) {
+                    console.warn('[Staff Chat] Conversation missing expected fields', {
+                        index,
+                        orderId: c.order_id ?? null,
+                        missingFields,
+                        rawConversation: c
+                    });
+                }
+
+                if (c.service_name && !c.product_name) {
+                    console.debug('[Staff Chat] Using service_name fallback for conversation meta', {
+                        orderId: c.order_id ?? null,
+                        service_name: c.service_name
+                    });
+                }
+
+                return normalized;
+            });
+            list.innerHTML = normalizedConversations.map(c => {
                 const active = activeId === c.order_id ? 'active' : '';
                 const online = c.online_status === 'online' ? 'active' : '';
                 const busy = c.online_status === 'in-call' ? 'busy' : '';
@@ -1767,9 +1814,16 @@ function loadConvs() {
             // Auto open if deep-linked via URL but UI state isn't synced
             const urlParams = new URLSearchParams(window.location.search);
             const rawId = urlParams.get('order_id');
-            if (rawId && !window.staffUiOpened && data.conversations) {
-                const c = data.conversations.find(x => x.order_id == rawId);
-                if (c) openChat(c.order_id, c.customer_name, c.service_name, c.is_archived, c.customer_avatar || '');
+            if (rawId && !window.staffUiOpened && normalizedConversations.length) {
+                const c = normalizedConversations.find(x => x.order_id == rawId);
+                if (c) {
+                    openChat(c.order_id, c.customer_name, c.product_name, c.is_archived, c.customer_avatar || '');
+                } else {
+                    console.warn('[Staff Chat] Deep-linked conversation not found in API response', {
+                        orderId: rawId,
+                        conversationCount: normalizedConversations.length
+                    });
+                }
             }
         });
 }
@@ -1834,15 +1888,38 @@ if (!window.__pfStaffChatMenuCloseBound) {
 
 // --- Chat Window ---
 function openChat(id, name, meta, archived, avatar = '') {
+    const safeName = typeof name === 'string' && name.trim() ? name : 'Customer';
+    const safeMeta = typeof meta === 'string' && meta.trim() ? meta : 'Order';
+    const safeAvatar = typeof avatar === 'string' ? avatar : '';
+
+    console.debug('[Staff Chat] openChat called', {
+        id,
+        name,
+        meta,
+        archived,
+        avatar,
+        nameType: typeof name,
+        metaType: typeof meta,
+        avatarType: typeof avatar
+    });
+
+    if (typeof meta !== 'string') {
+        console.warn('[Staff Chat] openChat received non-string meta value', {
+            id,
+            rawMeta: meta,
+            fallbackMeta: safeMeta
+        });
+    }
+
     activeId = id;
     lastId = 0;
-    partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : null;
+    partnerAvatarUrl = safeAvatar ? resolveProfileUrl(safeAvatar) : null;
     if (!window.PFCallState) window.PFCallState = {};
     window.PFCallState.activeId = id;
     window.PFCallState.activePartner = {
         id: null,
         type: 'Customer',
-        name: name || 'Customer',
+        name: safeName,
         avatar: partnerAvatarUrl || ''
     };
     window.staffUiOpened = true;
@@ -1852,18 +1929,18 @@ function openChat(id, name, meta, archived, avatar = '') {
     if (chatEl) chatEl.style.display = 'flex';
     
     const nameEl = document.getElementById('activeName');
-    if (nameEl) nameEl.textContent = name;
+    if (nameEl) nameEl.textContent = safeName;
     
     const metaEl = document.getElementById('activeMeta');
-    if (metaEl) metaEl.textContent = meta.toLowerCase();
+    if (metaEl) metaEl.textContent = safeMeta.toLowerCase();
     
     const avatarEl = document.getElementById('activeAvatar');
     if (avatarEl) {
         avatarEl.style.overflow = 'hidden';
-        if (avatar) {
-            avatarEl.innerHTML = `<img src="${resolveProfileUrl(avatar)}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">`;
+        if (safeAvatar) {
+            avatarEl.innerHTML = `<img src="${resolveProfileUrl(safeAvatar)}" style="width:100%;height:100%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">`;
         } else {
-            avatarEl.textContent = (name && name[0] ? name[0].toUpperCase() : '?');
+            avatarEl.textContent = (safeName && safeName[0] ? safeName[0].toUpperCase() : '?');
         }
     }
     

@@ -1150,8 +1150,6 @@ function openChat(id, name, meta, archived, avatar = '', staffId = 0) {
     updateArchUI(archived);
     document.getElementById('messagesArea').innerHTML = '';
     loadMsgs();
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(loadMsgs, 2000);
 }
 
 function updateArchUI(arch) {
@@ -1178,9 +1176,19 @@ function scrollToBottom(instant = false) {
 
 function loadMsgs() {
     if (!activeId) return;
+    
+    if (document.visibilityState !== 'visible') {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(loadMsgs, 5000);
+        return;
+    }
+
     const isFirstLoad = (lastId === 0);
     const box = document.getElementById('messagesArea');
     api(`/public/api/chat/fetch_messages.php?order_id=${activeId}&last_id=${lastId}&is_active=1`).then(res => {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(loadMsgs, 2000);
+
         if (!res.success) return;
         if (isFirstLoad) box.innerHTML = '';
         
@@ -1206,6 +1214,10 @@ function loadMsgs() {
                 scrollToBottom(false);
             }
         }
+    }).catch(err => {
+        console.error("Chat polling error:", err);
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(loadMsgs, 5000); // Backoff on error
     });
 }
 

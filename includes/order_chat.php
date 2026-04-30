@@ -86,8 +86,8 @@ function openOrderChat(orderId, headerTitle) {
     fetchMessages();
     
     // Start polling
-    if (chatPollingInterval) clearInterval(chatPollingInterval);
-    chatPollingInterval = setInterval(fetchMessages, 3000);
+    if (chatPollingInterval) clearTimeout(chatPollingInterval);
+    chatPollingInterval = setTimeout(fetchMessages, 3000);
 }
 
 function closeOrderChat() {
@@ -100,16 +100,23 @@ function closeOrderChat() {
     
     setTimeout(() => { modal.style.display = 'none'; }, 250);
     
-    clearInterval(chatPollingInterval);
+    clearTimeout(chatPollingInterval);
     currentChatOrderId = null;
 }
 
 async function fetchMessages() {
     if (!currentChatOrderId) return;
+    if (document.visibilityState !== 'visible') {
+        if (chatPollingInterval) clearTimeout(chatPollingInterval);
+        chatPollingInterval = setTimeout(fetchMessages, 5000);
+        return;
+    }
     
     try {
         const response = await fetch(`<?php echo BASE_PATH; ?>/public/api/chat/fetch_messages.php?order_id=${currentChatOrderId}&last_id=${lastMessageId}`);
         const data = await response.json();
+        if (chatPollingInterval) clearTimeout(chatPollingInterval);
+        chatPollingInterval = setTimeout(fetchMessages, 3000);
         
         if (data.success) {
             if (data.messages.length > 0) {
@@ -129,6 +136,8 @@ async function fetchMessages() {
         }
     } catch (error) {
         console.error('Fetch error:', error);
+        if (chatPollingInterval) clearTimeout(chatPollingInterval);
+        chatPollingInterval = setTimeout(fetchMessages, 6000);
     }
 }
 
@@ -291,6 +300,8 @@ async function sendMessage() {
             body: formData
         });
         const data = await response.json();
+        if (chatPollingInterval) clearTimeout(chatPollingInterval);
+        chatPollingInterval = setTimeout(fetchMessages, 3000);
         if (data.success) {
             fetchMessages(); // Immediately pull back my message
         } else {
