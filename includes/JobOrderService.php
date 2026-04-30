@@ -1154,40 +1154,64 @@ class JobOrderService {
         $materialSql .= ")";
         $order['materials'] = db_query($materialSql, $materialTypes, $materialParams) ?: [];
 
+        $fallbackSiblingJobs = [];
+        $fallbackSiblingJobIds = [];
         if (empty($order['materials']) && $storeOrderId > 0) {
-            $siblingJobs = db_query(
-                "SELECT id
-                 FROM job_orders
-                 WHERE order_id = ?
-                   AND id <> ?
-                   AND (
-                        (service_type IS NOT NULL AND service_type <> '' AND service_type = ?)
-                        OR (job_title IS NOT NULL AND job_title <> '' AND job_title = ?)
-                   )
-                 ORDER BY id ASC",
-                'iiss',
-                [
-                    $storeOrderId,
-                    $id,
-                    (string)($order['service_type'] ?? ''),
-                    (string)($order['job_title'] ?? '')
-                ]
+            $orderSourceRows = db_query(
+                "SELECT order_source FROM orders WHERE order_id = ? LIMIT 1",
+                'i',
+                [$storeOrderId]
             ) ?: [];
+            $orderSource = strtolower(trim((string)($orderSourceRows[0]['order_source'] ?? '')));
+            $isPosSource = in_array($orderSource, ['pos', 'walk-in'], true);
 
-            $siblingJobIds = array_values(array_filter(array_map(static function ($row) {
+            if ($isPosSource) {
+                // POS service jobs can reopen on a sibling job row after checkout. In that case,
+                // show the order-wide assigned materials the same way the online store-order modal does.
+                $fallbackSiblingJobs = db_query(
+                    "SELECT id
+                     FROM job_orders
+                     WHERE order_id = ?
+                       AND id <> ?
+                     ORDER BY id ASC",
+                    'ii',
+                    [$storeOrderId, $id]
+                ) ?: [];
+            } else {
+                $fallbackSiblingJobs = db_query(
+                    "SELECT id
+                     FROM job_orders
+                     WHERE order_id = ?
+                       AND id <> ?
+                       AND (
+                            (service_type IS NOT NULL AND service_type <> '' AND service_type = ?)
+                            OR (job_title IS NOT NULL AND job_title <> '' AND job_title = ?)
+                       )
+                     ORDER BY id ASC",
+                    'iiss',
+                    [
+                        $storeOrderId,
+                        $id,
+                        (string)($order['service_type'] ?? ''),
+                        (string)($order['job_title'] ?? '')
+                    ]
+                ) ?: [];
+            }
+
+            $fallbackSiblingJobIds = array_values(array_filter(array_map(static function ($row) {
                 return (int)($row['id'] ?? 0);
-            }, $siblingJobs)));
+            }, $fallbackSiblingJobs)));
 
-            if (!empty($siblingJobIds)) {
-                $siblingPlaceholders = implode(',', array_fill(0, count($siblingJobIds), '?'));
+            if (!empty($fallbackSiblingJobIds)) {
+                $siblingPlaceholders = implode(',', array_fill(0, count($fallbackSiblingJobIds), '?'));
                 $fallbackMaterialSql = "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
                                                (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
                                         FROM job_order_materials m
                                         JOIN inv_items i ON m.item_id = i.id
                                         LEFT JOIN inv_rolls r ON m.roll_id = r.id
                                         WHERE m.job_order_id IN ($siblingPlaceholders)";
-                $fallbackMaterialParams = $siblingJobIds;
-                $fallbackMaterialTypes = str_repeat('i', count($siblingJobIds));
+                $fallbackMaterialParams = $fallbackSiblingJobIds;
+                $fallbackMaterialTypes = str_repeat('i', count($fallbackSiblingJobIds));
                 if (self::tableHasColumn('job_order_materials', 'std_order_id')) {
                     $fallbackMaterialSql .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
                     $fallbackMaterialParams[] = $storeOrderId;
@@ -1224,36 +1248,38 @@ class JobOrderService {
         $order['ink_usage'] = db_query($inkSql, $inkTypes, $inkParams) ?: [];
 
         if (empty($order['ink_usage']) && $storeOrderId > 0) {
-            $siblingJobs = $siblingJobs ?? (db_query(
-                "SELECT id
-                 FROM job_orders
-                 WHERE order_id = ?
-                   AND id <> ?
-                   AND (
-                        (service_type IS NOT NULL AND service_type <> '' AND service_type = ?)
-                        OR (job_title IS NOT NULL AND job_title <> '' AND job_title = ?)
-                   )
-                 ORDER BY id ASC",
-                'iiss',
-                [
-                    $storeOrderId,
-                    $id,
-                    (string)($order['service_type'] ?? ''),
-                    (string)($order['job_title'] ?? '')
-                ]
-            ) ?: []);
-            $siblingJobIds = $siblingJobIds ?? array_values(array_filter(array_map(static function ($row) {
-                return (int)($row['id'] ?? 0);
-            }, $siblingJobs)));
+            if (empty($fallbackSiblingJobs)) {
+                $fallbackSiblingJobs = db_query(
+                    "SELECT id
+                     FROM job_orders
+                     WHERE order_id = ?
+                       AND id <> ?
+                       AND (
+                            (service_type IS NOT NULL AND service_type <> '' AND service_type = ?)
+                            OR (job_title IS NOT NULL AND job_title <> '' AND job_title = ?)
+                       )
+                     ORDER BY id ASC",
+                    'iiss',
+                    [
+                        $storeOrderId,
+                        $id,
+                        (string)($order['service_type'] ?? ''),
+                        (string)($order['job_title'] ?? '')
+                    ]
+                ) ?: [];
+                $fallbackSiblingJobIds = array_values(array_filter(array_map(static function ($row) {
+                    return (int)($row['id'] ?? 0);
+                }, $fallbackSiblingJobs)));
+            }
 
-            if (!empty($siblingJobIds)) {
-                $siblingPlaceholders = implode(',', array_fill(0, count($siblingJobIds), '?'));
+            if (!empty($fallbackSiblingJobIds)) {
+                $siblingPlaceholders = implode(',', array_fill(0, count($fallbackSiblingJobIds), '?'));
                 $fallbackInkSql = "SELECT u.*, i.name as item_name
                                    FROM job_order_ink_usage u
                                    JOIN inv_items i ON u.item_id = i.id
                                    WHERE u.job_order_id IN ($siblingPlaceholders)";
-                $fallbackInkParams = $siblingJobIds;
-                $fallbackInkTypes = str_repeat('i', count($siblingJobIds));
+                $fallbackInkParams = $fallbackSiblingJobIds;
+                $fallbackInkTypes = str_repeat('i', count($fallbackSiblingJobIds));
                 if (self::tableHasColumn('job_order_ink_usage', 'std_order_id')) {
                     $fallbackInkSql .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
                     $fallbackInkParams[] = $storeOrderId;
