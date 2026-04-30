@@ -2242,7 +2242,7 @@ function printflow_order_notification_preview(int $order_id): array {
     $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
     $product_type = strtolower(trim((string)($row['product_type'] ?? '')));
     $service_name = get_service_name_from_customization($custom, '');
-    if ($order_type === 'custom' || $service_name !== '') {
+    if ($order_type === 'custom' || $service_name !== '' || ($product_type !== 'fixed' && $product_type !== '')) {
         $preview['item_kind'] = 'Service';
     } elseif ($order_type === 'product' || $product_type === 'fixed') {
         $preview['item_kind'] = 'Product';

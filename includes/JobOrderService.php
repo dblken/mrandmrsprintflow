@@ -873,7 +873,7 @@ class JobOrderService {
             return true;
         }
 
-        if (in_array($productType, ['fixed', 'fixed product', 'product'], true)) {
+        if (in_array($productType, ['fixed', 'fixed product'], true)) {
             return false;
         }
         if (in_array($productType, ['custom', 'service'], true)) {

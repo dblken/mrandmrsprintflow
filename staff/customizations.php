@@ -26,9 +26,14 @@ if ($deepLinkOrderId > 0 && !in_array($deepLinkJobType, ['JOB', 'CUSTOMIZATION']
     );
     $deepLinkOrderType = strtolower(trim((string)($deepLinkOrder[0]['order_type'] ?? '')));
     if ($deepLinkOrderType === 'product') {
-        // Strictly a product order — redirect to orders.php
-        redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+        // Check if it's a service (needs customization/production tracking)
+        $preview = printflow_order_notification_preview($deepLinkOrderId);
+        if (strtolower(trim((string)($preview['item_kind'] ?? ''))) !== 'service') {
+            // Strictly a product order with no service components — redirect to orders.php
+            redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
+        }
     }
+
     // For custom/service orders: try to find a linked job_orders row for a cleaner display
     $linkedJob = db_query(
         "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC LIMIT 1",
@@ -76,7 +81,7 @@ $jobCustomizationScopeSql = " AND (
         JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
         LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
         WHERE o_scope.order_id = jo.order_id
-          AND o_scope.order_type = 'custom'
+          AND o_scope.order_type IN ('custom', 'product')
           AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
     )
 )";
@@ -148,7 +153,7 @@ $job_rows = db_query(
             JOIN order_items oi_scope ON oi_scope.order_id = o_scope.order_id
             LEFT JOIN products p_scope ON p_scope.product_id = oi_scope.product_id
             WHERE o_scope.order_id = jo.order_id
-              AND o_scope.order_type = 'custom'
+              AND o_scope.order_type IN ('custom', 'product')
               AND COALESCE(LOWER(TRIM(p_scope.product_type)), 'custom') <> 'fixed'
         )
      )" . $joBranchSql . "
