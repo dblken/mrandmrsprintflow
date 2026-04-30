@@ -1636,10 +1636,6 @@ if (isset($_GET['ajax'])) {
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                                             <button class="btn-action blue"
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
-                                            <?php if ($product['status'] !== 'Archived'): ?>
-                                            <button class="btn-action teal"
-                                                onclick='openProductModal("stock", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Add Stock</button>
-                                            <?php endif; ?>
                                             <?php if (!$is_manager): ?>
                                             <?php if ($product['status'] !== 'Archived'): ?>
                                                 <form method="POST" class="inline product-status-form" data-pf-skip-guard data-action="<?php echo $product['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-product-name="<?php echo htmlspecialchars($product['name'], ENT_QUOTES); ?>" onsubmit="showProductStatusModal(event, this);return false;">
@@ -1668,6 +1664,10 @@ if (isset($_GET['ajax'])) {
                                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
                                                 </form>
                                             <?php endif; ?>
+                                            <?php endif; ?>
+                                            <?php if ($product['status'] !== 'Archived'): ?>
+                                            <button class="btn-action teal"
+                                                onclick='openProductModal("stock", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Add Stock</button>
                                             <?php endif; ?>
                                         </td>
                                     </tr>

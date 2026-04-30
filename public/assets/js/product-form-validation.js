@@ -213,8 +213,8 @@
         Object.keys(errors).forEach(function(k) { showError(k, errors[k]); });
         const valid = (errors && typeof errors === 'object') ? Object.values(errors).every(function(e) { return !e; }) : false;
         const btn = el('modal-submit-products-mgr') || el('modal-submit-btn');
-        /* Managers must always be able to click Save; invalid POST is blocked in submit handler. */
-        if (btn) btn.disabled = isBranchStockModalOpen() ? false : !valid;
+        /* Stock-only and branch-stock modals must remain clickable; submit handler and backend still block invalid values. */
+        if (btn) btn.disabled = (isBranchStockModalOpen() || isStockOnlyModalOpen()) ? false : !valid;
         return valid;
     }
 
@@ -285,7 +285,7 @@
         if (form.getAttribute('data-pf-product-validation') !== '1') {
             form.setAttribute('data-pf-product-validation', '1');
             form.addEventListener('submit', function(e) {
-                if (isBranchStockModalOpen()) {
+                if (isStockOnlyModalOpen() || isBranchStockModalOpen()) {
                     ['stock', 'low-stock'].forEach(function(k) { touchedFields.add(k); });
                 } else {
                     ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(function(k) {
@@ -320,7 +320,7 @@
     // -------------------------------------------------------------------------
     // We use delegation on the document level to ensure listeners persist
     // even if Alpine.js or other scripts re-render the modal content.
-    const NUMERIC_INPUT_IDS = ['modal-stock', 'modal-stock-mgr', 'modal-low-stock', 'modal-low-mgr'];
+    const NUMERIC_INPUT_IDS = ['modal-stock', 'modal-stock-mgr', 'modal-low-stock', 'modal-low-mgr', 'stock-modal-add-qty', 'stock-modal-low-level'];
 
     // Global KeyDown: Block invalid keystrokes immediately
     document.addEventListener('keydown', function(e) {
