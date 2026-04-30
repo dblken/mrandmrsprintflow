@@ -202,6 +202,22 @@ require_once __DIR__ . '/../includes/header.php';
         text-transform: uppercase;
     }
 
+    .cart-item-meta {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .cart-item-name {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding-right: 4rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
     .cart-total-wrap {
         display: flex;
         align-items: center;
@@ -884,8 +900,8 @@ require_once __DIR__ . '/../includes/header.php';
                                                     <img src="<?php echo $base_url; ?>/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
                                                 <?php endif; ?>
                                             </div>
-                                            <div style="flex:1;">
-                                                <div style="font-weight:600; color:#0f172a; white-space:nowrap; padding-right:4rem;"><?php echo htmlspecialchars($item['name'] ?? 'Unknown Product'); ?></div>
+                                            <div class="cart-item-meta">
+                                                <div class="cart-item-name"><?php echo htmlspecialchars($item['name'] ?? 'Unknown Product'); ?></div>
                                                 <?php if (!empty($item['variant_name'])): ?>
                                                     <div style="font-size:0.75rem; color:#475569;"><?php echo htmlspecialchars((string)$item['variant_name']); ?></div>
                                                 <?php endif; ?>
