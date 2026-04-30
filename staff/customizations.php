@@ -18,7 +18,7 @@ if (in_array($_SESSION['user_type'] ?? '', ['Staff', 'Manager'], true)) {
 
 $deepLinkOrderId = (int)($_GET['order_id'] ?? 0);
 $deepLinkJobType = strtoupper(trim((string)($_GET['job_type'] ?? '')));
-if ($deepLinkOrderId > 0 && $deepLinkJobType !== 'JOB') {
+if ($deepLinkOrderId > 0 && !in_array($deepLinkJobType, ['JOB', 'CUSTOMIZATION'], true)) {
     $deepLinkOrder = db_query(
         "SELECT order_type FROM orders WHERE order_id = ? LIMIT 1",
         'i',

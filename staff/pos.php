@@ -2861,7 +2861,15 @@ try {
                 const data = await res.json();
                 if (data.success && data.customization_id) {
                     // Redirect to customizations page
-                    window.location.href = <?php echo json_encode(BASE_PATH . '/staff/customizations.php'); ?> + '?status=APPROVED&order_id=' + data.customization_id + '&job_type=CUSTOMIZATION&return_to_pos=1';
+                    const redirectUrl = new URL(<?php echo json_encode(BASE_PATH . '/staff/customizations.php'); ?>, window.location.origin);
+                    redirectUrl.searchParams.set('status', 'APPROVED');
+                    redirectUrl.searchParams.set('order_id', data.customization_id);
+                    redirectUrl.searchParams.set('job_type', 'CUSTOMIZATION');
+                    redirectUrl.searchParams.set('return_to_pos', '1');
+                    if (data.order_id) {
+                        redirectUrl.searchParams.set('source_order_id', data.order_id);
+                    }
+                    window.location.href = redirectUrl.toString();
                 } else {
                     await showPOSAlert('Error', 'Failed to create customization: ' + (data.message || 'Unknown error'), 'error');
                 }
