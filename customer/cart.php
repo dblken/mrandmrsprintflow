@@ -355,7 +355,7 @@ require_once __DIR__ . '/../includes/header.php';
         }
 
         .cart-item-meta {
-            padding-right: 3.25rem;
+            padding-right: 4.5rem;
         }
 
         /* Product name */
