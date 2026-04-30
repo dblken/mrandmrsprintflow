@@ -80,7 +80,6 @@ if (empty($GLOBALS['__printflow_shell_core_js'])) {
     unset($__pf_asset_js, $__pf_admin_mobile_js_file, $__pf_admin_mobile_js_ver);
 }
 unset($__pf_admin_mobile_css_file, $__pf_admin_mobile_css_ver);
-unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css_ver);
 ?>
 
 <?php if (strpos($_SERVER['REQUEST_URI'] ?? '', '/staff/') !== false): ?>
@@ -95,8 +94,14 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
 <!-- PrintFlow Call & Signaling System (Global for Admin/Staff/Manager) -->
 <?php if (function_exists('is_logged_in') && is_logged_in()): ?>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="<?php echo htmlspecialchars($__pf_asset_path . '/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>">
-    <script src="<?php echo htmlspecialchars($__pf_asset_path . '/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>" defer></script>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(ASSET_PATH . '/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>">
+    <script src="<?php echo htmlspecialchars(ASSET_PATH . '/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>" defer></script>
+<?php endif; ?>
+
+<?php
+unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css_ver);
+?>
+
     <script>
         (function() {
             function initPFCallGlobal() {

@@ -200,10 +200,10 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
     
     <!-- PrintFlow Call & Signaling System (Global) -->
     <?php if ($is_logged_in): ?>
-    <script src="<?php echo $asset_base; ?>/assets/js/pf-utils.js?v=<?php echo $ver; ?>"></script>
+    <script src="<?php echo ASSET_PATH; ?>/js/pf-utils.js?v=<?php echo $ver; ?>"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <link rel="stylesheet" href="<?php echo $asset_base; ?>/assets/css/printflow_call.css?v=<?php echo $ver; ?>">
-    <script src="<?php echo $asset_base; ?>/assets/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
+    <link rel="stylesheet" href="<?php echo ASSET_PATH; ?>/css/printflow_call.css?v=<?php echo $ver; ?>">
+    <script src="<?php echo ASSET_PATH; ?>/js/printflow_call.js?v=<?php echo $ver; ?>" defer></script>
         <script>
         (function() {
             function initPFCall() {
