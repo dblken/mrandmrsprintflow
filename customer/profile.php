@@ -944,7 +944,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="live-indicator" data-for="first_name"></div>
                             </div>
                             <div class="pf-field-group">
-                                <label for="middle_name" class="pf-label">Middle Name</label>
+                                <label for="middle_name" class="pf-label" style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span>Middle Name</span>
+                                    <span style="font-size:0.72rem; font-weight:700; color:#64748b; background:#f8fafc; border:1px solid #cbd5e1; border-radius:999px; padding:0.12rem 0.5rem; letter-spacing:0.01em;">Optional</span>
+                                </label>
                                 <input type="text" id="middle_name" name="middle_name" class="pf-input validate-advanced-name" value="<?php echo htmlspecialchars($customer['middle_name'] ?? ''); ?>" maxlength="50">
                                 <div class="live-indicator" data-for="middle_name"></div>
                             </div>
