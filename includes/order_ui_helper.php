@@ -541,7 +541,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     <?php echo pf_order_ui_escape($category); ?>
                 </div>
                 
-                <div class="order-item-details" style="display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: auto;">
+                <div class="order-item-details" style="display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: auto;">
                     <?php if ($show_quantity): ?>
                     <div class="review-detail-row" style="flex: 1; min-width: 80px;">
                         <div class="review-detail-label" style="font-size: 0.68rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">Quantity</div>
@@ -571,7 +571,7 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                 Order Specifications
             </h4>
             
-            <div class="review-spec-grid order-item-spec-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 0.85rem;">
+            <div class="review-spec-grid order-item-spec-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; width: 100%;">
                 <?php 
                 $has_specs = false;
                 foreach ($custom as $ck => $cv): 
@@ -580,9 +580,9 @@ function render_order_item_clean($item, $is_cart_item = false, $show_price = tru
                     $label = $field_map[$ck] ?? ucwords(str_replace(['_', '-'], ' ', (string)$ck));
                     $display_val = ($ck === 'tshirt_provider' && $cv === 'shop') ? 'Shop will provide' : (($ck === 'tshirt_provider' && $cv === 'customer') ? 'Customer will provide' : (($ck === 'installation_fee' && is_numeric($cv)) ? format_currency((float)$cv) : pf_order_ui_value_to_text($cv)));
                 ?>
-                    <div class="review-spec-tile order-item-spec-tile" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s;">
-                        <div style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em;"><?php echo pf_order_ui_escape($label); ?></div>
-                        <div style="font-size: 0.95rem; font-weight: 700; color: #eaf6fb; overflow-wrap: break-word; word-break: break-word;"><?php echo pf_order_ui_escape($display_val); ?></div>
+                    <div class="review-spec-tile order-item-spec-tile" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(83, 197, 224, 0.18); padding: 0.75rem 0.85rem; border-radius: 10px; transition: border-color 0.2s; display: flex; flex-direction: column; min-width: 0; height: auto;">
+                        <div class="pf-spec-label" style="font-size: 0.65rem; color: #9fc4d4; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.02em; line-height: 1.2;"><?php echo pf_order_ui_escape($label); ?></div>
+                        <div class="pf-spec-value" style="font-size: 0.95rem; font-weight: 700; color: #eaf6fb; overflow-wrap: break-word; word-break: break-word; line-height: 1.3;"><?php echo pf_order_ui_escape($display_val); ?></div>
                     </div>
                 <?php endforeach; ?>
                 

@@ -664,8 +664,13 @@
         _showToast(data) {
             const toast = this.$('pf-call-toast');
             if (!toast) return;
-            this.$('pf-toast-name').textContent = this.partnerName || data.fromName || 'User';
-            this.$('pf-toast-img').src = this.partnerAvatar || this._normalizeAvatar(data.fromAvatar);
+            const nameEl = this.$('pf-toast-name');
+            const imgEl = this.$('pf-toast-img');
+            if (nameEl) nameEl.textContent = this.partnerName || data.fromName || 'User';
+            if (imgEl) {
+                imgEl.onerror = function() { this.src = PF_DEFAULT_AVATAR; this.onerror = null; };
+                imgEl.src = this.partnerAvatar || this._normalizeAvatar(data.fromAvatar);
+            }
             toast.classList.add('active');
         }
 

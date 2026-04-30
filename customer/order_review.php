@@ -1308,9 +1308,10 @@ require_once __DIR__ . '/../includes/header.php';
         .review-order-item .order-item-spec-tile {
             display: flex !important;
             flex-direction: row !important;
-            align-items: flex-start !important;
+            flex-wrap: wrap !important;
+            align-items: center !important;
             justify-content: space-between !important;
-            gap: 1rem !important;
+            gap: 0.5rem !important;
             width: 100% !important;
             box-sizing: border-box !important;
             padding: 0.8rem 0.9rem !important;
@@ -1324,16 +1325,18 @@ require_once __DIR__ . '/../includes/header.php';
             margin-bottom: 0 !important;
             font-size: 0.76rem !important;
             line-height: 1.3 !important;
-            max-width: 42% !important;
+            min-width: 40% !important;
+            flex: 1 1 auto !important;
             padding-top: 0.1rem !important;
             text-align: left !important;
         }
         .review-order-item .order-item-spec-tile > div:last-child {
             font-size: 1rem !important;
             line-height: 1.35 !important;
-            max-width: 58% !important;
+            flex: 1 1 auto !important;
             text-align: right !important;
             padding-left: 0.5rem !important;
+            word-break: break-word !important;
         }
         .review-total-banner-row {
             flex-direction: column !important;
