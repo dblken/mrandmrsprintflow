@@ -2048,6 +2048,8 @@ function pfStockOnlyModalSetActive(active, product) {
         if (lowLevel) lowLevel.value = String(low);
     } else {
         stockOnly.style.display = 'none';
+        if (mgr) mgr.style.display = 'none';
+        adm.style.display = window.PF_PRODUCTS_IS_MANAGER ? 'none' : 'block';
         if (addQty) {
             addQty.disabled = true;
             addQty.removeAttribute('name');
