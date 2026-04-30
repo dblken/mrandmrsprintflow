@@ -668,10 +668,17 @@ class JobOrderService {
             $conn->begin_transaction();
         }
         try {
-            // Materials are now handled at TO_PAY stage, so we don't block APPROVED.
+            // Materials are now handled once the job is live in production.
             if ($newStatus === 'IN_PRODUCTION') {
                 // Deduct materials when moving to production
                 self::processDeductions($orderId);
+            }
+
+            if ($newStatus === 'TO_RECEIVE') {
+                // Catch up older POS/service jobs that entered production before
+                // materials were attached. This remains idempotent because only
+                // undeducted material rows are processed here.
+                self::processDeductions($orderId, ['materials' => true, 'inks' => false]);
             }
 
             if ($newStatus === 'COMPLETED') {
