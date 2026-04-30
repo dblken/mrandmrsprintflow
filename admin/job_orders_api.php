@@ -1011,6 +1011,116 @@ try {
                 ) ?: [];
             }
 
+            $resolvedOrderSource = jo_api_resolve_order_source(
+                (int)($cust['order_id'] ?? 0),
+                $cust['order_source'] ?? null
+            );
+
+            if (empty($linked_job_materials) && in_array($resolvedOrderSource, ['pos', 'walk-in'], true) && !empty($cust['customer_id'])) {
+                $fallbackOrders = db_query(
+                    "SELECT c2.order_id
+                     FROM customizations c2
+                     JOIN orders o2 ON o2.order_id = c2.order_id
+                     WHERE c2.customer_id = ?
+                       AND c2.order_id IS NOT NULL
+                       AND c2.order_id <> ?
+                       AND LOWER(TRIM(COALESCE(o2.order_source, ''))) IN ('pos', 'walk-in')
+                       AND LOWER(TRIM(COALESCE(c2.service_type, ''))) = LOWER(TRIM(?))
+                     ORDER BY c2.updated_at DESC, c2.customization_id DESC
+                     LIMIT 5",
+                    'iis',
+                    [
+                        (int)$cust['customer_id'],
+                        (int)($cust['order_id'] ?? 0),
+                        (string)($cust['service_type'] ?? $summary['service_type'] ?? '')
+                    ]
+                ) ?: [];
+
+                foreach ($fallbackOrders as $fallbackOrderRow) {
+                    $fallbackOrderId = (int)($fallbackOrderRow['order_id'] ?? 0);
+                    if ($fallbackOrderId <= 0) {
+                        continue;
+                    }
+
+                    JobOrderService::ensureJobsForStoreOrder($fallbackOrderId);
+                    $fallbackJobRows = db_query(
+                        "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC",
+                        'i',
+                        [$fallbackOrderId]
+                    ) ?: [];
+                    $fallbackJobIds = array_values(array_filter(array_map(static function ($row) {
+                        return (int)($row['id'] ?? 0);
+                    }, $fallbackJobRows)));
+
+                    $fallbackMaterialClauses = [];
+                    $fallbackMaterialParams = [];
+                    $fallbackMaterialTypes = '';
+                    if (!empty($fallbackJobIds)) {
+                        $jobIdPlaceholders = implode(',', array_fill(0, count($fallbackJobIds), '?'));
+                        $fallbackMaterialClauses[] = "m.job_order_id IN ($jobIdPlaceholders)";
+                        $fallbackMaterialParams = array_merge($fallbackMaterialParams, $fallbackJobIds);
+                        $fallbackMaterialTypes .= str_repeat('i', count($fallbackJobIds));
+                    }
+                    if (db_table_has_column('job_order_materials', 'std_order_id')) {
+                        $fallbackMaterialClauses[] = "(m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+                        $fallbackMaterialParams[] = $fallbackOrderId;
+                        $fallbackMaterialTypes .= 'i';
+                    }
+
+                    if (empty($fallbackMaterialClauses)) {
+                        continue;
+                    }
+
+                    $fallbackMaterials = db_query(
+                        "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
+                                (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
+                         FROM job_order_materials m
+                         JOIN inv_items i ON m.item_id = i.id
+                         LEFT JOIN inv_rolls r ON m.roll_id = r.id
+                         WHERE " . implode(' OR ', $fallbackMaterialClauses),
+                        $fallbackMaterialTypes,
+                        $fallbackMaterialParams
+                    ) ?: [];
+
+                    if (empty($fallbackMaterials)) {
+                        continue;
+                    }
+
+                    foreach ($fallbackMaterials as &$material) {
+                        $material['metadata'] = $material['metadata'] ? json_decode($material['metadata'], true) : null;
+                    }
+                    unset($material);
+
+                    $linked_job_materials = $fallbackMaterials;
+
+                    $fallbackInkClauses = [];
+                    $fallbackInkParams = [];
+                    $fallbackInkTypes = '';
+                    if (!empty($fallbackJobIds)) {
+                        $jobIdPlaceholders = implode(',', array_fill(0, count($fallbackJobIds), '?'));
+                        $fallbackInkClauses[] = "u.job_order_id IN ($jobIdPlaceholders)";
+                        $fallbackInkParams = array_merge($fallbackInkParams, $fallbackJobIds);
+                        $fallbackInkTypes .= str_repeat('i', count($fallbackJobIds));
+                    }
+                    if (db_table_has_column('job_order_ink_usage', 'std_order_id')) {
+                        $fallbackInkClauses[] = "(u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+                        $fallbackInkParams[] = $fallbackOrderId;
+                        $fallbackInkTypes .= 'i';
+                    }
+                    if (!empty($fallbackInkClauses)) {
+                        $linked_job_ink_usage = db_query(
+                            "SELECT u.*, i.name as item_name
+                             FROM job_order_ink_usage u
+                             JOIN inv_items i ON u.item_id = i.id
+                             WHERE " . implode(' OR ', $fallbackInkClauses),
+                            $fallbackInkTypes,
+                            $fallbackInkParams
+                        ) ?: [];
+                    }
+                    break;
+                }
+            }
+
             $data = [
                 'id'                       => $cust['customization_id'],
                 'order_id'                 => $cust['order_id'],
@@ -1042,10 +1152,7 @@ try {
                 'payment_submitted_amount' => (float)($cust['downpayment_amount'] ?? 0),
                 'payment_status'           => 'NO',
                 'readiness'                => $linked_job['readiness'] ?? 'READY',
-                'order_source'             => jo_api_resolve_order_source(
-                    (int)($cust['order_id'] ?? 0),
-                    $cust['order_source'] ?? null
-                ),
+                'order_source'             => $resolvedOrderSource,
                 'items'                    => $items,
                 'materials'                => $linked_job_materials,
                 'ink_usage'                => $linked_job_ink_usage,
