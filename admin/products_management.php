@@ -1747,7 +1747,7 @@ if (isset($_GET['ajax'])) {
                         </div>
                         <div class="form-group" id="fg-add-stock">
                             <label for="stock-modal-add-qty">Add stock quantity <span style="color:#dc2626">*</span></label>
-                            <input type="number" id="stock-modal-add-qty" min="1" max="99999" value="" step="1" disabled autocomplete="off" inputmode="numeric" placeholder="0">
+                            <input type="number" id="stock-modal-add-qty" min="1" max="99999" value="" step="1" disabled autocomplete="off" inputmode="numeric" placeholder="0" oninput="if (this.value.length > 5) this.value = this.value.slice(0, 5);">
                             <span id="err-add-stock" class="field-error"></span>
                         </div>
                     </div>
