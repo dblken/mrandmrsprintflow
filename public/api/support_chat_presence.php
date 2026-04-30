@@ -4,6 +4,24 @@ require_once __DIR__ . '/../../includes/functions.php';
 
 header('Content-Type: application/json');
 
+set_exception_handler(function ($e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server error', 'error' => $e->getMessage()]);
+    exit;
+});
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) return false;
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE])) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Fatal server error', 'error' => $error['message']]);
+        exit;
+    }
+});
+
 function pf_support_chat_has_column(string $table, string $column): bool {
     static $cache = [];
     $key = $table . '.' . $column;

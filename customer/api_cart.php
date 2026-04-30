@@ -16,6 +16,24 @@ if (!is_logged_in() || strcasecmp($session_user_type, 'Customer') !== 0) {
 
 header('Content-Type: application/json');
 
+set_exception_handler(function ($e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server error', 'error' => $e->getMessage()]);
+    exit;
+});
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) return false;
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE])) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Fatal server error', 'error' => $error['message']]);
+        exit;
+    }
+});
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
     exit;

@@ -972,13 +972,11 @@ function _ft_detect_social(string $url): array {
             if (isOpen) {
                 openChatbotWindow();
                 syncConversation({ forceScroll: true });
-                checkInterval = setInterval(function() {
-                    syncConversation();
-                }, 3000);
+                const scheduleSync = () => { if (checkInterval) clearTimeout(checkInterval); checkInterval = setTimeout(() => { if (document.visibilityState === 'visible') syncConversation().finally(scheduleSync); else scheduleSync(); }, 3000); }; scheduleSync();
             } else {
                 win.classList.remove('lp-chatbot-visible');
                 setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
-                if (checkInterval) clearInterval(checkInterval);
+                if (checkInterval) clearTimeout(checkInterval);
                 checkInterval = null;
             }
         });
@@ -990,7 +988,7 @@ function _ft_detect_social(string $url): array {
             isOpen = false;
             win.classList.remove('lp-chatbot-visible');
             setTimeout(() => win.classList.add('lp-chatbot-hidden'), 300);
-            if (checkInterval) clearInterval(checkInterval);
+            if (checkInterval) clearTimeout(checkInterval);
             checkInterval = null;
         });
         }
@@ -1175,9 +1173,7 @@ function _ft_detect_social(string $url): array {
         if (window.location.search.indexOf('chatbot=open') !== -1) {
             openChatbotWindow();
             syncConversation({ forceScroll: true });
-            checkInterval = setInterval(function() {
-                syncConversation();
-            }, 3000);
+            const scheduleSync = () => { if (checkInterval) clearTimeout(checkInterval); checkInterval = setTimeout(() => { if (document.visibilityState === 'visible') syncConversation().finally(scheduleSync); else scheduleSync(); }, 3000); }; scheduleSync();
         } else {
             setTimeout(function() {
                 syncConversation();
@@ -1233,7 +1229,7 @@ function _ft_detect_social(string $url): array {
             fetch(base + '/public/api/support_chat_presence.php', { credentials: 'same-origin' }).catch(function() {});
         }
         supportPresenceBeat();
-        setInterval(supportPresenceBeat, 10000);
+        const schedulePresence = () => { setTimeout(() => { if (document.visibilityState === 'visible') supportPresenceBeat(); schedulePresence(); }, 10000); }; schedulePresence();
         window.addEventListener('focus', supportPresenceBeat);
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible') supportPresenceBeat();

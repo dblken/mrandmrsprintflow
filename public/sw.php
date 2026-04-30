@@ -193,11 +193,15 @@ self.addEventListener('fetch', (event) => {
     if (!url.origin.includes(self.location.hostname) &&
         !url.hostname.includes('localhost')) return;
 
-    if (url.pathname.includes('/api/') || url.pathname.includes('ajax')) {
+    if (url.pathname.includes('/api/') || url.pathname.includes('api_') || url.pathname.includes('ajax')) {
         event.respondWith(
             fetch(request).catch(async () => {
-                const cached = await caches.match(request);
-                return cached || new Response('Network unavailable', { status: 503 });
+                try {
+                    const cached = await caches.match(request);
+                    return cached || new Response('Network unavailable', { status: 503 });
+                } catch (e) {
+                    return new Response('Network unavailable', { status: 503 });
+                }
             })
         );
         return;
@@ -221,9 +225,9 @@ async function cacheFirst(request, cacheName) {
     if (cached) return cached;
     try {
         const response = await fetch(request);
-        if (response.ok) {
+        if (response.ok && response.status === 200) {
             const cache = await caches.open(cacheName);
-            cache.put(request, response.clone());
+            cache.put(request, response.clone()).catch(e => console.error('[SW] Cache First put error:', e));
         }
         return response;
     } catch {
@@ -236,8 +240,8 @@ async function staleWhileRevalidate(request, cacheName) {
     const cached = await cache.match(request);
 
     const fetchPromise = fetch(request).then((response) => {
-        if (response.ok) {
-            cache.put(request, response.clone());
+        if (response.ok && response.status === 200) {
+            cache.put(request, response.clone()).catch(e => console.error('[SW] SWR put error:', e));
         }
         return response;
     }).catch(() => null);
@@ -263,7 +267,7 @@ async function networkWithCacheFallback(request, cacheName) {
         // Cache Storage does not support partial content (206) responses.
         if (response.ok && response.status === 200 && !isRangeRequest) {
             const cache = await caches.open(cacheName);
-            cache.put(request, response.clone());
+            cache.put(request, response.clone()).catch(e => console.error('[SW] NWCF put error:', e));
         }
         return response;
     } catch {
@@ -430,4 +434,5 @@ self.addEventListener('notificationclick', (event) => {
         })()
     );
 });
+
 
