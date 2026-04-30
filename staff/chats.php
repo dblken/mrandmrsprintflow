@@ -133,7 +133,7 @@ $current_user = get_logged_in_user();
         .bubble-row.system { justify-content: flex-start; } /* Default to left for any remaining system msgs */
 
         .bubble { 
-            padding: 10px 16px; border-radius: 18px; font-size: 0.9rem; font-weight: 500; line-height: 1.45; 
+            padding: 7px 16px; border-radius: 18px; font-size: 0.9rem; font-weight: 500; line-height: 1.35; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.2s ease;
             display: inline-block; width: auto; max-width: 100%; position: relative;
             word-break: break-word; overflow-wrap: break-word;
