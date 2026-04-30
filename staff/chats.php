@@ -351,10 +351,11 @@ $current_user = get_logged_in_user();
         
         .reaction-display { 
             position: absolute; bottom: -12px; background: #fff; border: 1px solid #e2e8f0; 
-            border-radius: 12px; padding: 2px 6px; font-size: 0.7rem; display: flex; align-items: center; gap: 2px; 
-            z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            border-radius: 12px; padding: 4px 8px; font-size: 0.75rem; display: flex; align-items: center; gap: 4px; 
+            z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.08); cursor: pointer; white-space: nowrap; transition: all 0.2s;
+            min-height: 24px;
         }
-        .reaction-display:hover { transform: scale(1.05); background: #f8fafc; }
+        .reaction-display:hover { transform: scale(1.05); background: #f8fafc; box-shadow: 0 6px 15px rgba(0,0,0,0.12); }
         .bubble-row.self .reaction-display { right: 8px; }
         .bubble-row.other .reaction-display { left: 8px; }
         
@@ -514,11 +515,12 @@ $current_user = get_logged_in_user();
             display: none; position: absolute; bottom: 100%; left: 50%;
             transform: translateX(-50%); background: #ffffff;
             padding: 8px 16px; border-radius: 999px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.1); z-index: 500;
-            gap: 8px; border: 1px solid #e2e8f0;
-            width: max-content; pointer-events: auto;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15); z-index: 500;
+            gap: 10px; border: 1px solid #e2e8f0;
+            width: max-content; min-width: 260px; pointer-events: auto;
             align-items: center; justify-content: center;
-            margin-bottom: 48px; height: 48px;
+            margin-bottom: 48px; height: 54px;
+            white-space: nowrap;
         }
         .reaction-picker.active { display: flex; animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
@@ -596,17 +598,18 @@ $current_user = get_logged_in_user();
         .reaction-bubble {
             display: inline-flex; align-items: center; gap: 4px;
             background: #fff; border: 1px solid #e2e8f0;
-            border-radius: 999px; padding: 4px 10px; font-size: 1rem;
+            border-radius: 999px; padding: 4px 12px; font-size: 1.1rem;
             box-shadow: 0 2px 8px rgba(0,0,0,0.05); color: #334155;
             cursor: pointer; transition: all 0.2s;
-            line-height: 1;
+            line-height: 1.2;
+            min-height: 28px;
         }
         .reaction-bubble:hover {
             transform: scale(1.1); background: #f8fafc; border-color: #cbd5e1;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .reaction-count {
-            font-size: 0.75rem; font-weight: 700; color: #64748b;
+            font-size: 0.8rem; font-weight: 800; color: #475569;
             margin-left: 2px;
         }
 
@@ -2490,11 +2493,16 @@ function positionMobileActionBar(row) {
 function setActiveMessageRow(row) {
     if (!row) return;
     const wasActive = row.classList.contains('has-active-menu');
-    document.querySelectorAll('.bubble-row').forEach(r => r.classList.remove('has-active-menu'));
+    document.querySelectorAll('.bubble-row').forEach(r => {
+        if (r !== row) r.classList.remove('has-active-menu');
+    });
     
     if (!wasActive) {
         row.classList.add('has-active-menu');
         requestAnimationFrame(() => positionMobileActionBar(row));
+    } else {
+        row.classList.remove('has-active-menu');
+        closeAllMenus();
     }
 }
 
@@ -2503,48 +2511,56 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     const gap = options.gap ?? 8;
     const preferred = options.preferred || 'bottom';
 
-    // Temporarily show to measure
-    const prevDisplay = menu.style.display;
-    const prevVisibility = menu.style.visibility;
+    // Measure menu dimensions
+    const isVisible = menu.classList.contains('active') || menu.classList.contains('show');
+    if (!isVisible) {
+        menu.style.display = 'flex';
+        menu.style.visibility = 'hidden';
+    }
+    
     reparentMenuToBody(menu);
-    menu.style.display = 'block';
-    menu.style.visibility = 'hidden';
-    menu.style.opacity = '0';
-
     const triggerRect = trigger.getBoundingClientRect();
     const bubble = trigger.closest('.msg-content-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
     const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
     const menuRect = menu.getBoundingClientRect();
+    
+    if (!isVisible) {
+        menu.style.display = '';
+        menu.style.visibility = '';
+    }
+
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const messagesArea = document.getElementById('messagesArea');
     const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight, left: 0, right: viewportWidth };
 
-    const menuHeight = menuRect.height || 56;
+    const menuHeight = menuRect.height || (options.preferred === 'top' ? 54 : 100);
     const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
 
-    // Determine vertical position - prefer above for reaction picker, below for more menu
+    // Determine vertical position
     const spaceAbove = anchorRect.top - messagesRect.top;
     const spaceBelow = messagesRect.bottom - anchorRect.bottom;
-    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    const shouldOpenAbove = preferred === 'top' ? (spaceAbove > menuHeight + gap || spaceAbove > spaceBelow) : (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
     
     let top;
     if (shouldOpenAbove) {
-        top = Math.max(messagesRect.top + 8, anchorRect.top - menuHeight - gap);
+        top = anchorRect.top - menuHeight - gap;
+        // Keep within messages area
+        if (top < messagesRect.top + 8) top = messagesRect.top + 8;
     } else {
-        top = Math.min(messagesRect.bottom - menuHeight - 8, anchorRect.bottom + gap);
+        top = anchorRect.bottom + gap;
+        // Keep within messages area
+        if (top + menuHeight > messagesRect.bottom - 8) top = messagesRect.bottom - menuHeight - 8;
     }
 
-    // Horizontal alignment based on message side
+    // Horizontal alignment
     const row = trigger.closest('.bubble-row');
     const alignRight = row ? row.classList.contains('self') : false;
     let left;
     
     if (alignRight) {
-        // Align to right edge of bubble
         left = anchorRect.right - menuWidth;
     } else {
-        // Align to left edge of bubble
         left = anchorRect.left;
     }
     
@@ -2555,16 +2571,13 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     menu.style.position = 'fixed';
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
-    menu.style.width = `${menuWidth}px`;
+    if (!window.matchMedia('(max-width: 1023px)').matches) {
+        menu.style.width = `${menuWidth}px`;
+    }
     menu.style.transform = 'none';
     menu.style.right = 'auto';
     menu.style.bottom = 'auto';
-    menu.style.visibility = 'visible';
-    menu.style.opacity = '1';
-
-    if (!prevDisplay) menu.style.display = '';
-    else menu.style.display = prevDisplay;
-    menu.style.visibility = prevVisibility;
+    menu.style.zIndex = '9999';
 }
 
 // Move menu DOM node to document.body to avoid being clipped by parent stacking contexts
@@ -3266,7 +3279,21 @@ window.addEventListener('resize', () => {
 document.getElementById('messagesArea')?.addEventListener('scroll', () => {
     const activeRow = document.querySelector('.bubble-row.has-active-menu');
     if (!activeRow) return;
+    
     positionMobileActionBar(activeRow);
+    
+    // Also update any open floating menus
+    const picker = document.querySelector('.reaction-picker.active');
+    if (picker) {
+        const msgId = picker.id.replace('picker-', '');
+        const trigger = activeRow.querySelector('.bi-emoji-smile')?.parentElement;
+        if (trigger) positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 });
+    }
+    const moreMenu = document.querySelector('.m-more-menu.active');
+    if (moreMenu) {
+        const trigger = activeRow.querySelector('.bi-three-dots')?.parentElement;
+        if (trigger) positionFloatingMenu(moreMenu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 });
+    }
 }, { passive: true });
 
 window.startRecording = async function() {

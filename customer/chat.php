@@ -358,25 +358,27 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Reactions Attached to Bubble */
     .react-display {
-        display:flex; gap:4px; position: absolute; bottom: -10px; z-index: 10;
-        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 3px 10px;
-        box-shadow: 0 4px 8px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
+        display:flex; gap:6px; position: absolute; bottom: -10px; z-index: 10;
+        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 4px 12px;
+        box-shadow: 0 4px 10px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
+        min-height: 28px; align-items: center;
     }
     .brow.self .react-display { right: 8px; }
     .brow.other .react-display { left: 8px; }
-    .react-chip { font-size:.85rem; display:flex; align-items:center; gap:4px; color: #0f172a; }
-    .react-chip b { font-weight: 800; font-size: 0.75rem; color: var(--pf-cyan); }
+    .react-chip { font-size:1.1rem; display:flex; align-items:center; gap:4px; color: #0f172a; line-height: 1.2; }
+    .react-chip b { font-weight: 800; font-size: 0.85rem; color: var(--pf-cyan); margin-left: 2px; }
 
     /* Reaction Picker */
     .react-picker {
         display:none; position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%);
-        background:#fff; border:1px solid var(--pf-border); border-radius:999px; padding:0 18px;
-        gap:10px; z-index:150; box-shadow:0 12px 40px rgba(15,23,42,0.12); height: 50px; align-items: center; justify-content: center;
+        background:#fff; border:1px solid var(--pf-border); border-radius:999px; padding:0 20px;
+        gap:12px; z-index:150; box-shadow:0 12px 40px rgba(15,23,42,0.15); height: 56px; align-items: center; justify-content: center;
         animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        width: max-content; min-width: 260px; white-space: nowrap;
     }
     .react-picker.show { display:flex; }
-    .react-picker span { font-size:1.6rem; cursor:pointer; transition:.15s; margin: 0 4px; }
-    .react-picker span:hover { transform:scale(1.3) translateY(-4px); }
+    .react-picker span { font-size:1.8rem; cursor:pointer; transition:.15s; margin: 0 6px; display: inline-flex; align-items: center; justify-content: center; }
+    .react-picker span:hover { transform:scale(1.35) translateY(-4px); }
 
     /* Seen Indicator */
     .seen-wrapper { display:flex; width:100%; margin-top:2px; min-height:16px; align-items:center; }
@@ -2044,11 +2046,16 @@ function positionMobileActionBar(row) {
 function setActiveMessageRow(row) {
     if (!row) return;
     const wasActive = row.classList.contains('has-active-menu');
-    document.querySelectorAll('.brow').forEach(r => r.classList.remove('has-active-menu'));
+    document.querySelectorAll('.brow').forEach(r => {
+        if (r !== row) r.classList.remove('has-active-menu');
+    });
     
     if (!wasActive) {
         row.classList.add('has-active-menu');
         requestAnimationFrame(() => positionMobileActionBar(row));
+    } else {
+        row.classList.remove('has-active-menu');
+        closeAllMenus();
     }
 }
 function positionFloatingMenu(menu, trigger, options = {}) {
@@ -2056,36 +2063,49 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     const gap = options.gap ?? 8;
     const preferred = options.preferred || 'bottom';
 
-    const prevDisplay = menu.style.display;
-    const prevVisibility = menu.style.visibility;
+    // Measure menu dimensions
+    const isVisible = menu.classList.contains('show') || menu.classList.contains('active');
+    if (!isVisible) {
+        menu.style.display = 'flex';
+        menu.style.visibility = 'hidden';
+    }
+    
     reparentMenuToBody(menu);
-    menu.style.display = 'block';
-    menu.style.visibility = 'hidden';
-    menu.style.opacity = '0';
-
     const triggerRect = trigger.getBoundingClientRect();
     const bubble = trigger.closest('.b-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
     const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
     const menuRect = menu.getBoundingClientRect();
+    
+    if (!isVisible) {
+        menu.style.display = '';
+        menu.style.visibility = '';
+    }
+
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const messagesArea = document.getElementById('messagesArea');
     const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight, left: 0, right: viewportWidth };
 
-    const menuHeight = menuRect.height || 56;
+    const menuHeight = menuRect.height || (options.preferred === 'top' ? 56 : 100);
     const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
 
+    // Determine vertical position
     const spaceAbove = anchorRect.top - messagesRect.top;
     const spaceBelow = messagesRect.bottom - anchorRect.bottom;
-    const shouldOpenAbove = preferred === 'top' || (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
+    const shouldOpenAbove = preferred === 'top' ? (spaceAbove > menuHeight + gap || spaceAbove > spaceBelow) : (spaceBelow < menuHeight + gap && spaceAbove > spaceBelow);
     
     let top;
     if (shouldOpenAbove) {
-        top = Math.max(messagesRect.top + 8, anchorRect.top - menuHeight - gap);
+        top = anchorRect.top - menuHeight - gap;
+        // Keep within messages area
+        if (top < messagesRect.top + 8) top = messagesRect.top + 8;
     } else {
-        top = Math.min(messagesRect.bottom - menuHeight - 8, anchorRect.bottom + gap);
+        top = anchorRect.bottom + gap;
+        // Keep within messages area
+        if (top + menuHeight > messagesRect.bottom - 8) top = messagesRect.bottom - menuHeight - 8;
     }
 
+    // Horizontal alignment
     const row = trigger.closest('.brow');
     const alignRight = row ? row.classList.contains('self') : false;
     let left;
@@ -2096,21 +2116,22 @@ function positionFloatingMenu(menu, trigger, options = {}) {
         left = anchorRect.left;
     }
     
+    // Keep within viewport bounds
     left = Math.max(messagesRect.left + 12, Math.min(left, messagesRect.right - menuWidth - 12));
 
+    // Apply positioning
     menu.style.position = 'fixed';
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
-    menu.style.width = `${menuWidth}px`;
+    if (!window.matchMedia('(max-width: 768px)').matches) {
+        menu.style.width = `${menuWidth}px`;
+    }
     menu.style.transform = 'none';
     menu.style.right = 'auto';
     menu.style.bottom = 'auto';
+    menu.style.zIndex = '9999';
     menu.style.visibility = 'visible';
     menu.style.opacity = '1';
-
-    if (!prevDisplay) menu.style.display = '';
-    else menu.style.display = prevDisplay;
-    menu.style.visibility = prevVisibility;
 }
 
 // Reparent helpers for customer chat (avoid clipping by parent elements)
@@ -2203,7 +2224,20 @@ window.addEventListener('resize', () => {
 document.getElementById('messagesArea')?.addEventListener('scroll', () => {
     const activeRow = document.querySelector('.brow.has-active-menu');
     if (!activeRow) return;
+    
     positionMobileActionBar(activeRow);
+    
+    // Also update any open floating menus
+    const picker = document.querySelector('.react-picker.show');
+    if (picker) {
+        const trigger = activeRow.querySelector('.bi-emoji-smile')?.parentElement;
+        if (trigger) positionFloatingMenu(picker, trigger, { preferred: 'top', mobileWidth: 300, gap: 12 });
+    }
+    const moreMenu = document.querySelector('.more-menu.show');
+    if (moreMenu) {
+        const trigger = activeRow.querySelector('.bi-three-dots')?.parentElement;
+        if (trigger) positionFloatingMenu(moreMenu, trigger, { preferred: 'bottom', mobileWidth: 190, gap: 10 });
+    }
 }, { passive: true });
 function pinMsg(id) { 
     const fd = new FormData(); 
