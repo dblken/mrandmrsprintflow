@@ -966,392 +966,161 @@ require_once __DIR__ . '/../includes/header.php';
     .loading-bar-fill { width: 0%; height: 100%; background: #53c5e0; transition: width 3s linear; }
     .redirect-msg { font-size: 0.75rem; color: #9ec3d3; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
     @media (max-width: 640px) {
-        .review-contact-grid { grid-template-columns: 1fr; }
-        .review-contact-full { grid-column: span 1; }
-        .review-order-item .review-spec-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        }
-        .review-order-item .review-spec-grid > .review-spec-tile:last-child:nth-child(3n + 1) {
-            grid-column: auto;
-        }
+        .review-contact-grid { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
+        
         .review-actions-row {
             flex-direction: column;
             align-items: stretch;
+            gap: 0.75rem;
         }
-        .review-buy-btn,
-        .review-cancel-btn,
-        .tshirt-btn {
-            width: 100%;
-        }
+        .review-buy-btn, .review-cancel-btn, .tshirt-btn { width: 100% !important; }
         
-        /* CRITICAL: Disable horizontal layout completely */
-        .review-order-item > div:first-child {
-            display: block !important;
-            flex-direction: column !important;
-            padding: 1rem !important;
-        }
-        
-        /* TOP: Product Image - Centered */
-        .review-order-item > div:first-child > div:first-child {
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            aspect-ratio: 1 / 1 !important;
-            margin: 0 0 2rem 0 !important;
-            display: block !important;
-            float: none !important;
-        }
-        
-        /* Product Details Container */
-        .review-order-item > div:first-child > div:last-child {
-            width: 100% !important;
-            display: block !important;
-        }
-        
-        .review-order-item .order-item-content {
-            padding-top: 1rem !important;
-        }
-        
-        /* Product Name - Single Line with Ellipsis */
-        .review-order-item > div:first-child > div:last-child > h3 {
-            font-size: 0.95rem !important;
-            margin-bottom: 0.5rem !important;
-            white-space: nowrap !important;
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            max-width: 100% !important;
-        }
-        
-        /* Product Tag/Badge */
-        .review-order-item > div:first-child > div:last-child > div:first-of-type {
-            margin-bottom: 1rem !important;
-        }
-        
-        /* MIDDLE: Details Section - Vertical Stack with Left-Right Alignment */
-        .review-order-item > div:first-child > div:last-child > div:last-child {
-            display: block !important;
-            margin-top: 0 !important;
-        }
-        
-        /* Hide desktop flex layout */
-        .review-order-item > div:first-child > div:last-child > div:last-child > div {
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            padding: 0.6rem 0 !important;
-            border-bottom: 1px solid rgba(83, 197, 224, 0.15) !important;
-            flex: none !important;
-            min-width: 100% !important;
-        }
-        
-        /* Remove border from last detail row before total */
-        .review-order-item > div:first-child > div:last-child > div:last-child > div:nth-last-child(2) {
-            border-bottom: none !important;
-            padding-bottom: 0.6rem !important;
-        }
-        
-        /* Remove border from Unit Price row specifically */
-        .review-order-item .review-detail-row:nth-child(2) {
-            border-bottom: 2px solid rgba(83, 197, 224, 0.3) !important;
-            padding-bottom: 0.8rem !important;
-        }
-        
-        /* Labels - Left Aligned */
-        .review-order-item .review-detail-label,
-        .review-order-item .review-total-label {
-            font-size: 0.8rem !important;
-            color: #9fc4d4 !important;
-            font-weight: 600 !important;
-            text-align: left !important;
-            margin-bottom: 0 !important;
-        }
-        
-        /* Values - Right Aligned */
-        .review-order-item .review-detail-value,
-        .review-order-item .review-total-value {
-            font-size: 0.9rem !important;
-            color: #eaf6fb !important;
-            font-weight: 700 !important;
-            text-align: right !important;
-            margin-bottom: 0 !important;
-        }
-        
-        /* DIVIDER before Total */
-        .review-order-item .review-total-row {
-            border-top: 2px solid rgba(83, 197, 224, 0.3) !important;
-            padding-top: 0.8rem !important;
-            margin-top: 0.8rem !important;
-            border-bottom: none !important;
-        }
-        
-        /* BOTTOM: Total Row - Emphasized */
-        .review-order-item .review-total-label {
-            font-size: 0.9rem !important;
-            font-weight: 700 !important;
-            color: #53c5e0 !important;
-        }
-        
-        .review-order-item .review-total-value {
-            font-size: 1.15rem !important;
-            font-weight: 800 !important;
-            color: #53c5e0 !important;
-        }
-        
-        .review-order-item .review-total-row {
-            border-top: none !important;
-            padding-top: 0.8rem !important;
-        }
-        
-        /* Fix Card Overflow */
+        /* Main Item Container */
         .review-order-item {
+            display: flex !important;
+            flex-direction: column !important;
             max-width: 100% !important;
-            overflow: hidden !important;
             padding: 0 !important;
+            overflow: visible !important;
+            margin-bottom: 2rem !important;
+            position: relative !important;
         }
-        
-        .review-order-item > div {
-            max-width: 100% !important;
-            overflow: hidden !important;
-        }
-        
-        /* Form Section - Single Column */
-        .review-contact-grid {
-            grid-template-columns: 1fr !important;
-            gap: 0.75rem !important;
-        }
-        
-        .review-input-disabled,
-        .review-input-disabled-textarea {
-            font-size: 0.85rem !important;
-            padding: 0.65rem 0.75rem !important;
-        }
-        
-        /* Buttons - Stacked Vertically */
-        .card > div:last-child {
-            flex-direction: column-reverse !important;
-            gap: 0.75rem !important;
-        }
-        
-        .shopee-btn-outline,
-        .shopee-btn-primary {
-            width: 100% !important;
-            min-width: auto !important;
-        }
-        
-        /* Compact Spacing */
-        .compact-card {
-            padding: 1rem !important;
-        }
-        
-        .review-heading {
-            font-size: 0.95rem !important;
-            margin-bottom: 0.75rem !important;
-        }
-        
-        .review-info-note {
-            padding: 0.75rem !important;
-            gap: 0.5rem !important;
-        }
-        
-        .review-info-note-title {
-            font-size: 0.75rem !important;
-        }
-        
-        .review-info-note-text {
-            font-size: 0.7rem !important;
-        }
-        
-        /* Page Title */
-        h1 {
-            font-size: 1rem !important;
-        }
-        
-        /* Back Button and Title - Single Line on Mobile */
-        .container > div:first-child {
-            flex-direction: row !important;
-            align-items: center !important;
-            justify-content: space-between !important;
-            gap: 0.75rem !important;
-        }
-        
-        .container > div:first-child a {
-            position: static !important;
-            margin-bottom: 0 !important;
-        }
-        
-        .container > div:first-child h1 {
-            position: static !important;
-            transform: none !important;
-            left: auto !important;
-            width: auto !important;
-            text-align: right !important;
-            font-size: 1rem !important;
-            white-space: nowrap !important;
-            margin-left: auto !important;
-        }
-    }
-    @media (max-width: 480px) {
-        .review-order-item .review-spec-grid {
-            grid-template-columns: 1fr !important;
-        }
-    }
-    @media (max-width: 640px) {
-        .order-container {
-            max-width: 100%;
-        }
-        .order-review-page-header {
-            align-items: flex-start !important;
-            justify-content: flex-start !important;
-            flex-wrap: wrap !important;
-            margin-bottom: 1.5rem !important;
-        }
-        .order-review-page-title {
-            position: static !important;
-            transform: none !important;
-            width: 100% !important;
-            text-align: left !important;
-            font-size: 1.3rem !important;
-            line-height: 1.3 !important;
-        }
+
+        /* Top Header Section (Image + Name + Qty) */
         .review-order-item .order-item-header {
             display: flex !important;
             flex-direction: column !important;
-            align-items: stretch !important;
-            gap: 1rem !important;
-            padding: 1rem !important;
+            width: 100% !important;
+            padding: 1.5rem 1rem !important;
+            gap: 1.25rem !important;
+            border-bottom: 1px solid rgba(83, 197, 224, 0.12) !important;
+            height: auto !important;
+            min-height: auto !important;
+            position: relative !important;
+            box-sizing: border-box !important;
         }
+        
         .review-order-item .order-item-image {
-            width: min(100%, 220px) !important;
+            width: min(100%, 260px) !important;
             height: auto !important;
             aspect-ratio: 1 / 1 !important;
-            margin: 0 auto 1rem !important;
+            margin: 0 auto !important;
+            display: block !important;
+            border-radius: 16px !important;
+            flex-shrink: 0 !important;
         }
+        
         .review-order-item .order-item-content {
             width: 100% !important;
-            padding-top: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
             align-items: center !important;
             text-align: center !important;
+            padding: 0 !important;
+            flex: none !important;
         }
+        
         .review-order-item .order-item-content h3 {
-            font-size: 1rem !important;
-            line-height: 1.45 !important;
+            font-size: 1.1rem !important;
+            line-height: 1.4 !important;
+            margin: 0 0 0.75rem 0 !important;
+            text-align: center !important;
             white-space: normal !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
+            word-break: break-word !important;
             width: 100% !important;
-            max-width: 18rem !important;
-            margin: 0 auto 0.85rem !important;
-            text-align: center !important;
         }
-        .review-order-item .order-item-category-badge {
-            align-self: center !important;
-            justify-content: center !important;
-            text-align: center !important;
-            margin: 0 auto 1rem !important;
-            padding: 0.4rem 0.95rem !important;
-            line-height: 1.35 !important;
-        }
+
         .review-order-item .order-item-details {
-            display: grid !important;
-            grid-template-columns: 1fr !important;
-            gap: 0.75rem !important;
-            margin-top: 0 !important;
             width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+            margin-top: 1rem !important;
+            position: relative !important;
         }
+
         .review-order-item .review-detail-row,
         .review-order-item .review-total-row {
             display: flex !important;
-            align-items: flex-start !important;
             justify-content: space-between !important;
-            gap: 1rem !important;
-            width: 100% !important;
-            min-width: 0 !important;
-            padding: 0.8rem 0.9rem !important;
+            align-items: center !important;
+            padding: 0.85rem 1rem !important;
             border: 1px solid rgba(83, 197, 224, 0.18) !important;
             border-radius: 12px !important;
-            background: rgba(255, 255, 255, 0.03) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            min-width: 0 !important;
         }
-        .review-order-item .review-total-row {
-            background: rgba(83, 197, 224, 0.08) !important;
-            border-color: rgba(83, 197, 224, 0.28) !important;
-        }
-        .review-order-item .review-detail-label,
-        .review-order-item .review-total-label {
-            font-size: 0.76rem !important;
-            line-height: 1.3 !important;
-            margin-bottom: 0 !important;
-        }
-        .review-order-item .review-detail-value,
-        .review-order-item .review-total-value {
-            font-size: 1rem !important;
-            line-height: 1.35 !important;
-            text-align: right !important;
-            margin-bottom: 0 !important;
-            overflow-wrap: anywhere !important;
-        }
-        .review-order-item .review-total-value {
-            max-width: 10rem !important;
-        }
-        .review-order-item .order-item-spec-grid {
-            grid-template-columns: 1fr !important;
-            row-gap: 1.1rem !important;
-            column-gap: 0 !important;
-            padding-inline: 0.5rem !important;
-        }
+
+        /* Bottom Specifications Section */
         .review-order-item .order-item-specs {
-            padding: 1rem 0.85rem 1.1rem !important;
+            width: 100% !important;
+            padding: 1.25rem 1rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 1rem !important;
+            height: auto !important;
+            min-height: auto !important;
+            position: relative !important;
         }
-        .review-order-item .order-item-specs h4 {
-            margin-bottom: 0.85rem !important;
-            padding-bottom: 0.75rem !important;
+
+        .review-order-item .order-item-spec-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 0.75rem !important;
+            width: 100% !important;
+            grid-template-columns: none !important;
         }
+
         .review-order-item .order-item-spec-tile {
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: wrap !important;
-            align-items: center !important;
             justify-content: space-between !important;
-            gap: 0.5rem !important;
+            align-items: center !important;
+            padding: 0.8rem 0.9rem !important;
+            background: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(83, 197, 224, 0.18) !important;
+            border-radius: 12px !important;
             width: 100% !important;
             box-sizing: border-box !important;
-            padding: 0.8rem 0.9rem !important;
+            height: auto !important;
             min-height: auto !important;
-            border-radius: 12px !important;
-            border: 1px solid rgba(83, 197, 224, 0.18) !important;
-            background: rgba(255, 255, 255, 0.03) !important;
-            margin: 0 !important;
         }
+
         .review-order-item .order-item-spec-tile > div:first-child {
-            margin-bottom: 0 !important;
             font-size: 0.76rem !important;
-            line-height: 1.3 !important;
-            min-width: 40% !important;
-            flex: 1 1 auto !important;
-            padding-top: 0.1rem !important;
-            text-align: left !important;
+            color: #9fc4d4 !important;
+            font-weight: 700 !important;
+            margin-bottom: 0 !important;
         }
+
         .review-order-item .order-item-spec-tile > div:last-child {
-            font-size: 1rem !important;
-            line-height: 1.35 !important;
-            flex: 1 1 auto !important;
+            font-size: 0.95rem !important;
+            font-weight: 700 !important;
+            color: #eaf6fb !important;
             text-align: right !important;
-            padding-left: 0.5rem !important;
             word-break: break-word !important;
         }
-        .review-total-banner-row {
-            flex-direction: column !important;
-            align-items: flex-start !important;
-            gap: 0.35rem !important;
+
+        .review-order-item .review-total-value {
+            font-size: 1.1rem !important;
+            font-weight: 800 !important;
+            color: #53c5e0 !important;
         }
-        .review-actions-bar {
-            flex-direction: column-reverse !important;
-            gap: 0.75rem !important;
-        }
+
+        .review-total-banner-row { flex-direction: column !important; align-items: flex-start !important; gap: 0.35rem !important; }
+        .review-actions-bar { flex-direction: column-reverse !important; gap: 0.75rem !important; }
+        
+        /* Form Section */
+        .review-input-disabled, .review-input-disabled-textarea { font-size: 0.85rem !important; padding: 0.65rem 0.75rem !important; }
+        .compact-card { padding: 1rem !important; }
+        .review-heading { font-size: 0.95rem !important; margin-bottom: 0.75rem !important; }
     }
     @media (max-width: 480px) {
-        .order-review-page-title {
-            font-size: 1.15rem !important;
-        }
+        .review-order-item .order-item-image { width: 100% !important; }
+        .order-review-page-title { font-size: 1.15rem !important; }
     }
 </style>
 
