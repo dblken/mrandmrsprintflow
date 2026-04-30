@@ -3810,6 +3810,52 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.setFooterActionError('Please enter a valid final price before approving.');
                         return;
                     }
+                    const jid = await this.resolveEffectiveJobId();
+                    if (!jid) {
+                        this.setFooterActionError('No linked production job was found for this customization.');
+                        return;
+                    }
+                    const materialsToSave = [...this.pendingMaterials];
+                    const currentMaterial = this.buildCurrentMaterialPayload();
+                    if (currentMaterial) {
+                        materialsToSave.push(currentMaterial);
+                    }
+                    const inkPayload = this.buildInkPayload();
+                    for (const pm of materialsToSave) {
+                        const fdMaterial = new FormData();
+                        fdMaterial.append('action', 'add_material');
+                        fdMaterial.append('order_id', jid);
+                        fdMaterial.append('order_type', 'JOB');
+                        fdMaterial.append('item_id', pm.item_id);
+                        fdMaterial.append('quantity', pm.qty);
+                        fdMaterial.append('uom', pm.uom);
+                        fdMaterial.append('roll_id', pm.roll_id);
+                        fdMaterial.append('notes', pm.notes);
+                        fdMaterial.append('metadata', JSON.stringify(pm.metadata || {}));
+                        const materialRes = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fdMaterial })).json();
+                        if (!materialRes.success) {
+                            this.showStaffAlert('Material Error', 'Failed to save material: ' + (materialRes.error || 'Unknown error'));
+                            return;
+                        }
+                    }
+                    this.pendingMaterials = [];
+                    if (inkPayload.length > 0) {
+                        const fdInk = new FormData();
+                        fdInk.append('action', 'save_ink_usage');
+                        fdInk.append('order_id', jid);
+                        fdInk.append('order_type', 'JOB');
+                        fdInk.append('ink_data', JSON.stringify(inkPayload));
+                        const inkRes = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fdInk })).json();
+                        if (!inkRes.success) {
+                            this.showStaffAlert('Ink Error', 'Failed to save ink usage: ' + (inkRes.error || 'Unknown error'));
+                            return;
+                        }
+                    }
+                    await this.refreshMaterials();
+                    if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
+                        this.setFooterActionError('Please add at least one production material or ink before approving.');
+                        return;
+                    }
                     if (!this.beginModalAction()) return;
                     try {
                         const fd = new FormData();
