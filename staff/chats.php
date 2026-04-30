@@ -615,9 +615,7 @@ $current_user = get_logged_in_user();
             line-height: 1;
             min-height: 18px;
         }
-        .reaction-bubble:hover {
-            transform: scale(1.03);
-        }
+        .reaction-bubble:hover { transform: scale(1.03); }
         .reaction-count {
             font-size: 0.62rem; font-weight: 800; color: #475569;
             margin-left: 1px;
@@ -2178,11 +2176,6 @@ function appendMsgUI(m) {
     if (!isSelf) {
         const initial = (m.sender_name || 'C')[0].toUpperCase();
         avatarHtml = `<div class="msg-avatar">${m.sender_avatar ? `<img src="${resolveProfileUrl(m.sender_avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${initial}</span>`}</div>`;
-    } else {
-        // Optional: Show staff's own avatar for 'self' messages if requested by UI/UX standards
-        const myAvatar = window.PFConfig.userAvatar;
-        const myInitial = (window.PFConfig.userName || 'S')[0].toUpperCase();
-        avatarHtml = `<div class="msg-avatar">${myAvatar ? `<img src="${myAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="${PROFILE_IMAGE_ONERROR}">` : `<span>${myInitial}</span>`}</div>`;
     }
 
     const isCallMsg = (m.message && m.message.includes('📞'));
