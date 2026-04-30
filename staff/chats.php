@@ -98,13 +98,13 @@ $current_user = get_logged_in_user();
         .dot-online.active { display: block; }
         .dot-online.busy { display: block; background: #f59e0b; }
         
-        .conv-info { flex: 1; min-width: 0; }
+        .conv-info { flex: 1; min-width: 0; overflow: hidden; }
         .conv-name-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0; }
         .conv-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .conv-time { font-size: 0.7rem; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
         .conv-sub { font-size: 0.75rem; color: #1e293b; font-weight: 700; text-transform: capitalize; letter-spacing: 0.02em; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .conv-preview { font-size: 0.8rem; color: #64748b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
-        .conv-preview-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; display: block; }
+        .conv-preview { font-size: 0.8rem; color: #64748b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; width: 100%; max-width: 100%; }
+        .conv-preview-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; display: block; max-width: 100%; }
 
         /* Main Window */
         .chat-window { display: flex; flex-direction: column; background: #fff; overflow: hidden; height: 100%; min-height: 0; position: relative; }
@@ -904,9 +904,14 @@ $current_user = get_logged_in_user();
                 align-items: center;
                 width: 100%;
                 min-width: 0;
+                max-width: 100%;
+                overflow: hidden;
             }
             .conv-preview-text {
                 max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
             .reaction-display-container {
                 margin-top: 6px;
