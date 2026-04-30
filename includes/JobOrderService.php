@@ -674,13 +674,6 @@ class JobOrderService {
                 self::processDeductions($orderId);
             }
 
-            if ($newStatus === 'TO_RECEIVE') {
-                // Catch up older POS/service jobs that entered production before
-                // materials were attached. This remains idempotent because only
-                // undeducted material rows are processed here.
-                self::processDeductions($orderId, ['materials' => true, 'inks' => false]);
-            }
-
             if ($newStatus === 'COMPLETED') {
                 // For POS orders (walk-in) or orders already in TO_RECEIVE status, skip payment check
                 $currentStatus = strtoupper((string)($order['status'] ?? ''));
