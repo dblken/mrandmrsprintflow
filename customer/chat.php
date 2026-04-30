@@ -358,16 +358,16 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Reactions Attached to Bubble */
     .react-display {
-        display:flex; gap:4px; position: relative; z-index: 10;
-        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 2px 8px;
+        display:flex; gap:3px; position: relative; z-index: 10;
+        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 1px 6px;
         box-shadow: 0 4px 10px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
-        min-height: 22px; align-items: center; width: max-content; max-width: 100%;
-        margin-top: 4px;
+        min-height: 18px; align-items: center; width: max-content; max-width: 100%;
+        margin-top: 3px;
     }
     .brow.self .react-display { align-self: flex-end; }
     .brow.other .react-display { align-self: flex-start; }
-    .react-chip { font-size:0.9rem; display:flex; align-items:center; gap:3px; color: #0f172a; line-height: 1; }
-    .react-chip b { font-weight: 800; font-size: 0.72rem; color: var(--pf-cyan); margin-left: 1px; }
+    .react-chip { font-size:0.78rem; display:flex; align-items:center; gap:2px; color: #0f172a; line-height: 1; }
+    .react-chip b { font-weight: 800; font-size: 0.64rem; color: var(--pf-cyan); margin-left: 0; }
 
     /* Reaction Picker */
     .react-picker {
