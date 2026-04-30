@@ -3827,6 +3827,20 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const savedInks = Array.isArray(this.currentJo.ink_usage) ? this.currentJo.ink_usage.length : 0;
                 return savedMaterials > 0 || savedInks > 0 || extraMaterials.length > 0 || extraInks.length > 0;
             },
+            isPosSourcedCurrentJo() {
+                const source = String(this.currentJo?.order_source || '').trim().toLowerCase();
+                if (source === 'pos' || source === 'walk-in') return true;
+                const detailSource = String(this.currentJo?.customization_details?.source || '').trim().toLowerCase();
+                return detailSource === 'pos';
+            },
+            async getProductionAssignmentTarget() {
+                const jid = await this.resolveEffectiveJobId();
+                const storeOrderId = Number(this.currentJo?.order_id || this.currentJo?.id || 0);
+                if (this.isPosSourcedCurrentJo() && storeOrderId > 0) {
+                    return { orderId: storeOrderId, orderType: 'ORDER', jobId: jid };
+                }
+                return { orderId: jid, orderType: 'JOB', jobId: jid };
+            },
             async submitToPay() {
                 console.log('submitToPay called');
                 console.log('jobPriceInput value:', this.jobPriceInput);
@@ -3839,8 +3853,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                         this.setFooterActionError('Please enter a valid final price before approving.');
                         return;
                     }
-                    const jid = await this.resolveEffectiveJobId();
-                    if (!jid) {
+                    const target = await this.getProductionAssignmentTarget();
+                    if (!target.jobId) {
                         this.setFooterActionError('No linked production job was found for this customization.');
                         return;
                     }
@@ -3857,8 +3871,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                     for (const pm of materialsToSave) {
                         const fdMaterial = new FormData();
                         fdMaterial.append('action', 'add_material');
-                        fdMaterial.append('order_id', jid);
-                        fdMaterial.append('order_type', 'JOB');
+                        fdMaterial.append('order_id', target.orderId);
+                        fdMaterial.append('order_type', target.orderType);
                         fdMaterial.append('item_id', pm.item_id);
                         fdMaterial.append('quantity', pm.qty);
                         fdMaterial.append('uom', pm.uom);
@@ -3875,8 +3889,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                     if (inkPayload.length > 0) {
                         const fdInk = new FormData();
                         fdInk.append('action', 'save_ink_usage');
-                        fdInk.append('order_id', jid);
-                        fdInk.append('order_type', 'JOB');
+                        fdInk.append('order_id', target.orderId);
+                        fdInk.append('order_type', target.orderType);
                         fdInk.append('ink_data', JSON.stringify(inkPayload));
                         const inkRes = await (await fetch(this.adminApiUrl('job_orders_api.php'), { method: 'POST', body: fdInk })).json();
                         if (!inkRes.success) {
@@ -3936,11 +3950,12 @@ window.pfCustomizationPreloadedOrders = (() => {
                     }
                     return;
                 }
-                const jid = await this.resolveEffectiveJobId();
-                if (!jid) {
+                const target = await this.getProductionAssignmentTarget();
+                if (!target.jobId) {
                     this.setFooterActionError('No linked production job was found for this order.');
                     return;
                 }
+                const jid = target.jobId;
                 const userEnteredPrice = parseFloat(this.jobPriceInput);
                 console.log('User entered price (captured early):', userEnteredPrice);
                 const urlParams = new URLSearchParams(window.location.search);
@@ -3959,8 +3974,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 for (const pm of materialsToSave) {
                     const fd = new FormData();
                     fd.append('action', 'add_material');
-                    fd.append('order_id', jid);
-                    fd.append('order_type', 'JOB');
+                    fd.append('order_id', target.orderId);
+                    fd.append('order_type', target.orderType);
                     fd.append('item_id', pm.item_id);
                     fd.append('quantity', pm.qty);
                     fd.append('uom', pm.uom);
@@ -3974,8 +3989,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 if (inkPayload.length > 0) {
                     const fdInk = new FormData();
                     fdInk.append('action', 'save_ink_usage');
-                    fdInk.append('order_id', jid);
-                    fdInk.append('order_type', 'JOB');
+                    fdInk.append('order_id', target.orderId);
+                    fdInk.append('order_type', target.orderType);
                     fdInk.append('ink_data', JSON.stringify(inkPayload));
                     const resInk = await (await fetch('../admin/job_orders_api.php', { method: 'POST', body: fdInk })).json();
                     if (!resInk.success) {
@@ -4204,15 +4219,17 @@ window.pfCustomizationPreloadedOrders = (() => {
                     return;
                 }
                 this.newMaterialQty = normalizedQty;
-                const jid = await this.resolveEffectiveJobId();
-                if (!jid) {
+                const target = await this.getProductionAssignmentTarget();
+                if (!target.jobId) {
                     this.showStaffAlert('Error', 'No linked production job.');
                     return;
                 }
+                const jid = target.jobId;
                 const item = this.allInventoryItems.find(i => i.id == this.newMaterialId);
                 const fd = new FormData();
                 fd.append('action', 'add_material');
-                fd.append('order_id', jid);
+                fd.append('order_id', target.orderId);
+                fd.append('order_type', target.orderType);
                 fd.append('item_id', this.newMaterialId);
                 fd.append('quantity', normalizedQty);
                 fd.append('uom', this.getMaterialEntryUom(this.newMaterialId));
