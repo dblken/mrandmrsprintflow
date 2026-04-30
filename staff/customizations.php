@@ -1112,23 +1112,23 @@ if ($showLatestCustomizationOnly) {
                 </div>
                 <div class="kpi-card amber">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">Pending / Approved</span>
-                        <span class="kpi-value"><?php echo number_format($pending_approved_jobs); ?></span>
-                        <span class="kpi-sub">Awaiting production</span>
+                        <span class="kpi-label">Pending Approval</span>
+                        <span class="kpi-value"><?php echo number_format($pending_jobs); ?></span>
+                        <span class="kpi-sub">Awaiting review</span>
                     </span>
                 </div>
                 <div class="kpi-card blue">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">In Production</span>
-                        <span class="kpi-value"><?php echo number_format($in_production); ?></span>
-                        <span class="kpi-sub">Currently printing</span>
+                        <span class="kpi-label">Approved</span>
+                        <span class="kpi-value"><?php echo number_format($approval_jobs); ?></span>
+                        <span class="kpi-sub">Ready for production</span>
                     </span>
                 </div>
                 <div class="kpi-card emerald">
                     <span class="kpi-card-inner">
-                        <span class="kpi-label">Completed</span>
-                        <span class="kpi-value"><?php echo number_format($completed_jobs); ?></span>
-                        <span class="kpi-sub">Finished orders</span>
+                        <span class="kpi-label">In Production</span>
+                        <span class="kpi-value"><?php echo number_format($in_production); ?></span>
+                        <span class="kpi-sub">Active task tracks</span>
                     </span>
                 </div>
             </div>
