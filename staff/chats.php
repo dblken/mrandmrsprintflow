@@ -147,7 +147,7 @@ $current_user = get_logged_in_user();
         .bubble-row.other .bubble { background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 18px 18px 18px 4px; }
         .bubble-row.system .bubble { background: #fff; color: #1e293b; border: 1px solid #e2e8f0; border-radius: 18px 18px 18px 4px; font-size: 0.92rem; font-weight: 500; padding: 6px 12px; }
 
-        .bubble-meta { font-size: 0.65rem; color: #94a3b8; font-weight: 700; margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+        .bubble-meta { font-size: 0.65rem; color: #94a3b8; font-weight: 700; margin-top: 2px; display: flex; align-items: center; gap: 6px; line-height: 1.1; }
         .bubble-row.self .bubble-meta { justify-content: flex-end; }
 
         /* Order Update Message Styles */
@@ -600,8 +600,8 @@ $current_user = get_logged_in_user();
         .reaction-btn:hover { transform: scale(1.2); background: #f8fafc; }
 
         .reaction-display-container {
-            margin-top: 6px;
-            min-height: 22px;
+            margin-top: 2px;
+            min-height: 18px;
             display: none;
             z-index: 12;
             position: relative;
@@ -614,7 +614,7 @@ $current_user = get_logged_in_user();
             background: #fff; border: 1px solid #e2e8f0;
             border-radius: 999px; padding: 1px 5px;
             box-shadow: 0 6px 14px rgba(15,23,42,0.18);
-            cursor: default; white-space: nowrap; width: max-content; max-width: 100%; min-height: 20px;
+            cursor: default; white-space: nowrap; width: max-content; max-width: 100%; min-height: 18px;
             margin-top: 0;
         }
         .reaction-bubble {
@@ -633,7 +633,7 @@ $current_user = get_logged_in_user();
         }
 
         /* Seen Indicators (Messenger Style) */
-        .seen-wrapper { display:flex; width:100%; margin-top:2px; min-height:16px; align-items:center; }
+        .seen-wrapper { display:flex; width:100%; margin-top:0; min-height:12px; align-items:center; }
         .bubble-row.self .seen-wrapper { justify-content: flex-end; }
         .seen-avatar { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; border: 1px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
