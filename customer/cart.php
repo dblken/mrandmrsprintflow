@@ -124,8 +124,8 @@ require_once __DIR__ . '/../includes/header.php';
         color: #1e293b !important;
     }
     .cart-theme-page .cart-row td:nth-child(2) {
-        width: 44%;
-        overflow: hidden;
+        position: relative;
+        padding-right: 6.5rem !important;
     }
     .cart-theme-page .cart-row:hover {
         background: #f1f5f9 !important;
@@ -214,6 +214,7 @@ require_once __DIR__ . '/../includes/header.php';
     .cart-item-meta {
         flex: 1;
         min-width: 0;
+        max-width: 100%;
     }
 
     .cart-item-name {
@@ -222,7 +223,6 @@ require_once __DIR__ . '/../includes/header.php';
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        padding-right: 4rem;
         font-weight: 600;
         color: #0f172a;
     }
@@ -325,6 +325,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         .cart-theme-page .cart-row td:nth-child(2) {
             padding-left: 2rem !important;
+            padding-right: 0.5rem !important;
             padding-bottom: 0.4rem !important;
             margin-bottom: 0.4rem;
             border-bottom: 1px solid #e2e8f0 !important;
@@ -350,9 +351,14 @@ require_once __DIR__ . '/../includes/header.php';
             min-width: 0;
             overflow: hidden;
         }
-        
+
+        .cart-item-meta {
+            padding-right: 3.25rem;
+        }
+
         /* Product name - keep a single line so long titles do not push the layout */
-        .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child {
+        .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child,
+        .cart-item-name {
             font-size: 0.85rem !important;
             font-weight: 600 !important;
             line-height: 1.3;
