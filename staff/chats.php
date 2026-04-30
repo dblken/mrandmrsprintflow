@@ -599,7 +599,13 @@ $current_user = get_logged_in_user();
         }
         .reaction-btn:hover { transform: scale(1.2); background: #f8fafc; }
 
-        .reaction-display-container { margin-top: 0; display: none; z-index: 12; position: relative; }
+        .reaction-display-container {
+            margin-top: 6px;
+            min-height: 22px;
+            display: none;
+            z-index: 12;
+            position: relative;
+        }
         .bubble-row.self .reaction-display-container { align-self: flex-end; margin-right: 10px; }
         .bubble-row.other .reaction-display-container { align-self: flex-start; margin-left: 10px; }
         .reaction-display {
@@ -609,7 +615,7 @@ $current_user = get_logged_in_user();
             border-radius: 999px; padding: 1px 5px;
             box-shadow: 0 6px 14px rgba(15,23,42,0.18);
             cursor: default; white-space: nowrap; width: max-content; max-width: 100%; min-height: 20px;
-            margin-top: -10px;
+            margin-top: 0;
         }
         .reaction-bubble {
             display: inline-flex; align-items: center; gap: 2px;
