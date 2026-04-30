@@ -2521,32 +2521,74 @@ if (!window.__pfCustomerChatCloseMenusBound) {
     });
 }
 
+// ── Customer-side call toast (no dependency on staff/admin showToast) ──────────
+function _pfCallToast(msg, kind) {
+    const colors = { error: '#ef4444', warning: '#f59e0b', info: '#0ea5a5' };
+    const bg = colors[kind] || colors.info;
+    const el = document.createElement('div');
+    el.style.cssText = `position:fixed;top:24px;left:50%;transform:translateX(-50%);
+        background:${bg};color:#fff;padding:10px 22px;border-radius:12px;
+        font-size:0.88rem;font-weight:700;z-index:99999;box-shadow:0 8px 24px rgba(0,0,0,0.18);
+        pointer-events:none;transition:opacity 0.4s;`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 3500);
+}
+
 function initiateCall(type) {
     if (!activeId) return;
-    // Sync activeId for call logging
+
+    // Sync activeId for call event logging
     if (!window.PFCallState) window.PFCallState = {};
     window.PFCallState.activeId = activeId;
-    const fd = new FormData(); fd.append('order_id', activeId);
-    api('/public/api/chat/status.php','POST',fd).then(res => {
-        if (!res || !res.partner) {
-            alert('Staff is unavailable right now.');
+
+    // Check if PFCall system is ready; if not, wait and retry (mirrors staff-side logic)
+    if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
+        console.warn('[PFCall] System not ready, waiting before customer call...');
+        const handler = () => initiateCall(type);
+        window.addEventListener('PFCallGlobalReady', handler, { once: true });
+        return;
+    }
+
+    // Use the reliable get_call_partner API — NOT status.php whose user_status
+    // table only updates when staff is actively on the chat page.
+    const fd = new FormData();
+    fd.append('order_id', activeId);
+    api('/public/api/chat/get_call_partner.php', 'POST', fd).then(res => {
+        if (!res || !res.success) {
+            console.error('[PFCall] get_call_partner failed:', res?.error);
+            _pfCallToast('Could not initiate call. Please try again.', 'error');
             return;
         }
-        if (!window.PFCallState) window.PFCallState = {};
-        const partnerAvatar = resolveProfileUrl(res.partner.avatar);
+
+        // If no partner resolved from DB, fall back to cached data from openChat()
+        let partner = res.partner;
+        if (!partner || !partner.id) {
+            const cached = window.PFCallState?.activePartner;
+            if (cached && cached.id) {
+                partner = cached;
+            } else {
+                _pfCallToast('No staff member is assigned to this order yet.', 'warning');
+                return;
+            }
+        }
+
+        const partnerAvatar = resolveProfileUrl(partner.avatar);
+        const partnerName   = partner.name || document.getElementById('hName')?.textContent || 'PrintFlow Team';
+
+        // Store for use by the call overlay / ring UI
         window.PFCallState.activePartner = {
-            id: res.partner.id,
-            type: 'Staff',
-            name: res.partner.name || document.getElementById('hName')?.textContent || 'PrintFlow Team',
+            id:     partner.id,
+            type:   'Staff',
+            name:   partnerName,
             avatar: partnerAvatar || partnerAvatarUrl || ''
         };
-        window.PFCall.startCall(
-            res.partner.id,
-            'Staff',
-            res.partner.name,
-            partnerAvatar,
-            type
-        );
+
+        // Initiate — socket server handles offline/busy detection via pf-call-error
+        window.PFCall.startCall(partner.id, 'Staff', partnerName, partnerAvatar, type);
+    }).catch(err => {
+        console.error('[PFCall] Network error on get_call_partner:', err);
+        _pfCallToast('Network error. Please check your connection.', 'error');
     });
 }
 
