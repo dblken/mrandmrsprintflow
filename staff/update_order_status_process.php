@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/branch_context.php';
 require_once __DIR__ . '/../includes/product_branch_stock.php';
 require_once __DIR__ . '/../includes/InventoryManager.php';
+require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role(['Staff', 'Admin', 'Manager']);
 
@@ -42,7 +43,26 @@ if (empty($order_row)) {
 
 $old_status  = $order_row[0]['status'];
 $customer_id = (int)($order_row[0]['customer_id'] ?? 0);
-$is_product_order = ($order_row[0]['order_type'] ?? '') === 'product';
+$order_type = strtolower(trim((string)($order_row[0]['order_type'] ?? '')));
+$is_product_order = $order_type === 'product';
+$is_service_order = $order_type === 'custom';
+
+// Service/custom orders must flow through job_orders so material deductions
+// and inventory ledger writes stay consistent for POS and online jobs.
+if ($is_service_order && $new_status === 'Completed' && $old_status !== 'Completed') {
+    try {
+        $updatedJobs = JobOrderService::syncStoreOrderToStatus($order_id, 'COMPLETED');
+        echo json_encode([
+            'success' => true,
+            'message' => 'Service order marked as Completed',
+            'job_ids' => $updatedJobs
+        ]);
+        exit;
+    } catch (Throwable $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
 
 
 // 2. Update Status
