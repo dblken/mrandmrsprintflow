@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
+require_once __DIR__ . '/../includes/require_id_verified.php';
 
 function checkout_item_is_service(array $item): bool {
     $custom = $item['customization'] ?? [];
