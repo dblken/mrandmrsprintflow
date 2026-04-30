@@ -2420,7 +2420,7 @@ window.pfCustomizationPreloadedOrders = (() => {
             clearDeepLinkParams() {
                 try {
                     const url = new URL(window.location.href);
-                    ['order_id', 'status', 'job_type'].forEach(key => url.searchParams.delete(key));
+                    ['order_id', 'status', 'job_type', 'source_order_id', 'return_to_pos'].forEach(key => url.searchParams.delete(key));
                     window.history.replaceState({}, document.title, url.toString());
                 } catch (e) {
                     console.warn('Unable to clear customization deep-link params', e);
@@ -2982,7 +2982,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                 // Auto-open modal if order_id is in URL
                 const params = new URLSearchParams(window.location.search);
                 const orderId = params.get('order_id');
+                const sourceOrderId = params.get('source_order_id');
                 const initialStatus = params.get('status');
+                const returnToPOS = params.get('return_to_pos') === '1';
 
                 if (initialStatus) {
                     // Map common statuses to tabs
@@ -3004,12 +3006,28 @@ window.pfCustomizationPreloadedOrders = (() => {
                         // If we have an order_id but the status doesn't match a tab, default to ALL to ensure it's found
                         this.activeStatus = 'ALL';
                     }
+                } else if (returnToPOS && sourceOrderId) {
+                    this.activeStatus = 'APPROVED';
                 }
 
                 if (orderId) {
                     const jobType = params.get('job_type') || 'JOB';
                     await this.viewDetails(parseInt(orderId, 10), jobType);
                     this.clearDeepLinkParams();
+                } else if (sourceOrderId) {
+                    const parsedSourceOrderId = parseInt(sourceOrderId, 10);
+                    if (!Number.isNaN(parsedSourceOrderId) && parsedSourceOrderId > 0) {
+                        const resolved = await this.parseJsonResponse(
+                            await fetch(this.adminApiUrl(`job_orders_api.php?action=resolve_job_for_order&order_id=${encodeURIComponent(parsedSourceOrderId)}`))
+                        );
+
+                        if (resolved.success && resolved.job_id) {
+                            await this.viewDetails(parseInt(resolved.job_id, 10), 'JOB');
+                        } else {
+                            await this.viewDetails(parsedSourceOrderId, 'ORDER');
+                        }
+                        this.clearDeepLinkParams();
+                    }
                 }
             },
 
