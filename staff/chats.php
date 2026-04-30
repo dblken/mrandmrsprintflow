@@ -597,14 +597,15 @@ $current_user = get_logged_in_user();
         }
         .reaction-btn:hover { transform: scale(1.2); background: #f8fafc; }
 
-        .reaction-display-container { margin-top: -10px; display: none; z-index: 12; position: relative; }
-        .bubble-row.self .reaction-display-container { align-self: flex-end; margin-right: 10px; }
-        .bubble-row.other .reaction-display-container { align-self: flex-start; margin-left: 10px; }
+        .reaction-display-container { margin-top: -10px; display: none; z-index: 12; position: relative; width: 100%; }
+        .bubble-row.self .reaction-display-container { align-self: flex-end; text-align: right; padding-right: 10px; }
+        .bubble-row.other .reaction-display-container { align-self: flex-start; text-align: left; padding-left: 10px; }
         .reaction-display {
-            display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap;
+            display: inline-flex; align-items: center; gap: 2px; flex-wrap: nowrap;
             background: #fff; border: 1px solid #e2e8f0;
             border-radius: 999px; padding: 1px 5px;
             box-shadow: 0 6px 14px rgba(15,23,42,0.18);
+            white-space: nowrap; width: max-content; max-width: 100%; min-height: 20px;
         }
         .reaction-bubble {
             display: inline-flex; align-items: center; gap: 2px;
