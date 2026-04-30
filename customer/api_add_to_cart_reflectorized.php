@@ -8,6 +8,26 @@ require_once __DIR__ . '/../includes/service_order_helper.php';
 
 header('Content-Type: application/json');
 
+function reflectorized_redirect_url(string $path, array $query = []): string {
+    $base = rtrim((string)(defined('BASE_URL') ? BASE_URL : (function_exists('pf_app_base_path') ? pf_app_base_path() : '')), '/');
+    $path = '/' . ltrim($path, '/');
+    $relative = $base . $path;
+    if (!empty($query)) {
+        $relative .= '?' . http_build_query($query);
+    }
+
+    $host = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === '') {
+        return $relative;
+    }
+
+    $is_https = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+        || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443
+        || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+
+    return ($is_https ? 'https://' : 'http://') . $host . $relative;
+}
+
 if (!is_logged_in() || !is_customer()) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized access.']);
     exit;
@@ -152,5 +172,10 @@ $cart_item = [
 
 $_SESSION['cart'][$item_key] = $cart_item;
 
-echo json_encode(['success' => true, 'item_key' => $item_key]);
+echo json_encode([
+    'success' => true,
+    'item_key' => $item_key,
+    'redirect_url' => reflectorized_redirect_url('/customer/order_review.php', ['item' => $item_key]),
+    'cart_url' => reflectorized_redirect_url('/customer/cart.php'),
+]);
 
