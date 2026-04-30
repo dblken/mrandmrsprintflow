@@ -875,6 +875,75 @@ try {
             $items[0]['product_name'] = $summary['job_title'];
             $items[0]['quantity'] = $summary['quantity'];
 
+            if (!empty($cust['order_id'])) {
+                $linked_job_candidates = db_query(
+                    "SELECT id FROM job_orders WHERE order_id = ? ORDER BY id ASC",
+                    'i',
+                    [(int)$cust['order_id']]
+                ) ?: [];
+
+                if (!empty($linked_job_candidates)) {
+                    $targetService = strtoupper(trim((string)($summary['service_type'] ?? '')));
+                    $targetTitle = strtoupper(trim((string)($summary['job_title'] ?? '')));
+                    $targetQty = (int)($summary['quantity'] ?? 0);
+                    $targetWidth = (string)($summary['width_ft'] ?? '');
+                    $targetHeight = (string)($summary['height_ft'] ?? '');
+
+                    $bestJob = null;
+                    $bestScore = -1;
+                    foreach ($linked_job_candidates as $linked_job_row) {
+                        $candidateId = (int)($linked_job_row['id'] ?? 0);
+                        if ($candidateId <= 0) {
+                            continue;
+                        }
+                        $candidateJob = JobOrderService::getOrder($candidateId);
+                        if (!$candidateJob) {
+                            continue;
+                        }
+
+                        $score = 0;
+                        $candidateService = strtoupper(trim((string)($candidateJob['service_type'] ?? '')));
+                        $candidateTitle = strtoupper(trim((string)($candidateJob['job_title'] ?? '')));
+                        if ($targetService !== '' && $candidateService === $targetService) {
+                            $score += 6;
+                        } elseif ($targetService !== '' && $candidateService !== '' && (
+                            strpos($candidateService, $targetService) !== false ||
+                            strpos($targetService, $candidateService) !== false
+                        )) {
+                            $score += 4;
+                        }
+
+                        if ($targetTitle !== '' && $candidateTitle === $targetTitle) {
+                            $score += 5;
+                        } elseif ($targetTitle !== '' && $candidateTitle !== '' && (
+                            strpos($candidateTitle, $targetTitle) !== false ||
+                            strpos($targetTitle, $candidateTitle) !== false
+                        )) {
+                            $score += 3;
+                        }
+
+                        if ($targetQty > 0 && (int)($candidateJob['quantity'] ?? 0) === $targetQty) {
+                            $score += 2;
+                        }
+                        if ($targetWidth !== '' && $targetHeight !== '' &&
+                            (string)($candidateJob['width_ft'] ?? '') === $targetWidth &&
+                            (string)($candidateJob['height_ft'] ?? '') === $targetHeight) {
+                            $score += 2;
+                        }
+
+                        if ($score > $bestScore) {
+                            $bestScore = $score;
+                            $bestJob = $candidateJob;
+                        }
+                    }
+
+                    if ($bestJob) {
+                        $linked_job = $bestJob;
+                        $linked_job_id = (int)($bestJob['id'] ?? 0);
+                    }
+                }
+            }
+
             $data = [
                 'id'                       => $cust['customization_id'],
                 'order_id'                 => $cust['order_id'],
