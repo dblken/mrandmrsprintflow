@@ -104,19 +104,22 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
                 if (window.PFCall && typeof window.PFCall.init === "function") {
                     window.__PFCallBootstrapped = true;
                     <?php 
-                        $curr_u = function_exists('get_logged_in_user') ? get_logged_in_user() : null;
-                        $uid = function_exists('get_user_id') ? get_user_id() : null;
-                        $utype = function_exists('get_user_type') ? get_user_type() : null;
+                        $uid = $_SESSION['user_id'] ?? null;
+                        $uname = $_SESSION['user_name'] ?? 'User';
+                        $utype = $_SESSION['user_type'] ?? null;
+                        $uavatar = $_SESSION['user_profile_picture'] ?? '';
+                        // Canonicalize Admin/Manager/Staff to 'Staff' for signaling
+                        $call_utype = ($utype === 'Customer') ? 'Customer' : 'Staff';
                     ?>
                     window.PFCall.init({
                         userId: <?php echo json_encode($uid); ?>,
-                        userType: <?php echo json_encode($utype); ?>,
-                        userName: <?php echo json_encode($curr_u['full_name'] ?? 'User'); ?>,
-                        userAvatar: <?php echo json_encode(function_exists('get_profile_image') ? get_profile_image($curr_u['profile_picture'] ?? '') : ''); ?>,
-                        basePath: <?php echo json_encode($base_path); ?>
+                        userType: <?php echo json_encode($call_utype); ?>,
+                        userName: <?php echo json_encode($uname); ?>,
+                        userAvatar: <?php echo json_encode(function_exists('get_profile_image') ? get_profile_image($uavatar) : $uavatar); ?>,
+                        basePath: <?php echo json_encode($__pf_base_path); ?>
                     });
                 } else {
-                    setTimeout(initPFCallGlobal, 200);
+                    setTimeout(initPFCallGlobal, 500);
                 }
             }
             if (document.readyState === 'loading') {

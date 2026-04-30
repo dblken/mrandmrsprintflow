@@ -207,21 +207,26 @@ $url_google_auth    = $base_url . '/public/google-auth.php';
         <script>
         (function() {
             function initPFCall() {
-                if (window.__PFCallBootstrapped) {
-                    return;
-                }
+                if (window.__PFCallBootstrapped) return;
                 if (window.PFCall && typeof window.PFCall.init === "function") {
                     window.__PFCallBootstrapped = true;
+                    <?php 
+                        $uid = $_SESSION['user_id'] ?? null;
+                        $uname = $_SESSION['user_name'] ?? 'User';
+                        $utype = $_SESSION['user_type'] ?? null;
+                        $uavatar = $_SESSION['user_profile_picture'] ?? '';
+                        $call_utype = ($utype === 'Customer') ? 'Customer' : 'Staff';
+                    ?>
                     window.PFCall.init({
-                        userId: <?php echo json_encode(get_user_id()); ?>,
-                        userType: <?php echo json_encode(get_user_type()); ?>,
-                        userName: <?php echo json_encode($current_user['full_name'] ?? 'User'); ?>,
-                        userAvatar: <?php echo json_encode($current_user['avatar'] ?? ''); ?>,
+                        userId: <?php echo json_encode($uid); ?>,
+                        userType: <?php echo json_encode($call_utype); ?>,
+                        userName: <?php echo json_encode($uname); ?>,
+                        userAvatar: <?php echo json_encode(function_exists('get_profile_image') ? get_profile_image($uavatar) : $uavatar); ?>,
                         basePath: <?php echo json_encode($base_path); ?>
                     });
                     document.dispatchEvent(new CustomEvent('PFCallGlobalReady'));
                 } else {
-                    setTimeout(initPFCall, 100);
+                    setTimeout(initPFCall, 500);
                 }
             }
             if (document.readyState === 'loading') {

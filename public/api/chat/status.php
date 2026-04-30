@@ -62,10 +62,10 @@ if ($user_type === 'Customer') {
         FROM users u 
         WHERE u.user_id = (
             SELECT COALESCE(
-                (SELECT jo.assigned_to FROM job_orders jo WHERE jo.order_id = ? AND jo.assigned_to IS NOT NULL ORDER BY jo.updated_at DESC LIMIT 1),
+                (SELECT us.user_id FROM user_status us WHERE us.order_id = ? AND us.user_type = 'Staff' AND us.last_activity >= NOW() - INTERVAL 5 MINUTE ORDER BY us.last_activity DESC LIMIT 1),
                 (SELECT m.sender_id FROM order_messages m WHERE m.order_id = ? AND m.sender_id > 0 AND m.sender = 'Staff' ORDER BY m.message_id DESC LIMIT 1),
-                (SELECT us.user_id FROM user_status us WHERE us.order_id = ? AND us.user_type = 'Staff' ORDER BY us.last_activity DESC LIMIT 1),
-                (SELECT u2.user_id FROM users u2 JOIN orders o ON o.branch_id = u2.branch_id WHERE o.order_id = ? AND u2.role IN ('Staff','Manager','Admin') ORDER BY u2.online_status = 'online' DESC, u2.user_id ASC LIMIT 1)
+                (SELECT jo.assigned_to FROM job_orders jo WHERE jo.order_id = ? AND jo.assigned_to IS NOT NULL ORDER BY jo.updated_at DESC LIMIT 1),
+                (SELECT u2.user_id FROM users u2 JOIN orders o ON o.branch_id = u2.branch_id WHERE o.order_id = ? AND u2.role IN ('Staff','Manager','Admin') ORDER BY (u2.last_activity >= NOW() - INTERVAL 5 MINUTE) DESC, u2.user_id ASC LIMIT 1)
             )
         ) LIMIT 1";
     
