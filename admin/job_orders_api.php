@@ -1006,26 +1006,29 @@ try {
             $linked_job_ids = array_values(array_filter(array_map(static function ($row) {
                 return (int)($row['id'] ?? 0);
             }, $linked_job_rows)));
+
+            $materialClauses = [];
+            $materialParams = [];
+            $materialTypes = '';
             if (!empty($linked_job_ids)) {
                 $jobIdPlaceholders = implode(',', array_fill(0, count($linked_job_ids), '?'));
-                $jobIdTypes = str_repeat('i', count($linked_job_ids));
-
-                $materialWhere = "m.job_order_id IN ($jobIdPlaceholders)";
-                $materialParams = $linked_job_ids;
-                $materialTypes = $jobIdTypes;
-                if (db_table_has_column('job_order_materials', 'std_order_id')) {
-                    $materialWhere .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
-                    $materialParams[] = $order_id;
-                    $materialTypes .= 'i';
-                }
-
+                $materialClauses[] = "m.job_order_id IN ($jobIdPlaceholders)";
+                $materialParams = array_merge($materialParams, $linked_job_ids);
+                $materialTypes .= str_repeat('i', count($linked_job_ids));
+            }
+            if (db_table_has_column('job_order_materials', 'std_order_id')) {
+                $materialClauses[] = "(m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+                $materialParams[] = $order_id;
+                $materialTypes .= 'i';
+            }
+            if (!empty($materialClauses)) {
                 $linked_job_materials = db_query(
                     "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code,
                             (SELECT SUM(IF(direction='IN', quantity, -quantity)) FROM inventory_transactions WHERE item_id = m.item_id) as total_stock
                      FROM job_order_materials m
                      JOIN inv_items i ON m.item_id = i.id
                      LEFT JOIN inv_rolls r ON m.roll_id = r.id
-                     WHERE $materialWhere",
+                     WHERE " . implode(' OR ', $materialClauses),
                     $materialTypes,
                     $materialParams
                 ) ?: [];
@@ -1033,21 +1036,28 @@ try {
                     $material['metadata'] = $material['metadata'] ? json_decode($material['metadata'], true) : null;
                 }
                 unset($material);
+            }
 
-                $inkWhere = "u.job_order_id IN ($jobIdPlaceholders)";
-                $inkParams = $linked_job_ids;
-                $inkTypes = $jobIdTypes;
-                if (db_table_has_column('job_order_ink_usage', 'std_order_id')) {
-                    $inkWhere .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
-                    $inkParams[] = $order_id;
-                    $inkTypes .= 'i';
-                }
-
+            $inkClauses = [];
+            $inkParams = [];
+            $inkTypes = '';
+            if (!empty($linked_job_ids)) {
+                $jobIdPlaceholders = implode(',', array_fill(0, count($linked_job_ids), '?'));
+                $inkClauses[] = "u.job_order_id IN ($jobIdPlaceholders)";
+                $inkParams = array_merge($inkParams, $linked_job_ids);
+                $inkTypes .= str_repeat('i', count($linked_job_ids));
+            }
+            if (db_table_has_column('job_order_ink_usage', 'std_order_id')) {
+                $inkClauses[] = "(u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+                $inkParams[] = $order_id;
+                $inkTypes .= 'i';
+            }
+            if (!empty($inkClauses)) {
                 $linked_job_ink_usage = db_query(
                     "SELECT u.*, i.name as item_name
                      FROM job_order_ink_usage u
                      JOIN inv_items i ON u.item_id = i.id
-                     WHERE $inkWhere",
+                     WHERE " . implode(' OR ', $inkClauses),
                     $inkTypes,
                     $inkParams
                 ) ?: [];

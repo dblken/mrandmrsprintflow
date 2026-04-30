@@ -3436,6 +3436,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                     if (!this.currentJo.job_order_id) {
                         await this.resolveEffectiveJobId();
                     }
+                    if ((!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
+                        await this.refreshMaterials();
+                    }
                     this.loadingDetails = false;
                 } else {
                     // JOB ORDER
