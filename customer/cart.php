@@ -780,15 +780,29 @@ require_once __DIR__ . '/../includes/header.php';
                                     $item_type_border = ($item_origin === 'Product') ? 'rgba(16, 185, 129, 0.5)' : 'rgba(168, 85, 247, 0.5)';
                                     $item_type_text = ($item_origin === 'Product') ? '#065f46' : '#581c87';
                                     $item_name = (string)($item['name'] ?? 'Unknown Product');
-                                    $item_name_limit = 15;
-                                    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-                                        $item_display_name = mb_strlen($item_name) > $item_name_limit
-                                            ? mb_substr($item_name, 0, $item_name_limit) . '...'
-                                            : $item_name;
+                                    $item_name_limit = 18;
+                                    if (function_exists('mb_strlen') && function_exists('mb_substr') && function_exists('mb_strrpos')) {
+                                        if (mb_strlen($item_name) > $item_name_limit) {
+                                            $item_preview = trim(mb_substr($item_name, 0, $item_name_limit));
+                                            $last_space = mb_strrpos($item_preview, ' ');
+                                            if ($last_space !== false && $last_space >= 8) {
+                                                $item_preview = trim(mb_substr($item_preview, 0, $last_space));
+                                            }
+                                            $item_display_name = rtrim($item_preview, " .,") . '...';
+                                        } else {
+                                            $item_display_name = $item_name;
+                                        }
                                     } else {
-                                        $item_display_name = strlen($item_name) > $item_name_limit
-                                            ? substr($item_name, 0, $item_name_limit) . '...'
-                                            : $item_name;
+                                        if (strlen($item_name) > $item_name_limit) {
+                                            $item_preview = trim(substr($item_name, 0, $item_name_limit));
+                                            $last_space = strrpos($item_preview, ' ');
+                                            if ($last_space !== false && $last_space >= 8) {
+                                                $item_preview = trim(substr($item_preview, 0, $last_space));
+                                            }
+                                            $item_display_name = rtrim($item_preview, " .,") . '...';
+                                        } else {
+                                            $item_display_name = $item_name;
+                                        }
                                     }
                                     $item_category = (string)($item['category'] ?? '');
                                     $qty_for_edit = max(1, (int)($item['quantity'] ?? 1));
