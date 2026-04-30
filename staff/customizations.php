@@ -2119,6 +2119,8 @@ window.pfCustomizationPreloadedOrders = (() => {
             rejectPaymentModalError: '',
             previewFile: null,
             currentJo: {},
+            deepLinkExpectedStatus: '',
+            deepLinkSourceOrderId: '',
             availableRolls: {},
             allInventoryItems: [],
             inventoryPollMs: 20000,
@@ -2416,6 +2418,23 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const cb = this.alertModal.onClose;
                 this.alertModal.show = false;
                 if (typeof cb === 'function') cb();
+            },
+            applyPosSetPriceDeepLinkOverride(row) {
+                if (!row || !this.deepLinkExpectedStatus) return row;
+                const expected = String(this.deepLinkExpectedStatus || '').toUpperCase();
+                const current = String(row.status || '').toUpperCase();
+                const source = String(row.order_source || '').toLowerCase();
+                const sourceOrderId = String(this.deepLinkSourceOrderId || '').trim();
+                const rowOrderId = String(row.order_id || '').trim();
+                const isPos = source === 'pos' || source === 'walk-in';
+                const isMatchingOrder = sourceOrderId !== '' && rowOrderId !== '' && sourceOrderId === rowOrderId;
+                const isPendingLike = ['PENDING', 'PENDING_REVIEW', 'PENDING_APPROVAL', 'FOR_REVISION'].includes(current);
+
+                if (expected === 'APPROVED' && isPos && isMatchingOrder && isPendingLike) {
+                    return { ...row, status: 'APPROVED' };
+                }
+
+                return row;
             },
             clearDeepLinkParams() {
                 try {
@@ -2985,6 +3004,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const sourceOrderId = params.get('source_order_id');
                 const initialStatus = params.get('status');
                 const returnToPOS = params.get('return_to_pos') === '1';
+                this.deepLinkExpectedStatus = initialStatus ? initialStatus.toUpperCase().replace(/\s+/g, '_') : '';
+                this.deepLinkSourceOrderId = sourceOrderId || '';
 
                 if (initialStatus) {
                     // Map common statuses to tabs
@@ -3347,7 +3368,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                             await fetch(this.adminApiUrl(`job_orders_api.php?action=get_customization&id=${id}`))
                         );
                         if (detailRes.success) {
-                            this.currentJo = { ...detailRes.data, order_type: 'CUSTOMIZATION' };
+                            this.currentJo = this.applyPosSetPriceDeepLinkOverride({ ...detailRes.data, order_type: 'CUSTOMIZATION' });
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.final_price || 0;
@@ -3360,7 +3381,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${fallbackOrderId}`))
                             );
                             if (fallbackRes.success && fallbackRes.data) {
-                                this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo = this.applyPosSetPriceDeepLinkOverride({ ...fallbackRes.data, order_type: 'ORDER' });
                                 this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                                 this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                                 this.jobPriceInput = this.currentJo.final_price || 0;
@@ -3383,7 +3404,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 await fetch(this.adminApiUrl(`job_orders_api.php?action=get_regular_order&service_only=1&id=${fallbackOrderId}`))
                             );
                             if (fallbackRes.success && fallbackRes.data) {
-                                this.currentJo = { ...fallbackRes.data, order_type: 'ORDER' };
+                                this.currentJo = this.applyPosSetPriceDeepLinkOverride({ ...fallbackRes.data, order_type: 'ORDER' });
                                 this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                                 this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                                 this.jobPriceInput = this.currentJo.final_price || 0;
