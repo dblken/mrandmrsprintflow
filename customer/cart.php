@@ -351,15 +351,16 @@ require_once __DIR__ . '/../includes/header.php';
             overflow: hidden;
         }
         
-        /* Product name - allow wrapping */
+        /* Product name - keep a single line so long titles do not push the layout */
         .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child {
             font-size: 0.85rem !important;
             font-weight: 600 !important;
             line-height: 1.3;
             color: #0f172a !important;
             padding-right: 0 !important;
-            white-space: normal !important;
-            word-wrap: break-word;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
         
         /* Product badge - position in upper right */
