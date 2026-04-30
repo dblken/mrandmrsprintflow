@@ -1076,38 +1076,7 @@ try {
             $qty = (int)($_POST['quantity'] ?? 1);
             $notes = sanitize($_POST['notes'] ?? '');
             
-            // 1. Map Service to Materials (Auto-link required items)
-            require_once __DIR__ . '/../includes/ServiceAvailabilityChecker.php';
-            $materials_rules = db_query(
-                "SELECT item_id, rule_type FROM service_material_rules WHERE service_type = ?",
-                's', [$service]
-            ) ?: [];
-            
             $orderMaterials = [];
-            foreach ($materials_rules as $rule) {
-                $item = InventoryManager::getItem($rule['item_id']);
-                
-                // If the item is roll-tracked, only auto-link if the width matches
-                if ($item['track_by_roll']) {
-                    // We assume 'width_ft' is stored in inv_items or we infer from category
-                    // For now, let's check if the item name contains the width or if we can match it
-                    // A better way: check the 'default_roll_length_ft' or add a width column
-                    // Looking at the data, items 13, 14, 15 are 3ft, 4ft, 5ft
-                    $match = false;
-                    if (strpos($item['name'], (int)$width . 'FT') !== false) $match = true;
-                    if (strpos($item['name'], (int)$width . 'ft') !== false) $match = true;
-                    if ((int)$item['default_roll_length_ft'] == (int)$width) $match = true; // Fallback
-
-                    if (!$match) continue; 
-                }
-
-                $orderMaterials[] = [
-                    'item_id' => $rule['item_id'],
-                    'quantity' => $qty,
-                    'uom' => ($height > 0) ? 'ft' : 'pcs',
-                    'computed_len' => ($height > 0) ? ($height * $qty) : 0
-                ];
-            }
 
             $orderId = JobOrderService::createOrder([
                 'customer_id'     => ($_SESSION['user_type'] === 'Customer') ? $_SESSION['user_id'] : ($_POST['customer_id'] ?? null),

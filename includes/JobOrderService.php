@@ -126,6 +126,80 @@ class JobOrderService {
         return db_query($sql, $types, $params) ?: [];
     }
 
+    private static function cleanupLegacyAutoAssignedMaterials(int $jobId, int $storeOrderId = 0, string $serviceType = ''): void {
+        if ($jobId <= 0 || $storeOrderId <= 0 || $serviceType === '' || !self::tableHasColumn('job_order_materials', 'std_order_id')) {
+            return;
+        }
+
+        $orderRows = db_query(
+            "SELECT order_source, status FROM orders WHERE order_id = ? LIMIT 1",
+            'i',
+            [$storeOrderId]
+        ) ?: [];
+        $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? '')));
+        $orderStatus = strtolower(trim((string)($orderRows[0]['status'] ?? '')));
+        if (!in_array($orderSource, ['pos', 'walk-in'], true)) {
+            return;
+        }
+        if (in_array($orderStatus, ['processing', 'in production', 'printing', 'ready for pickup', 'completed'], true)) {
+            return;
+        }
+
+        $rules = db_query(
+            "SELECT item_id FROM service_material_rules WHERE service_type = ?",
+            's',
+            [$serviceType]
+        ) ?: [];
+        $ruleItemIds = array_values(array_filter(array_unique(array_map(static fn(array $row): int => (int)($row['item_id'] ?? 0), $rules))));
+        if (empty($ruleItemIds)) {
+            return;
+        }
+
+        $materials = db_query(
+            "SELECT id, item_id, roll_id, notes, metadata, deducted_at
+             FROM job_order_materials
+             WHERE (job_order_id = ? OR (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)))",
+            'ii',
+            [$jobId, $storeOrderId]
+        ) ?: [];
+        if (empty($materials)) {
+            return;
+        }
+
+        $candidateIds = [];
+        foreach ($materials as $material) {
+            $itemId = (int)($material['item_id'] ?? 0);
+            $rollId = (int)($material['roll_id'] ?? 0);
+            $notes = trim((string)($material['notes'] ?? ''));
+            $metadata = trim((string)($material['metadata'] ?? ''));
+            $deductedAt = trim((string)($material['deducted_at'] ?? ''));
+            $looksAutoAssigned =
+                in_array($itemId, $ruleItemIds, true) &&
+                $rollId === 0 &&
+                $notes === '' &&
+                ($metadata === '' || strtolower($metadata) === 'null') &&
+                $deductedAt === '';
+
+            if ($looksAutoAssigned) {
+                $candidateIds[] = (int)$material['id'];
+            }
+        }
+
+        if (empty($candidateIds) || count($candidateIds) !== count($materials)) {
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($candidateIds), '?'));
+        $types = str_repeat('i', count($candidateIds));
+        db_execute("DELETE FROM job_order_materials WHERE id IN ($placeholders)", $types, $candidateIds);
+        error_log(sprintf(
+            'PrintFlow Material Cleanup: removed %d legacy auto-assigned rows for job %d / order %d',
+            count($candidateIds),
+            $jobId,
+            $storeOrderId
+        ));
+    }
+
     private static function itemUsesLiters(array $item): bool {
         $uom = strtolower(trim((string)($item['unit_of_measure'] ?? '')));
         return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || (strpos($uom, 'liter') !== false) || (strpos($uom, '(l)') !== false);
@@ -303,36 +377,14 @@ class JobOrderService {
             $job_qty = (int)($item['quantity'] ?? 1);
             $unit_price = (float)($item['unit_price'] ?? 0);
 
-            // 1. Auto-link materials from rules (Heuristic for POS/Online orders)
+            // Do not auto-assign production materials during store/POS job creation.
+            // Materials must only be attached through explicit staff actions later.
             $autoMaterials = [];
-            try {
-                $rules = db_query("SELECT item_id, rule_type FROM service_material_rules WHERE service_type = ?", 's', [$service_type]) ?: [];
-                foreach ($rules as $rule) {
-                    $itemInv = InventoryManager::getItem($rule['item_id']);
-                    if (!$itemInv) continue;
-                    
-                    if ($itemInv['track_by_roll']) {
-                        $match = false;
-                        $iname = strtolower($itemInv['name']);
-                        // Check if item name or default length matches either dimension
-                        if (strpos($iname, (int)$width_ft . 'ft') !== false) $match = true;
-                        if (strpos($iname, (int)$height_ft . 'ft') !== false) $match = true;
-                        if ((int)($itemInv['default_roll_length_ft'] ?? 0) == (int)$width_ft) $match = true;
-                        if ((int)($itemInv['default_roll_length_ft'] ?? 0) == (int)$height_ft) $match = true;
-                        
-                        if (!$match) continue;
-                    }
-                    
-                    $autoMaterials[] = [
-                        'item_id' => $rule['item_id'],
-                        'quantity' => $job_qty,
-                        'uom' => ($height_ft > 0 || $width_ft > 0) ? 'ft' : 'pcs',
-                        'computed_len' => ($height_ft > 0) ? ($height_ft * $job_qty) : (($width_ft > 0) ? ($width_ft * $job_qty) : 0)
-                    ];
-                }
-            } catch (Throwable $matEx) {
-                error_log('PrintFlow AutoMaterial Error: ' . $matEx->getMessage());
-            }
+            error_log(sprintf(
+                'PrintFlow Material Assignment: skipped auto-assignment for store order %d (service: %s)',
+                $orderId,
+                $service_type
+            ));
 
             try {
                 $jid = self::createOrder([
@@ -417,7 +469,11 @@ class JobOrderService {
             }
         }
 
-        $metaJson = $metadata ? json_encode($metadata) : null;
+        if (!is_array($metadata)) {
+            $metadata = [];
+        }
+        $metadata['manual_assignment'] = true;
+        $metaJson = !empty($metadata) ? json_encode($metadata) : null;
 
         $colId = 'job_order_id';
         if ($orderType === 'ORDER' && self::tableHasColumn('job_order_materials', 'std_order_id')) {
@@ -952,6 +1008,7 @@ class JobOrderService {
             if (!empty($payload['service_type']) && (empty($order['service_type']) || $order['service_type'] === 'Custom Order')) {
                 $order['service_type'] = $payload['service_type'];
             }
+            self::cleanupLegacyAutoAssignedMaterials((int)$id, $storeOid, (string)($payload['service_type'] ?? $order['service_type'] ?? ''));
             $st = db_query('SELECT * FROM orders WHERE order_id = ? LIMIT 1', 'i', [$storeOid]);
             if (!empty($st)) {
                 $row = $st[0];

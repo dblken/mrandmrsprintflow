@@ -1124,7 +1124,8 @@ if ($initials === '') {
     <?php if ($is_logged_in && is_customer()): ?>
     (function pollCart() {
         var keepPolling = true;
-        fetch(basePath + '/customer/api_cart.php', {
+        var cartApiUrl = (window.PFConfig && window.PFConfig.apiCartUrl) || (basePath + '/customer/api_cart.php');
+        fetch(cartApiUrl, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({action: 'get_count', csrf_token: '<?php echo generate_csrf_token(); ?>'})
@@ -1134,10 +1135,21 @@ if ($initials === '') {
                 keepPolling = false;
                 return null;
             }
+            if (r.status === 404 || r.status === 503) {
+                keepPolling = false;
+                console.error('[Cart Poll] Cart API unavailable:', r.status, cartApiUrl);
+                return null;
+            }
+            if (!r.ok) {
+                console.warn('[Cart Poll] Cart API request failed:', r.status, cartApiUrl);
+                return null;
+            }
             return r.json();
         })
         .then(function(d){ if (d && d.success) window.updateCartBadge(d.cart_count); })
-        .catch(function(){})
+        .catch(function(err){
+            console.error('[Cart Poll] Network error while polling cart count:', err);
+        })
         .finally(function(){
             if (keepPolling) setTimeout(pollCart, 5000);
         });

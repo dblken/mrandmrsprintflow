@@ -1219,7 +1219,8 @@ function _ft_detect_social(string $url): array {
         userType: <?php echo json_encode($_pf_utype); ?>,
         sessionId: <?php echo json_encode(session_id()); ?>,
         basePath: <?php echo json_encode(isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')); ?>,
-        logoUrl: <?php echo json_encode($shop_logo_url); ?>
+        logoUrl: <?php echo json_encode($shop_logo_url); ?>,
+        apiCartUrl: <?php echo json_encode((isset($base_url) ? rtrim((string)$base_url, '/') : (defined('BASE_PATH') ? rtrim((string)BASE_PATH, '/') : '')) . '/customer/api_cart.php'); ?>
     });
     </script>
     <script>
