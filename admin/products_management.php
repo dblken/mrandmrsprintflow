@@ -1634,6 +1634,10 @@ if (isset($_GET['ajax'])) {
                                             </span>
                                         </td>
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                                            <?php if ($product['status'] !== 'Archived'): ?>
+                                            <button class="btn-action teal"
+                                                onclick='openProductModal("stock", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Add Stock</button>
+                                            <?php endif; ?>
                                             <button class="btn-action blue"
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
                                             <?php if (!$is_manager): ?>
@@ -1664,10 +1668,6 @@ if (isset($_GET['ajax'])) {
                                                     <button type="submit" name="delete_product" class="btn-action red">Delete</button>
                                                 </form>
                                             <?php endif; ?>
-                                            <?php endif; ?>
-                                            <?php if ($product['status'] !== 'Archived'): ?>
-                                            <button class="btn-action teal"
-                                                onclick='openProductModal("stock", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Add Stock</button>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -2114,6 +2114,17 @@ function pfSubmitStockOnlyForm() {
     HTMLFormElement.prototype.submit.call(form);
 }
 
+function pfEnsureStockOnlySubmitEnabled() {
+    var modeInput = document.getElementById('modal-mode-input');
+    var submitBtn = pfGetProductModalSubmitBtn();
+    if (!modeInput || !submitBtn) return;
+    if (modeInput.name !== 'add_product_stock') return;
+    submitBtn.disabled = false;
+    submitBtn.removeAttribute('disabled');
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+}
+
 /** Manager: show only product name + branch quantity + low stock; hide full catalog form and avoid duplicate POST names. */
 function pfManagerModalSetActive(active, product) {
     if (!window.PF_PRODUCTS_IS_MANAGER) return;
@@ -2278,6 +2289,13 @@ window.openProductModal = function openProductModal(mode, product) {
     if (typeof window.printflowProductFormValidationRun === 'function') {
         window.printflowProductFormValidationRun();
     }
+    if (mode === 'stock' && product) {
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                pfEnsureStockOnlySubmitEnabled();
+            });
+        });
+    }
     try {
         document.dispatchEvent(new CustomEvent('pf-product-modal-shown'));
     } catch (e) { /* ignore */ }
@@ -2340,8 +2358,20 @@ document.addEventListener('DOMContentLoaded', function() {
     var addQty = document.getElementById('stock-modal-add-qty');
     if (addQty && !addQty.dataset.pfStockPreviewBound) {
         addQty.dataset.pfStockPreviewBound = '1';
-        addQty.addEventListener('input', pfSyncStockOnlyResult);
-        addQty.addEventListener('change', pfSyncStockOnlyResult);
+        addQty.addEventListener('input', function() {
+            pfSyncStockOnlyResult();
+            pfEnsureStockOnlySubmitEnabled();
+        });
+        addQty.addEventListener('change', function() {
+            pfSyncStockOnlyResult();
+            pfEnsureStockOnlySubmitEnabled();
+        });
+    }
+    var lowLevel = document.getElementById('stock-modal-low-level');
+    if (lowLevel && !lowLevel.dataset.pfStockPreviewBound) {
+        lowLevel.dataset.pfStockPreviewBound = '1';
+        lowLevel.addEventListener('input', pfEnsureStockOnlySubmitEnabled);
+        lowLevel.addEventListener('change', pfEnsureStockOnlySubmitEnabled);
     }
 });
 
