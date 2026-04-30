@@ -1261,8 +1261,81 @@ try {
             if ($joStaffBranch !== null && !printflow_order_in_branch($order_id, $joStaffBranch)) {
                 throw new Exception("Unauthorized");
             }
+            $orderMetaRows = db_query(
+                "SELECT order_source, order_type, status
+                 FROM orders
+                 WHERE order_id = ?
+                 LIMIT 1",
+                'i',
+                [$order_id]
+            ) ?: [];
+            $orderMeta = $orderMetaRows[0] ?? [];
+
             $sql = "UPDATE orders SET total_amount = ? WHERE order_id = ?";
             $res = db_execute($sql, 'di', [$price, $order_id]);
+            db_execute('UPDATE order_items SET unit_price = ? WHERE order_id = ? LIMIT 1', 'di', [$price, $order_id]);
+
+            $linkedCustomizationRows = db_query(
+                "SELECT customization_id
+                 FROM customizations
+                 WHERE order_id = ?",
+                'i',
+                [$order_id]
+            ) ?: [];
+
+            $isPosCustomizationOrder =
+                !empty($linkedCustomizationRows) &&
+                strtolower(trim((string)($orderMeta['order_source'] ?? ''))) === 'pos';
+
+            if ($isPosCustomizationOrder) {
+                db_execute(
+                    "UPDATE customizations
+                     SET status = 'Approved', updated_at = NOW()
+                     WHERE order_id = ?
+                       AND status NOT IN ('Processing', 'In Production', 'Ready for Pickup', 'Ready For Pickup', 'Completed', 'Rejected', 'Cancelled')",
+                    'i',
+                    [$order_id]
+                );
+
+                db_execute(
+                    "UPDATE orders
+                     SET status = 'Approved'
+                     WHERE order_id = ?
+                       AND status NOT IN ('Processing', 'In Production', 'Printing', 'Ready for Pickup', 'Completed', 'Rejected', 'Cancelled')",
+                    'i',
+                    [$order_id]
+                );
+
+                JobOrderService::ensureJobsForStoreOrder($order_id);
+                $linkedJobs = db_query(
+                    "SELECT id, status
+                     FROM job_orders
+                     WHERE order_id = ?
+                       AND status NOT IN ('COMPLETED', 'CANCELLED')
+                     ORDER BY id ASC",
+                    'i',
+                    [$order_id]
+                ) ?: [];
+
+                foreach ($linkedJobs as $jobRow) {
+                    $jobId = (int)($jobRow['id'] ?? 0);
+                    if ($jobId <= 0) {
+                        continue;
+                    }
+
+                    db_execute(
+                        "UPDATE job_orders SET estimated_total = ?, required_payment = ? WHERE id = ?",
+                        'ddi',
+                        [$price, $price, $jobId]
+                    );
+
+                    $jobStatus = strtoupper(trim((string)($jobRow['status'] ?? '')));
+                    if (!in_array($jobStatus, ['IN_PRODUCTION', 'TO_RECEIVE', 'COMPLETED', 'CANCELLED'], true)) {
+                        JobOrderService::updateStatus($jobId, 'APPROVED');
+                    }
+                }
+            }
+
             jo_api_json_response(['success' => $res]);
             break;
 
