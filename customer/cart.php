@@ -782,7 +782,7 @@ require_once __DIR__ . '/../includes/header.php';
                                     $item_type_border = ($item_origin === 'Product') ? 'rgba(16, 185, 129, 0.5)' : 'rgba(168, 85, 247, 0.5)';
                                     $item_type_text = ($item_origin === 'Product') ? '#065f46' : '#581c87';
                                     $item_name = (string)($item['name'] ?? 'Unknown Product');
-                                    $item_name_limit = 15;
+                                    $item_name_limit = 24;
                                     if (function_exists('mb_strlen') && function_exists('mb_substr')) {
                                         $item_display_name = mb_strlen($item_name) > $item_name_limit
                                             ? mb_substr($item_name, 0, $item_name_limit) . '...'
