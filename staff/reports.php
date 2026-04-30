@@ -49,6 +49,19 @@ function staff_reports_service_status_sql(string $status_filter): string {
 }
 $service_status_sql = staff_reports_service_status_sql($status_filter);
 
+function staff_reports_job_status_sql(string $status_filter): string {
+    if ($status_filter === 'ALL' || $status_filter === '') return " AND jo.status != 'CANCELLED'";
+    if ($status_filter === 'Pending') return " AND jo.status = 'PENDING'";
+    if ($status_filter === 'Processing') return " AND jo.status = 'IN_PRODUCTION'";
+    if ($status_filter === 'Ready for Pickup') return " AND jo.status = 'TO_RECEIVE'";
+    if ($status_filter === 'Completed') return " AND jo.status = 'COMPLETED'";
+    if ($status_filter === 'Cancelled') return " AND jo.status = 'CANCELLED'";
+    if ($status_filter === 'Approved') return " AND jo.status = 'APPROVED'";
+    if ($status_filter === 'To Pay') return " AND jo.status = 'TO_PAY'";
+    return " AND jo.status = '" . db_escape(strtoupper($status_filter)) . "'";
+}
+$job_status_sql = staff_reports_job_status_sql($status_filter);
+
 // ---- 1. RANGE-AWARE KPI METRICS (DYNAMIC) ----
 // Total revenue for THE SELECTED PERIOD (Paid only)
 $rev_res = db_query("SELECT SUM(t.total) AS total FROM (
@@ -173,6 +186,62 @@ $top_products = db_query("
     LIMIT 5
 ", 'i', [$staffBranchId]);
 
+// ---- 5. TOP 5 BEST SELLING SERVICES / CUSTOMIZATIONS (DYNAMIC) ----
+$top_services_map = [];
+
+$job_service_rows = db_query("
+    SELECT COALESCE(NULLIF(TRIM(jo.service_type), ''), 'Customization') AS service_name,
+           SUM(COALESCE(jo.quantity, 1)) AS total_sold
+    FROM job_orders jo
+    WHERE " . str_replace('o.order_date', 'jo.created_at', $date_condition) . "
+      AND jo.branch_id = ?
+      {$job_status_sql}
+    GROUP BY COALESCE(NULLIF(TRIM(jo.service_type), ''), 'Customization')
+    ORDER BY total_sold DESC
+", 'i', [$staffBranchId]);
+
+foreach ($job_service_rows as $row) {
+    $service_name = trim((string)($row['service_name'] ?? ''));
+    if ($service_name === '') {
+        $service_name = 'Customization';
+    }
+    $service_key = mb_strtolower($service_name);
+    $top_services_map[$service_key] = [
+        'name' => $service_name,
+        'total_sold' => (int)($row['total_sold'] ?? 0),
+    ];
+}
+
+$service_order_rows = db_query("
+    SELECT COALESCE(NULLIF(TRIM(so.service_name), ''), 'Service') AS service_name,
+           COUNT(*) AS total_sold
+    FROM service_orders so
+    WHERE " . str_replace('o.order_date', 'so.created_at', $date_condition) . "
+      AND (so.branch_id = ? OR so.branch_id IS NULL)
+      {$service_status_sql}
+    GROUP BY COALESCE(NULLIF(TRIM(so.service_name), ''), 'Service')
+    ORDER BY total_sold DESC
+", 'i', [$staffBranchId]);
+
+foreach ($service_order_rows as $row) {
+    $service_name = trim((string)($row['service_name'] ?? ''));
+    if ($service_name === '') {
+        $service_name = 'Service';
+    }
+    $service_key = mb_strtolower($service_name);
+    if (!isset($top_services_map[$service_key])) {
+        $top_services_map[$service_key] = [
+            'name' => $service_name,
+            'total_sold' => 0,
+        ];
+    }
+    $top_services_map[$service_key]['total_sold'] += (int)($row['total_sold'] ?? 0);
+}
+
+$top_services = array_values($top_services_map);
+usort($top_services, static fn($a, $b) => ($b['total_sold'] <=> $a['total_sold']));
+$top_services = array_slice($top_services, 0, 5);
+
 $page_title = 'Visual Reports & Analytics';
 ?>
 <!DOCTYPE html>
@@ -195,6 +264,14 @@ $page_title = 'Visual Reports & Analytics';
             margin-bottom: 24px;
         }
         @media (max-width: 1024px) { .dashboard-grid { grid-template-columns: 1fr; } }
+        .top-lists-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+            align-items: stretch;
+        }
+        @media (max-width: 1024px) { .top-lists-grid { grid-template-columns: 1fr; } }
 
         /* Split Export Button Styles */
         .btn-excel-split { transition: transform 0.2s; }
@@ -211,11 +288,14 @@ $page_title = 'Visual Reports & Analytics';
         .chart-container-small { position: relative; height: 380px; width: 100%; padding-bottom: 20px; }
 
         /* Top Products List Styling */
+        .top-list-card { min-height: 560px; display: flex; flex-direction: column; }
+        .top-list-body { flex: 1; display: flex; flex-direction: column; }
         .top-product-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
         .top-product-row:last-child { border-bottom: none; }
         .tp-name { font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 10px; }
         .tp-rank { width: 24px; height: 24px; background: #f1f5f9; color: #475569; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
         .tp-sold { font-size: 14px; font-weight: 800; color: #059669; }
+        .top-list-empty { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; color: #94a3b8; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -377,10 +457,10 @@ $page_title = 'Visual Reports & Analytics';
             </div>
 
             <!-- ROW 3: LISTS & INSIGHTS -->
-            <div class="dashboard-grid">
+            <div class="top-lists-grid">
                 
                 <!-- Top Selling Products -->
-                <div class="chart-card">
+                <div class="chart-card top-list-card">
                     <div class="chart-header" style="margin-bottom:12px;">
                         <div>
                             <div class="chart-title">Top Selling Products</div>
@@ -393,24 +473,59 @@ $page_title = 'Visual Reports & Analytics';
                             </div>
                         </div>
                     </div>
-                    
-                    <?php if (!empty($top_products)): ?>
-                        <?php $rank = 1; foreach ($top_products as $tp): ?>
-                        <div class="top-product-row">
-                            <div class="tp-name truncate-ellipsis" title="<?php echo htmlspecialchars($tp['name']); ?>">
-                                <span class="tp-rank">#<?php echo $rank++; ?></span>
-                                <?php echo htmlspecialchars($tp['name']); ?>
+
+                    <div class="top-list-body">
+                        <?php if (!empty($top_products)): ?>
+                            <?php $rank = 1; foreach ($top_products as $tp): ?>
+                            <div class="top-product-row">
+                                <div class="tp-name truncate-ellipsis" title="<?php echo htmlspecialchars($tp['name']); ?>">
+                                    <span class="tp-rank">#<?php echo $rank++; ?></span>
+                                    <?php echo htmlspecialchars($tp['name']); ?>
+                                </div>
+                                <div class="tp-sold">
+                                    <?php echo (int)$tp['total_sold']; ?> <span style="font-size:12px;color:#64748b;font-weight:600;">sold</span>
+                                </div>
                             </div>
-                            <div class="tp-sold">
-                                <?php echo $tp['total_sold']; ?> <span style="font-size:12px;color:#64748b;font-weight:600;">sold</span>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="padding: 24px; text-align: center; color: #94a3b8; font-size: 14px;">No products sold in the last 30 days.</div>
-                    <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="top-list-empty">No products sold for this selected period.</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
 
+                <!-- Top Selling Services -->
+                <div class="chart-card top-list-card">
+                    <div class="chart-header" style="margin-bottom:12px;">
+                        <div>
+                            <div class="chart-title">Top Selling Services</div>
+                            <div class="chart-subtitle">
+                                <?php 
+                                    if ($range === 'month') echo "Most popular customized products and services this month";
+                                    elseif ($range === 'today') echo "Most popular customized products and services today";
+                                    else echo "Most popular customized products and services this week"; 
+                                ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="top-list-body">
+                        <?php if (!empty($top_services)): ?>
+                            <?php $rank = 1; foreach ($top_services as $service): ?>
+                            <div class="top-product-row">
+                                <div class="tp-name truncate-ellipsis" title="<?php echo htmlspecialchars($service['name']); ?>">
+                                    <span class="tp-rank">#<?php echo $rank++; ?></span>
+                                    <?php echo htmlspecialchars($service['name']); ?>
+                                </div>
+                                <div class="tp-sold">
+                                    <?php echo (int)$service['total_sold']; ?> <span style="font-size:12px;color:#64748b;font-weight:600;">sold</span>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="top-list-empty">No customized products or services found for this selected period.</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
