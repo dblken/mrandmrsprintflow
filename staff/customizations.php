@@ -2217,6 +2217,17 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const uom = String(item?.unit_of_measure || '').trim().toLowerCase();
                 return uom === 'pcs' || uom === 'pc' || uom === 'piece' || uom === 'pieces';
             },
+            getMaterialEntryUom(itemId) {
+                const item = this.getInventoryItem(itemId);
+                if (!item) return 'pcs';
+                if (this.isRollTracked(itemId)) {
+                    return item.unit_of_measure || 'ft';
+                }
+                if (this.isSticker(itemId)) {
+                    return 'pcs';
+                }
+                return item.unit_of_measure || 'pcs';
+            },
             getDefaultMaterialQty(itemId) {
                 if (!this.isPcsMaterial(itemId)) return 1;
                 return this.normalizeMaterialQtyValue(this.currentJo?.quantity || 1, 1);
@@ -3759,7 +3770,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                     item_id: this.newMaterialId,
                     name: item.name,
                     qty: normalizedQty,
-                    uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
+                    uom: this.getMaterialEntryUom(this.newMaterialId),
                     roll_id: this.newMaterialRollId || '',
                     notes: this.newMaterialNotes,
                     metadata: meta
@@ -3792,7 +3803,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 return {
                     item_id: this.newMaterialId,
                     qty: normalizedQty,
-                    uom: this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'),
+                    uom: this.getMaterialEntryUom(this.newMaterialId),
                     roll_id: this.newMaterialRollId || '',
                     notes: this.newMaterialNotes || '',
                     metadata: meta
@@ -4201,7 +4212,7 @@ window.pfCustomizationPreloadedOrders = (() => {
                 fd.append('order_id', jid);
                 fd.append('item_id', this.newMaterialId);
                 fd.append('quantity', normalizedQty);
-                fd.append('uom', this.isSticker(this.newMaterialId) ? 'pcs' : (item.unit_of_measure || 'pcs'));
+                fd.append('uom', this.getMaterialEntryUom(this.newMaterialId));
                 fd.append('roll_id', this.newMaterialRollId);
                 fd.append('notes', this.newMaterialNotes);
                 
