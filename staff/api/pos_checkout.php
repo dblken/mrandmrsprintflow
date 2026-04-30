@@ -44,12 +44,9 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
 
     $useStdOrderId = pos_table_has_column('job_order_materials', 'std_order_id')
         && pos_table_has_column('job_order_ink_usage', 'std_order_id');
-    $targetJobId = null;
-    if (!$useStdOrderId) {
-        $targetJobId = JobOrderService::ensureJobsForStoreOrder($targetOrderId);
-    }
+    $targetJobId = JobOrderService::ensureJobsForStoreOrder($targetOrderId);
 
-    if (empty($sourceJobIds) && !$useStdOrderId) {
+    if (empty($sourceJobIds) && !$useStdOrderId && !$targetJobId) {
         return;
     }
 
@@ -84,7 +81,93 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
     $inkSql .= '))';
     $sourceInks = db_query($inkSql, $inkTypes, $inkParams) ?: [];
 
-    if ($useStdOrderId) {
+    if ($targetJobId > 0) {
+        db_execute("DELETE FROM job_order_materials WHERE job_order_id = ?", 'i', [$targetJobId]);
+        db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$targetJobId]);
+
+        if ($useStdOrderId) {
+            db_execute(
+                "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
+                'i',
+                [$targetOrderId]
+            );
+            db_execute(
+                "DELETE FROM job_order_ink_usage WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
+                'i',
+                [$targetOrderId]
+            );
+        }
+
+        foreach ($sourceMaterials as $material) {
+            if ($useStdOrderId) {
+                db_execute(
+                    "INSERT INTO job_order_materials
+                        (job_order_id, std_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    'iiiidsddss',
+                    [
+                        $targetJobId,
+                        $targetOrderId,
+                        (int)($material['item_id'] ?? 0),
+                        !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
+                        (float)($material['quantity'] ?? 0),
+                        (string)($material['uom'] ?? 'pcs'),
+                        (float)($material['computed_required_length_ft'] ?? 0),
+                        (float)($material['unit_cost_at_assignment'] ?? 0),
+                        (string)($material['notes'] ?? ''),
+                        (string)($material['metadata'] ?? '')
+                    ]
+                );
+            } else {
+                db_execute(
+                    "INSERT INTO job_order_materials
+                        (job_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    'iiidsddss',
+                    [
+                        $targetJobId,
+                        (int)($material['item_id'] ?? 0),
+                        !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
+                        (float)($material['quantity'] ?? 0),
+                        (string)($material['uom'] ?? 'pcs'),
+                        (float)($material['computed_required_length_ft'] ?? 0),
+                        (float)($material['unit_cost_at_assignment'] ?? 0),
+                        (string)($material['notes'] ?? ''),
+                        (string)($material['metadata'] ?? '')
+                    ]
+                );
+            }
+        }
+
+        foreach ($sourceInks as $ink) {
+            if ($useStdOrderId) {
+                db_execute(
+                    "INSERT INTO job_order_ink_usage (job_order_id, std_order_id, item_id, ink_color, quantity_used)
+                     VALUES (?, ?, ?, ?, ?)",
+                    'iiisd',
+                    [
+                        $targetJobId,
+                        $targetOrderId,
+                        (int)($ink['item_id'] ?? 0),
+                        (string)($ink['ink_color'] ?? ''),
+                        (float)($ink['quantity_used'] ?? 0)
+                    ]
+                );
+            } else {
+                db_execute(
+                    "INSERT INTO job_order_ink_usage (job_order_id, item_id, ink_color, quantity_used)
+                     VALUES (?, ?, ?, ?)",
+                    'iisd',
+                    [
+                        $targetJobId,
+                        (int)($ink['item_id'] ?? 0),
+                        (string)($ink['ink_color'] ?? ''),
+                        (float)($ink['quantity_used'] ?? 0)
+                    ]
+                );
+            }
+        }
+    } elseif ($useStdOrderId) {
         db_execute(
             "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
             'i',
@@ -123,43 +206,6 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
                 'iisd',
                 [
                     $targetOrderId,
-                    (int)($ink['item_id'] ?? 0),
-                    (string)($ink['ink_color'] ?? ''),
-                    (float)($ink['quantity_used'] ?? 0)
-                ]
-            );
-        }
-    } elseif ($targetJobId > 0) {
-        db_execute("DELETE FROM job_order_materials WHERE job_order_id = ?", 'i', [$targetJobId]);
-        db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$targetJobId]);
-
-        foreach ($sourceMaterials as $material) {
-            db_execute(
-                "INSERT INTO job_order_materials
-                    (job_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                'iiidsddss',
-                [
-                    $targetJobId,
-                    (int)($material['item_id'] ?? 0),
-                    !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
-                    (float)($material['quantity'] ?? 0),
-                    (string)($material['uom'] ?? 'pcs'),
-                    (float)($material['computed_required_length_ft'] ?? 0),
-                    (float)($material['unit_cost_at_assignment'] ?? 0),
-                    (string)($material['notes'] ?? ''),
-                    (string)($material['metadata'] ?? '')
-                ]
-            );
-        }
-
-        foreach ($sourceInks as $ink) {
-            db_execute(
-                "INSERT INTO job_order_ink_usage (job_order_id, item_id, ink_color, quantity_used)
-                 VALUES (?, ?, ?, ?)",
-                'iisd',
-                [
-                    $targetJobId,
                     (int)($ink['item_id'] ?? 0),
                     (string)($ink['ink_color'] ?? ''),
                     (float)($ink['quantity_used'] ?? 0)
