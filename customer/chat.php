@@ -358,16 +358,16 @@ require_once __DIR__ . '/../includes/header.php';
 
     /* Reactions Attached to Bubble */
     .react-display {
-        display:flex; gap:3px; position: relative; z-index: 10;
-        background: #fff; border: 1px solid var(--pf-border); border-radius: 999px; padding: 1px 6px;
-        box-shadow: 0 4px 10px rgba(15,23,42,0.12); cursor: default; white-space: nowrap;
-        min-height: 18px; align-items: center; width: max-content; max-width: 100%;
-        margin-top: 3px;
+        display:flex; gap:2px; position: relative; z-index: 12;
+        background: #1f2937; border: 2px solid #fff; border-radius: 999px; padding: 1px 5px;
+        box-shadow: 0 6px 14px rgba(15,23,42,0.18); cursor: default; white-space: nowrap;
+        min-height: 20px; align-items: center; width: max-content; max-width: 100%;
+        margin-top: -10px;
     }
-    .brow.self .react-display { align-self: flex-end; }
-    .brow.other .react-display { align-self: flex-start; }
-    .react-chip { font-size:0.78rem; display:flex; align-items:center; gap:2px; color: #0f172a; line-height: 1; }
-    .react-chip b { font-weight: 800; font-size: 0.64rem; color: var(--pf-cyan); margin-left: 0; }
+    .brow.self .react-display { align-self: flex-end; margin-right: 10px; }
+    .brow.other .react-display { align-self: flex-start; margin-left: 10px; }
+    .react-chip { font-size:0.88rem; display:flex; align-items:center; gap:2px; color: #fff; line-height: 1; }
+    .react-chip b { font-weight: 800; font-size: 0.62rem; color: #fff; margin-left: 1px; opacity: 0.92; }
 
     /* Reaction Picker */
     .react-picker {
