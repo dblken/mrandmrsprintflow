@@ -2078,6 +2078,42 @@ function pfSyncStockOnlyResult() {
     resultStock.value = String(current + add);
 }
 
+function pfSubmitStockOnlyForm() {
+    var form = document.getElementById('product-form');
+    var addQty = document.getElementById('stock-modal-add-qty');
+    var lowLevel = document.getElementById('stock-modal-low-level');
+    var currentStock = document.getElementById('stock-modal-current');
+    if (!form || !addQty || !lowLevel || !currentStock) return;
+
+    var add = parseInt(addQty.value || '0', 10);
+    var low = parseInt(lowLevel.value || '0', 10);
+    var current = parseInt(currentStock.value || '0', 10);
+    if (isNaN(current)) current = 0;
+
+    var errAdd = document.getElementById('err-add-stock');
+    var errLow = document.getElementById('err-stock-only-low');
+    if (errAdd) errAdd.textContent = '';
+    if (errLow) errLow.textContent = '';
+
+    if (isNaN(add) || add < 1) {
+        if (errAdd) errAdd.textContent = 'Add stock quantity must be greater than 0.';
+        addQty.focus();
+        return;
+    }
+    if (isNaN(low) || low < 0) {
+        if (errLow) errLow.textContent = 'Low stock level must be a non-negative whole number.';
+        lowLevel.focus();
+        return;
+    }
+    if (low > (current + add)) {
+        if (errLow) errLow.textContent = 'Low stock level cannot exceed the updated quantity.';
+        lowLevel.focus();
+        return;
+    }
+
+    HTMLFormElement.prototype.submit.call(form);
+}
+
 /** Manager: show only product name + branch quantity + low stock; hide full catalog form and avoid duplicate POST names. */
 function pfManagerModalSetActive(active, product) {
     if (!window.PF_PRODUCTS_IS_MANAGER) return;
@@ -2170,14 +2206,22 @@ window.openProductModal = function openProductModal(mode, product) {
     if (mode === 'stock' && product) {
         if (title) title.textContent = 'Add Stock';
         if (modeInput) { modeInput.name = 'add_product_stock'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = 'Add Stock';
+        if (submitBtn) {
+            submitBtn.textContent = 'Add Stock';
+            submitBtn.type = 'button';
+            submitBtn.onclick = pfSubmitStockOnlyForm;
+        }
         var pidStockEl = document.getElementById('modal-product-id');
         if (pidStockEl) pidStockEl.value = product.product_id != null ? String(product.product_id) : '';
         pfStockOnlyModalSetActive(true, product);
     } else if (mode === 'edit' && product) {
         if (title) title.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Branch stock' : 'Edit Product';
         if (modeInput) { modeInput.name = 'update_product'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+        if (submitBtn) {
+            submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
+        }
         var pidEl = document.getElementById('modal-product-id');
         if (pidEl) pidEl.value = product.product_id != null ? String(product.product_id) : '';
         if (window.PF_PRODUCTS_IS_MANAGER) {
@@ -2212,7 +2256,11 @@ window.openProductModal = function openProductModal(mode, product) {
     } else {
         if (title) title.textContent = 'Add New Product';
         if (modeInput) { modeInput.name = 'create_product'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = 'Create Product';
+        if (submitBtn) {
+            submitBtn.textContent = 'Create Product';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
+        }
         pfStockOnlyModalSetActive(false);
         pfManagerModalSetActive(false);
         var pidEl2 = document.getElementById('modal-product-id');
@@ -2270,10 +2318,16 @@ function closeProductModal() {
         submitBtn.removeAttribute('disabled');
         if (modeInput.name === 'update_product') {
             submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
         } else if (modeInput.name === 'add_product_stock') {
             submitBtn.textContent = 'Add Stock';
+            submitBtn.type = 'button';
+            submitBtn.onclick = pfSubmitStockOnlyForm;
         } else {
             submitBtn.textContent = 'Create Product';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
         }
     }
 }
