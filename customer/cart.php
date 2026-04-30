@@ -104,7 +104,7 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .cart-theme-page .cart-table {
         width: 100%;
-        table-layout: fixed;
+        table-layout: auto;
         border-collapse: collapse;
     }
     .cart-theme-page thead {
@@ -125,6 +125,7 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .cart-theme-page .cart-row td:nth-child(2) {
         position: relative;
+        min-width: 320px;
         padding-right: 6.5rem !important;
     }
     .cart-theme-page .cart-row:hover {
