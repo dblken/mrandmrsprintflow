@@ -102,6 +102,11 @@ require_once __DIR__ . '/../includes/header.php';
         background: transparent !important;
         color: #1e293b !important;
     }
+    .cart-theme-page .cart-table {
+        width: 100%;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
     .cart-theme-page thead {
         background: #f8fafc !important;
         color: #475569 !important;
@@ -117,6 +122,10 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .cart-theme-page .cart-row td {
         color: #1e293b !important;
+    }
+    .cart-theme-page .cart-row td:nth-child(2) {
+        width: 44%;
+        overflow: hidden;
     }
     .cart-theme-page .cart-row:hover {
         background: #f1f5f9 !important;
@@ -722,7 +731,7 @@ require_once __DIR__ . '/../includes/header.php';
             <form method="POST">
                 <div class="card" style="padding:0;">
                     <div class="overflow-x-auto">
-                        <table style="width:100%; border-collapse:collapse;">
+                        <table class="cart-table">
                             <thead style="background:rgba(8,30,39,0.85); font-size:0.875rem; text-transform:uppercase; letter-spacing:0.05em; color:#9fc6d9;">
                                 <tr>
                                     <th style="padding:1rem; text-align:center; width: 50px;">
