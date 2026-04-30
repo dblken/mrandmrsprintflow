@@ -654,8 +654,73 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
             width: min(86vw, 300px) !important;
         }
 
+        /* Ensure sidebar labels are ALWAYS visible on mobile, ignoring collapsed state */
+        .sidebar.collapsed .nav-item {
+            font-size: 14px !important;
+            gap: 12px !important;
+            justify-content: flex-start !important;
+            margin: 0 10px !important;
+            padding: 10px 16px !important;
+            min-height: 40px !important;
+        }
+
+        .sidebar.collapsed .nav-section-title {
+            text-align: left !important;
+            font-size: 11px !important;
+            padding: 0 20px !important;
+            margin-bottom: 8px !important;
+            display: block !important;
+        }
+
+        .sidebar.collapsed .nav-section-title::after {
+            display: none !important;
+        }
+
+        .sidebar.collapsed .logo span,
+        .sidebar.collapsed .user-info,
+        .sidebar.collapsed .logout-btn-footer span {
+            display: block !important;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            padding: 24px 20px !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+        }
+
+        .sidebar.collapsed .logo {
+            flex-direction: row !important;
+            gap: 10px !important;
+        }
+
+        .sidebar.collapsed .sidebar-footer {
+            padding: 16px !important;
+            align-items: stretch !important;
+        }
+
+        .sidebar.collapsed .logout-btn-footer {
+            width: 100% !important;
+            justify-content: center !important;
+        }
+
+        .sidebar.collapsed .logout-btn-footer svg {
+            margin-right: 8px !important;
+        }
+
         .sidebar.collapsed.active {
             transform: translateX(0);
+        }
+
+        .sidebar.collapsed .nav-badge {
+            position: static !important;
+            min-width: 20px !important;
+            height: auto !important;
+            padding: 2px 6px !important;
+            font-size: 11px !important;
+            border-radius: 10px !important;
+            margin-left: auto !important;
+            display: inline-flex !important;
         }
 
         html.sidebar-preload-collapsed aside.sidebar,
