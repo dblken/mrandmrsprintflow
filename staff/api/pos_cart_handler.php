@@ -122,6 +122,7 @@ try {
             $price = (float)$data['price'];
             if ($price < 0) throw new Exception('Price cannot be negative.');
             $_SESSION['pos_cart'][$index]['price'] = $price;
+            $_SESSION['pos_cart'][$index]['price_set'] = true;
             break;
 
         case 'remove':

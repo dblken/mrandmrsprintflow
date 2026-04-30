@@ -493,6 +493,7 @@ try {
         $p = $products_cache[$product_id] ?? null;
         $prod_name = $p['name'] ?? 'Product';
 
+        // Use the name from the cart item if provided (for services)
         $name = $item['name'] ?? $prod_name;
         
         // Detect if this specific item is a service or customized product
@@ -503,6 +504,12 @@ try {
 
         $custom_details = $item['customization'] ?? [];
         if (!is_array($custom_details)) $custom_details = [];
+        
+        // Store the service name in customization for proper display
+        if ($is_service && $name) {
+            $custom_details['service_type'] = $name;
+        }
+        
         $customization_json = json_encode($custom_details ?: new stdClass());
 
         $item_result = db_execute(

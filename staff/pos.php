@@ -1560,6 +1560,13 @@ try {
                         if (state.customer) {
                             $('#pos-customer').val(state.customer).trigger('change');
                         }
+                        // Update cart item price if available
+                        if (state.item_index !== undefined && state.updated_price !== undefined) {
+                            await syncedCartAction('update_price', { 
+                                index: state.item_index, 
+                                price: state.updated_price 
+                            });
+                        }
                     } catch (e) { }
                     sessionStorage.removeItem('pos_cart_state');
                 }
@@ -2487,6 +2494,16 @@ try {
 
                     // Check if item is a service (price = 0 or is_service flag)
                     const isService = item.is_service || item.price === 0;
+                    const priceWasSet = item.price_set === true;
+
+                    // Check if material has been set in customization
+                    const hasMaterialSet = item.customization && (
+                        item.customization['Material Selection'] || 
+                        item.customization['Material Brand'] || 
+                        item.customization['Material'] ||
+                        item.customization['temp_plate_material'] ||
+                        item.customization['material_type']
+                    );
 
                     let customHtml = '';
                     if (item.customization) {
@@ -2499,7 +2516,7 @@ try {
                         }
                     }
 
-                    const priceHtml = isService
+                    const priceHtml = (isService && !priceWasSet && !hasMaterialSet)
                         ? `<button onclick="redirectToSetPrice(${index})" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;background:#fef3c7;border:1px solid #f59e0b;border-radius:5px;font-size:12px;font-weight:700;color:#d97706;text-decoration:none;cursor:pointer;border:none;" title="Click to set price in Customizations">
                     <i class="fas fa-tag" style="font-size:10px;"></i> Set Price
                   </button>`
