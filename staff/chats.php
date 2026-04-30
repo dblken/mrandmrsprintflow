@@ -133,14 +133,14 @@ $current_user = get_logged_in_user();
         .bubble-row.system { justify-content: flex-start; } /* Default to left for any remaining system msgs */
 
         .bubble { 
-            padding: 7px 16px; border-radius: 18px; font-size: 0.9rem; font-weight: 500; line-height: 1.35; 
+            padding: 5px 14px; border-radius: 18px; font-size: 0.9rem; font-weight: 500; line-height: 1.2; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.2s ease;
             display: inline-block; width: auto; max-width: 100%; position: relative;
             word-break: break-word; overflow-wrap: break-word;
         }
         .bubble span {
             display: block; max-width: 100%;
-            white-space: normal; word-break: break-word; overflow-wrap: break-word;
+            white-space: normal; word-break: break-word; overflow-wrap: break-word; line-height: 1.2;
         }
         .bubble:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
         .bubble-row.self .bubble { background: #0a2530; color: #fff; border-radius: 18px 18px 4px 18px; }
