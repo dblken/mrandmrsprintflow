@@ -597,25 +597,29 @@ $current_user = get_logged_in_user();
         }
         .reaction-btn:hover { transform: scale(1.2); background: #f8fafc; }
 
-        .reaction-display-container { margin-top: 6px; display: none; }
+        .reaction-display-container { margin-top: -10px; display: none; z-index: 12; position: relative; }
+        .bubble-row.self .reaction-display-container { align-self: flex-end; margin-right: 10px; }
+        .bubble-row.other .reaction-display-container { align-self: flex-start; margin-left: 10px; }
         .reaction-display {
-            display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;
+            display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap;
+            background: #fff; border: 1px solid #e2e8f0;
+            border-radius: 999px; padding: 1px 5px;
+            box-shadow: 0 6px 14px rgba(15,23,42,0.18);
         }
         .reaction-bubble {
-            display: inline-flex; align-items: center; gap: 3px;
-            background: #fff; border: 1px solid #e2e8f0;
-            border-radius: 999px; padding: 2px 8px; font-size: 0.9rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); color: #334155;
+            display: inline-flex; align-items: center; gap: 2px;
+            background: transparent; border: none;
+            border-radius: 999px; padding: 0; font-size: 0.88rem;
+            box-shadow: none; color: #0f172a;
             cursor: pointer; transition: all 0.2s;
             line-height: 1;
-            min-height: 22px;
+            min-height: 18px;
         }
         .reaction-bubble:hover {
-            transform: scale(1.04); background: #f8fafc; border-color: #cbd5e1;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: scale(1.03);
         }
         .reaction-count {
-            font-size: 0.7rem; font-weight: 800; color: #475569;
+            font-size: 0.62rem; font-weight: 800; color: #475569;
             margin-left: 1px;
         }
 
