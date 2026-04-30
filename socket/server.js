@@ -197,40 +197,49 @@ io.on('connection', (socket) => {
     });
 
     socket.on('pf-accept-call', (payload = {}) => {
-        const callerKey = makeUserKey(payload.toUserId, payload.toUserType);
         const currentKey = socket.data.userKey;
-        if (!currentKey) {
-            return;
-        }
+        if (!currentKey) return;
 
-        const call = getActiveCallByUser(currentKey) || getActiveCallByUser(callerKey);
+        const targetKey = makeUserKey(payload.toUserId, payload.toUserType);
+        const call = getActiveCallByUser(currentKey) || getActiveCallByUser(targetKey);
+        
         if (!call) {
             socket.emit('pf-call-error', { message: 'Call session was not found.' });
             return;
         }
 
-        relayToUser(call.callerKey, 'pf-call-accepted', {});
+        // Notify BOTH users (all their sessions) that the call was accepted
+        relayToUser(call.callerKey, 'pf-call-accepted', { byUserId: socket.data.userId, byUserType: socket.data.userType });
+        relayToUser(call.calleeKey, 'pf-call-accepted', { byUserId: socket.data.userId, byUserType: socket.data.userType });
     });
 
     socket.on('pf-reject-call', (payload = {}) => {
-        const targetKey = makeUserKey(payload.toUserId, payload.toUserType);
         const currentKey = socket.data.userKey;
+        if (!currentKey) return;
+
+        const targetKey = makeUserKey(payload.toUserId, payload.toUserType);
         const call = getActiveCallByUser(currentKey) || getActiveCallByUser(targetKey);
 
         if (call) {
             clearActiveCall(call.id);
-            relayToUser(call.callerKey === currentKey ? call.calleeKey : call.callerKey, 'pf-call-rejected', {});
+            // Notify BOTH users (all their sessions) that the call was rejected
+            relayToUser(call.callerKey, 'pf-call-rejected', { byUserId: socket.data.userId, byUserType: socket.data.userType });
+            relayToUser(call.calleeKey, 'pf-call-rejected', { byUserId: socket.data.userId, byUserType: socket.data.userType });
         }
     });
 
     socket.on('pf-end-call', (payload = {}) => {
-        const targetKey = makeUserKey(payload.toUserId, payload.toUserType);
         const currentKey = socket.data.userKey;
+        if (!currentKey) return;
+
+        const targetKey = makeUserKey(payload.toUserId, payload.toUserType);
         const call = getActiveCallByUser(currentKey) || getActiveCallByUser(targetKey);
 
         if (call) {
             clearActiveCall(call.id);
-            relayToUser(call.callerKey === currentKey ? call.calleeKey : call.callerKey, 'pf-call-ended', {});
+            // Notify BOTH users (all their sessions) that the call was ended
+            relayToUser(call.callerKey, 'pf-call-ended', { byUserId: socket.data.userId, byUserType: socket.data.userType });
+            relayToUser(call.calleeKey, 'pf-call-ended', { byUserId: socket.data.userId, byUserType: socket.data.userType });
         }
     });
 
@@ -270,8 +279,9 @@ io.on('connection', (socket) => {
         const call = userKey ? getActiveCallByUser(userKey) : null;
         if (call) {
             clearActiveCall(call.id);
-            const otherKey = call.callerKey === userKey ? call.calleeKey : call.callerKey;
-            relayToUser(otherKey, 'pf-call-ended', {});
+            // Notify BOTH users (all sessions) that the call was ended due to a disconnect
+            relayToUser(call.callerKey, 'pf-call-ended', { byUserId: userId, byUserType: userType, reason: 'disconnect' });
+            relayToUser(call.calleeKey, 'pf-call-ended', { byUserId: userId, byUserType: userType, reason: 'disconnect' });
         }
     });
 });

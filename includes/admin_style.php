@@ -91,6 +91,42 @@ unset($__pf_base_path, $__pf_asset_path, $__pf_output_css_file, $__pf_output_css
     <script>(function () { document.documentElement.classList.add('printflow-manager'); })();</script>
     <?php include __DIR__ . '/manager_theme.php'; ?>
 <?php endif; ?>
+
+<!-- PrintFlow Call & Signaling System (Global for Admin/Staff/Manager) -->
+<?php if (function_exists('is_logged_in') && is_logged_in()): ?>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($__pf_asset_path . '/css/printflow_call.css', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>">
+    <script src="<?php echo htmlspecialchars($__pf_asset_path . '/js/printflow_call.js', ENT_QUOTES, 'UTF-8'); ?>?v=<?php echo time(); ?>" defer></script>
+    <script>
+        (function() {
+            function initPFCallGlobal() {
+                if (window.__PFCallBootstrapped) return;
+                if (window.PFCall && typeof window.PFCall.init === "function") {
+                    window.__PFCallBootstrapped = true;
+                    <?php 
+                        $curr_u = function_exists('get_logged_in_user') ? get_logged_in_user() : null;
+                        $uid = function_exists('get_user_id') ? get_user_id() : null;
+                        $utype = function_exists('get_user_type') ? get_user_type() : null;
+                    ?>
+                    window.PFCall.init({
+                        userId: <?php echo json_encode($uid); ?>,
+                        userType: <?php echo json_encode($utype); ?>,
+                        userName: <?php echo json_encode($curr_u['full_name'] ?? 'User'); ?>,
+                        userAvatar: <?php echo json_encode(function_exists('get_profile_image') ? get_profile_image($curr_u['profile_picture'] ?? '') : ''); ?>,
+                        basePath: <?php echo json_encode($base_path); ?>
+                    });
+                } else {
+                    setTimeout(initPFCallGlobal, 200);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initPFCallGlobal);
+            } else {
+                initPFCallGlobal();
+            }
+        })();
+    </script>
+<?php endif; ?>
 <script>
     (function () {
         var root = document.documentElement;

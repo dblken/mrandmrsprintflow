@@ -221,9 +221,9 @@
                 window.dispatchEvent(new CustomEvent('PFCallDisconnected'));
             });
             this.socket.on('incomingCall', (data) => this._handleIncomingCall(data));
-            this.socket.on('pf-call-accepted', () => this._onCallAccepted());
-            this.socket.on('pf-call-rejected', () => this._onCallRejected());
-            this.socket.on('pf-call-ended', () => this._onCallEnded());
+            this.socket.on('pf-call-accepted', (data) => this._onCallAccepted(data));
+            this.socket.on('pf-call-rejected', (data) => this._onCallRejected(data));
+            this.socket.on('pf-call-ended', (data) => this._onCallEnded(data));
             this.socket.on('pf-call-busy', (data) => this._flashEnded(data.message || 'User is busy.'));
             this.socket.on('pf-call-error', (data) => this._flashEnded(data.message || 'Calling failed.'));
             this.socket.on('pf-webrtc-offer', (data) => this._handleOffer(data));
@@ -391,7 +391,16 @@
             this._cleanUp();
         }
 
-        _onCallAccepted() {
+        _onCallAccepted(data = {}) {
+            // Multi-device sync: If we were ringing and another session of ours accepted it, just stop ringing.
+            if (this.state === PF_STATE.INCOMING && data.byUserId == this.userId) {
+                if (window.PF_CALL_DEBUG) console.log("[PFCall] Call accepted by another session. Stopping ring.");
+                this._cleanUp();
+                return;
+            }
+
+            if (this.state !== PF_STATE.CALLING) return;
+            
             clearTimeout(this._noAnswerTimeout);
             this.audio.stop();
             this.state = PF_STATE.IN_CALL;
@@ -404,8 +413,25 @@
             });
         }
 
-        _onCallRejected() { this._flashEnded('Call declined.'); }
-        _onCallEnded() { this._flashEnded('Call ended.'); }
+        _onCallRejected(data = {}) { 
+            // Multi-device sync: If another session of ours rejected it, just stop ringing.
+            if (this.state === PF_STATE.INCOMING && data.byUserId == this.userId) {
+                if (window.PF_CALL_DEBUG) console.log("[PFCall] Call rejected by another session. Stopping ring.");
+                this._cleanUp();
+                return;
+            }
+            this._flashEnded('Call declined.'); 
+        }
+
+        _onCallEnded(data = {}) { 
+            // Multi-device sync: If another session of ours ended it, just clean up.
+            if (this.state !== PF_STATE.IDLE && data.byUserId == this.userId) {
+                if (window.PF_CALL_DEBUG) console.log("[PFCall] Call ended by another session. Cleaning up.");
+                this._cleanUp();
+                return;
+            }
+            this._flashEnded('Call ended.'); 
+        }
 
         _logCallEvent(type, duration = 0) {
             const orderId = this.activeOrderId || (window.PFCallState && window.PFCallState.activeId) || (typeof activeId !== 'undefined' ? activeId : null);
