@@ -59,6 +59,47 @@ if (!is_array($orders)) {
 
 $hidden_price_statuses = ['Pending', 'Pending Approval', 'Pending Review', 'For Revision', 'Approved'];
 
+function orders_all_product_image_url(string $raw, string $display_name): string
+{
+    $raw = trim($raw);
+    $base = rtrim((defined('BASE_PATH') ? BASE_PATH : ''), '/');
+    $root = dirname(__DIR__);
+
+    $resolve_existing = static function (string $relative) use ($root, $base): ?string {
+        $relative = '/' . ltrim($relative, '/');
+        if (is_file($root . $relative)) {
+            return $base . $relative;
+        }
+        return null;
+    };
+
+    if ($raw !== '') {
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+
+        $clean = '/' . ltrim($raw, '/');
+        if ($base !== '' && strncmp($clean, $base . '/', strlen($base) + 1) === 0) {
+            $clean = substr($clean, strlen($base));
+            $clean = '/' . ltrim((string)$clean, '/');
+        }
+
+        foreach ([
+            $clean,
+            '/uploads/products/' . basename($clean),
+            '/public/assets/uploads/products/' . basename($clean),
+            '/public/images/products/' . basename($clean),
+        ] as $candidate) {
+            $resolved = $resolve_existing($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    return get_service_image_url($display_name);
+}
+
 $page_title = 'All Orders - PrintFlow';
 $use_customer_css = true;
 require_once __DIR__ . '/../includes/header.php';
@@ -135,10 +176,7 @@ require_once __DIR__ . '/../includes/header.php';
                         $service_type = trim((string)($c['service_type'] ?? ''));
                         $display_name = $service_type !== '' ? $service_type : (string)($order['first_item_name'] ?? 'Order Item');
                         $qty = max(1, (int)($order['total_quantity'] ?? 0));
-                        $img = trim((string)($order['first_item_image'] ?? ''));
-                        if ($img === '') {
-                            $img = get_service_image_url($display_name);
-                        }
+                        $img = orders_all_product_image_url((string)($order['first_item_image'] ?? ''), $display_name);
                     ?>
                     <div class="row">
                         <img class="thumb" src="<?php echo htmlspecialchars($img); ?>" alt="<?php echo htmlspecialchars($display_name); ?>" onerror="this.src='<?php echo (defined('BASE_PATH') ? BASE_PATH : ''); ?>/public/assets/images/services/default.png';">

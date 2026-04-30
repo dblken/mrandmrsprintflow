@@ -10,9 +10,62 @@ require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+function landing_product_image_url(array $product, string $base_path): string
+{
+    $raw = trim((string)($product['photo_path'] ?? $product['product_image'] ?? ''));
+    $root = dirname(__DIR__);
+
+    $resolve_existing = static function (string $relative) use ($root, $base_path): ?string {
+        $relative = '/' . ltrim($relative, '/');
+        if (is_file($root . $relative)) {
+            return rtrim($base_path, '/') . $relative;
+        }
+        return null;
+    };
+
+    if ($raw !== '') {
+        if (preg_match('#^https?://#i', $raw)) {
+            return $raw;
+        }
+
+        $clean = '/' . ltrim($raw, '/');
+        $trimmed_base = rtrim($base_path, '/');
+        if ($trimmed_base !== '' && strncmp($clean, $trimmed_base . '/', strlen($trimmed_base) + 1) === 0) {
+            $clean = substr($clean, strlen($trimmed_base));
+            $clean = '/' . ltrim((string)$clean, '/');
+        }
+
+        foreach ([
+            $clean,
+            '/uploads/products/' . basename($clean),
+            '/public/assets/uploads/products/' . basename($clean),
+            '/public/images/products/' . basename($clean),
+        ] as $candidate) {
+            $resolved = $resolve_existing($candidate);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    $product_id = (int)($product['product_id'] ?? 0);
+    if ($product_id > 0) {
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $resolved = $resolve_existing('/public/images/products/product_' . $product_id . '.' . $ext);
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+    }
+
+    return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
+}
+
 // Fetch featured products for the homepage showcase
+$has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
+$photo_path_select = $has_photo_path ? 'photo_path,' : '';
 $featured_products = db_query(
-    "SELECT product_id, name, category, price, description, product_image, stock_quantity 
+    "SELECT product_id, name, category, price, description, product_image, {$photo_path_select} stock_quantity 
      FROM products 
      WHERE is_featured = 1 AND status = 'Activated'
      ORDER BY name ASC LIMIT 6"
@@ -294,10 +347,11 @@ $featured_products = db_query(
                 <?php foreach (array_merge($featured_products, $featured_products) as $fp): ?>
                 <div class="lp-carousel-item">
                     <div class="lp-prod-img">
-                        <?php if (!empty($fp['product_image'])): ?>
-                            <img src="<?php echo $asset_base; ?>/assets/uploads/products/<?php echo htmlspecialchars($fp['product_image']); ?>"
+                        <?php if (!empty($fp['product_image']) || !empty($fp['photo_path'])): ?>
+                            <img src="<?php echo htmlspecialchars(landing_product_image_url($fp, $base_path)); ?>"
                                  alt="<?php echo htmlspecialchars($fp['name']); ?>"
-                                 style="width:100%; height:100%; object-fit:cover;">
+                                 style="width:100%; height:100%; object-fit:cover;"
+                                 onerror="this.onerror=null;this.src='<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/public/assets/images/services/default.png';">
                         <?php else: ?>
                             <span class="lp-prod-placeholder">📦</span>
                         <?php endif; ?>

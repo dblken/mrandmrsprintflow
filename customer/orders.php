@@ -1177,15 +1177,27 @@ function get_preview_image_for_order_ui($order, $display_name) {
         if (!empty($order['first_product_image'])) {
             $img = (string)$order['first_product_image'];
             if ($img !== '') {
-                if ($img[0] !== '/' && strpos($img, 'http') === false) {
-                    if (file_exists(__DIR__ . '/../uploads/products/' . $img)) {
-                        return BASE_URL . '/uploads/products/' . $img;
-                    }
-                    if (file_exists(__DIR__ . '/../public/images/products/' . $img)) {
-                        return BASE_URL . '/public/images/products/' . $img;
-                    }
-                } else {
+                if (preg_match('#^https?://#i', $img)) {
                     return $img;
+                }
+
+                $clean = '/' . ltrim($img, '/');
+                $trimmed_base = rtrim(BASE_URL, '/');
+                if ($trimmed_base !== '' && strncmp($clean, $trimmed_base . '/', strlen($trimmed_base) + 1) === 0) {
+                    $clean = substr($clean, strlen($trimmed_base));
+                    $clean = '/' . ltrim((string)$clean, '/');
+                }
+
+                foreach ([
+                    $clean,
+                    '/uploads/products/' . basename($clean),
+                    '/public/assets/uploads/products/' . basename($clean),
+                    '/public/images/products/' . basename($clean),
+                ] as $candidate) {
+                    $full = __DIR__ . '/..' . $candidate;
+                    if (is_file($full)) {
+                        return BASE_URL . $candidate;
+                    }
                 }
             }
         }
