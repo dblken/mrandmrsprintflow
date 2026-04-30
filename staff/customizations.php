@@ -3333,6 +3333,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.final_price || 0;
+                            if ((!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
+                                await this.refreshMaterials();
+                            }
                         } else {
                             const fallbackOrderId = order?.order_id ?? id;
                             const fallbackRes = await this.parseJsonResponse(
@@ -3345,6 +3348,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 this.jobPriceInput = this.currentJo.final_price || 0;
                                 if (!this.currentJo.job_order_id) {
                                     await this.resolveEffectiveJobId();
+                                }
+                                if ((!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
+                                    await this.refreshMaterials();
                                 }
                             } else {
                                 this.showStaffAlert('Error', detailRes.error || 'Customization details could not be loaded.');
@@ -3365,6 +3371,9 @@ window.pfCustomizationPreloadedOrders = (() => {
                                 this.jobPriceInput = this.currentJo.final_price || 0;
                                 if (!this.currentJo.job_order_id) {
                                     await this.resolveEffectiveJobId();
+                                }
+                                if ((!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
+                                    await this.refreshMaterials();
                                 }
                             } else {
                                 this.showDetailsModal = false;
