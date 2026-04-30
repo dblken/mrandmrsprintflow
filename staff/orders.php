@@ -394,6 +394,7 @@ $page_title = 'Orders - Staff';
             display: flex !important;
             flex-wrap: nowrap !important;
             align-items: center !important;
+            justify-content: center !important;
             gap: 10px !important;
             margin-bottom: 24px !important;
             border-bottom: 1px solid #f1f5f9 !important;
@@ -406,6 +407,11 @@ $page_title = 'Orders - Staff';
         }
         .pf-custom-tabs::-webkit-scrollbar {
             display: none !important;
+        }
+        .toolbar-group--tabs {
+            display: flex !important;
+            justify-content: center !important;
+            width: 100% !important;
         }
         .pill-tab {
             flex-shrink: 0 !important;
@@ -456,6 +462,15 @@ $page_title = 'Orders - Staff';
             font-weight: 700;
         }
         .pill-tab.active .tab-count { background: #06A1A1; color: white; }
+
+        @media (max-width: 768px) {
+            .toolbar-group--tabs {
+                justify-content: flex-start !important;
+            }
+            .pf-custom-tabs {
+                justify-content: flex-start !important;
+            }
+        }
 
         /* ── Toolbar Buttons (Sort / Filter) ─── */
         .toolbar-btn {
