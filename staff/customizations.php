@@ -3847,6 +3847,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                         materialsToSave.push(currentMaterial);
                     }
                     const inkPayload = this.buildInkPayload();
+                    if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
+                        this.setFooterActionError('Please add at least one production material or ink before approving.');
+                        return;
+                    }
                     for (const pm of materialsToSave) {
                         const fdMaterial = new FormData();
                         fdMaterial.append('action', 'add_material');
@@ -3878,10 +3882,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                         }
                     }
                     await this.refreshMaterials();
-                    if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
-                        this.setFooterActionError('Please add at least one production material or ink before approving.');
-                        return;
-                    }
                     if (!this.beginModalAction()) return;
                     try {
                         const fd = new FormData();
@@ -3949,6 +3949,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                     materialsToSave.push(currentMaterial);
                 }
                 const inkPayload = this.buildInkPayload();
+                if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
+                    this.setFooterActionError('Please add at least one production material or ink before submitting.');
+                    return;
+                }
                 for (const pm of materialsToSave) {
                     const fd = new FormData();
                     fd.append('action', 'add_material');
@@ -3978,10 +3982,6 @@ window.pfCustomizationPreloadedOrders = (() => {
                 }
                 await this.refreshMaterials();
                 console.log('Price before materials check:', userEnteredPrice);
-                if (!this.hasProductionAssignments(materialsToSave, inkPayload)) {
-                    this.setFooterActionError('Please add at least one production material or ink before submitting.');
-                    return;
-                }
                 if (!userEnteredPrice || userEnteredPrice <= 0 || isNaN(userEnteredPrice)) {
                     this.setFooterActionError('Please enter a valid final price before submitting.');
                     return;
