@@ -424,10 +424,20 @@
             this._showOverlay(PF_STATE.IN_CALL, this.partnerName, this.partnerAvatar, 'Connected');
             this._startTimer();
             this._createPC();
-            this.pc.createOffer().then(offer => {
-                this.pc.setLocalDescription(offer);
-                this.socket.emit('pf-webrtc-offer', { toUserId: this.partnerId, toUserType: this.partnerType, offer });
-            });
+            if (!this.pc) return; // safety guard
+            this.pc.createOffer()
+                .then(offer => {
+                    if (!this.pc) return; // guard against cleanup race
+                    return this.pc.setLocalDescription(offer)
+                        .then(() => {
+                            this.socket.emit('pf-webrtc-offer', {
+                                toUserId: this.partnerId,
+                                toUserType: this.partnerType,
+                                offer
+                            });
+                        });
+                })
+                .catch(err => console.warn('[PFCall] Offer creation failed:', err));
         }
 
         _onCallRejected(data = {}) { 
@@ -761,19 +771,51 @@
         }
 
         _handleOffer(data) {
+            // Guard: only process if we are in a valid call state
+            if (this.state !== PF_STATE.IN_CALL && this.state !== PF_STATE.INCOMING) return;
             if (!this.pc) this._createPC();
+            if (!this.pc) return;
             this.pc.setRemoteDescription(new RTCSessionDescription(data.offer))
-                .then(() => this.pc.createAnswer())
+                .then(() => {
+                    if (!this.pc) return;
+                    return this.pc.createAnswer();
+                })
                 .then(answer => {
-                    this.pc.setLocalDescription(answer);
-                    this.socket.emit('pf-webrtc-answer', { toUserId: this.partnerId, toUserType: this.partnerType, answer });
-                    while (this.iceQueue.length) this.pc.addIceCandidate(this.iceQueue.shift());
-                });
+                    if (!this.pc || !answer) return;
+                    return this.pc.setLocalDescription(answer)
+                        .then(() => {
+                            this.socket.emit('pf-webrtc-answer', {
+                                toUserId: this.partnerId,
+                                toUserType: this.partnerType,
+                                answer
+                            });
+                            while (this.iceQueue.length) {
+                                if (this.pc) this.pc.addIceCandidate(this.iceQueue.shift());
+                                else this.iceQueue = [];
+                            }
+                        });
+                })
+                .catch(err => console.warn('[PFCall] Offer handling failed:', err));
         }
 
         _handleAnswer(data) {
-            this.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-            while (this.iceQueue.length) this.pc.addIceCandidate(this.iceQueue.shift());
+            // Guard: if pc was cleaned up (e.g. socket disconnect/reconnect replay), silently ignore
+            if (!this.pc) {
+                console.warn('[PFCall] _handleAnswer: RTCPeerConnection is null, ignoring stale answer.');
+                return;
+            }
+            if (this.state !== PF_STATE.IN_CALL && this.state !== PF_STATE.CALLING) {
+                console.warn('[PFCall] _handleAnswer: Not in a valid call state, ignoring.');
+                return;
+            }
+            this.pc.setRemoteDescription(new RTCSessionDescription(data.answer))
+                .then(() => {
+                    while (this.iceQueue.length) {
+                        if (this.pc) this.pc.addIceCandidate(this.iceQueue.shift());
+                        else this.iceQueue = [];
+                    }
+                })
+                .catch(err => console.warn('[PFCall] setRemoteDescription (answer) failed:', err));
         }
 
         _handleIceCandidate(data) {
