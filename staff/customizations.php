@@ -2190,10 +2190,14 @@ window.pfCustomizationPreloadedOrders = (() => {
 
             get materialsDeductedSummary() {
                 if (!this.currentJo || !this.currentJo.materials || this.currentJo.materials.length === 0) {
-                    return "Materials have been deducted from inventory.";
+                    return "No production materials are recorded for this job yet.";
+                }
+                const deductedMaterials = this.currentJo.materials.filter(m => !!m.deducted_at);
+                if (deductedMaterials.length === 0) {
+                    return "Production materials are assigned, but inventory deduction is still pending.";
                 }
                 const counts = {};
-                this.currentJo.materials.forEach(m => {
+                deductedMaterials.forEach(m => {
                     const name = m.item_name;
                     const q = parseFloat(m.track_by_roll == 1 ? m.computed_required_length_ft : m.quantity) || 0;
                     counts[name] = (counts[name] || 0) + q;

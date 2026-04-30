@@ -126,6 +126,34 @@ class JobOrderService {
         return db_query($sql, $types, $params) ?: [];
     }
 
+    private static function syncStoreOrderAssignmentsIfNeeded(int $storeOrderId, array $options = []): void {
+        if ($storeOrderId <= 0) {
+            return;
+        }
+
+        $jobs = db_query(
+            "SELECT id, status
+             FROM job_orders
+             WHERE order_id = ?
+             ORDER BY id ASC",
+            'i',
+            [$storeOrderId]
+        ) ?: [];
+
+        foreach ($jobs as $job) {
+            $jobId = (int)($job['id'] ?? 0);
+            $status = strtoupper(trim((string)($job['status'] ?? '')));
+            if ($jobId <= 0) {
+                continue;
+            }
+            if (!in_array($status, ['IN_PRODUCTION', 'PROCESSING', 'PRINTING', 'TO_RECEIVE', 'COMPLETED'], true)) {
+                continue;
+            }
+
+            self::processDeductions($jobId, $options);
+        }
+    }
+
     private static function cleanupLegacyAutoAssignedMaterials(int $jobId, int $storeOrderId = 0, string $serviceType = ''): void {
         if ($jobId <= 0 || $storeOrderId <= 0 || $serviceType === '' || !self::tableHasColumn('job_order_materials', 'std_order_id')) {
             return;
@@ -536,14 +564,22 @@ class JobOrderService {
         }
         
         if (!empty($exists)) {
-            self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
+            if ($orderType === 'ORDER') {
+                self::syncStoreOrderAssignmentsIfNeeded((int)$orderId, ['materials' => true, 'inks' => false]);
+            } else {
+                self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
+            }
             return $exists[0]['id']; // Return existing ID instead of creating duplicate
         }
 
         $sql = "INSERT INTO job_order_materials ($colId, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $insertedId = db_execute($sql, 'iiidsddss', [$orderId, $itemId, $rollId, $qty, $uom, $computed_len, $cost, $notes, $metaJson]);
-        self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
+        if ($orderType === 'ORDER') {
+            self::syncStoreOrderAssignmentsIfNeeded((int)$orderId, ['materials' => true, 'inks' => false]);
+        } else {
+            self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
+        }
         return $insertedId;
     }
 
@@ -1199,6 +1235,7 @@ class JobOrderService {
     public static function saveInkUsage($orderId, $inkData, $orderType = null) {
         $conn = $GLOBALS['conn'] ?? null;
         if (!$conn) return false;
+        $syncOrderId = (int)$orderId;
 
         if ($orderType === null) {
             // Auto-detect based on existence in job_orders table
@@ -1239,6 +1276,11 @@ class JobOrderService {
                 }
             }
             $conn->commit();
+            if ($orderType === 'ORDER') {
+                self::syncStoreOrderAssignmentsIfNeeded($syncOrderId, ['materials' => false, 'inks' => true]);
+            } else {
+                self::syncLiveJobMaterialsIfNeeded((int)$orderId);
+            }
             return true;
         } catch (Throwable $e) {
             $conn->rollback();
