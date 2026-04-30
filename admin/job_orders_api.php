@@ -80,6 +80,15 @@ function jo_api_require_staff_branch(?int $staffBranch, int $jobId): void {
     }
 }
 
+function jo_api_require_staff_order_branch(?int $staffBranch, int $orderId): void {
+    if ($staffBranch === null || $orderId <= 0) {
+        return;
+    }
+    if (!printflow_order_in_branch($orderId, $staffBranch)) {
+        throw new Exception('Unauthorized');
+    }
+}
+
 function jo_api_normalize_customer_type($customerType, $transactionCount = null): string {
     $raw = strtoupper(trim((string)$customerType));
     if ($raw === 'REGULAR' || $raw === 'RETURNING') {
@@ -1271,7 +1280,11 @@ try {
             
             if (!$orderId || !$itemId) throw new Exception("Incomplete material data.");
             if ($qty < 1) throw new Exception("Material quantity must be at least 1.");
-            jo_api_require_staff_branch($joStaffBranch, $orderId);
+            if (strtoupper((string)$orderType) === 'ORDER') {
+                jo_api_require_staff_order_branch($joStaffBranch, $orderId);
+            } else {
+                jo_api_require_staff_branch($joStaffBranch, $orderId);
+            }
             $res = JobOrderService::addMaterial($orderId, $itemId, $qty, $uom, $rollId, $notes, $metadata, $orderType);
             jo_api_json_response(['success' => true, 'id' => $res]);
             break;
@@ -1282,6 +1295,11 @@ try {
             $inkData = isset($_POST['ink_data']) ? json_decode($_POST['ink_data'], true) : [];
             
             if (!$orderId) throw new Exception("Order ID required.");
+            if (strtoupper((string)$orderType) === 'ORDER') {
+                jo_api_require_staff_order_branch($joStaffBranch, $orderId);
+            } else {
+                jo_api_require_staff_branch($joStaffBranch, $orderId);
+            }
             $res = JobOrderService::saveInkUsage($orderId, $inkData, $orderType);
             jo_api_json_response(['success' => true]);
             break;
