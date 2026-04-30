@@ -1110,8 +1110,10 @@ function loadConvs() {
         list.innerHTML = res.conversations.map(c => {
             const name = c.staff_name || 'PrintFlow Team';
             const active = activeId === c.order_id ? 'active' : '';
+            // Pass staff_id so openChat can pre-populate activePartner.id
+            const staffId = c.staff_id ? parseInt(c.staff_id, 10) : 0;
             return `
-            <div class="conv-card ${active}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}')">
+            <div class="conv-card ${active}" onclick="openChat(${c.order_id},'${esc(name)}','${esc(c.product_name||'Order')}',${c.is_archived?1:0},'${esc(c.staff_avatar||'')}',${staffId})">
                 <div class="conv-av">${c.staff_avatar ? `<img src="${resolveProfileUrl(c.staff_avatar)}" onerror="${PROFILE_IMAGE_ONERROR}">` : (name === 'PrintFlow Team' ? `<img src="${BASE}/public/assets/uploads/profiles/default.png" style="width:100%;height:100%;object-fit:cover;opacity:0.8;">` : `<span>${name[0].toUpperCase()}</span>`)}</div>
                 <div class="conv-info">
                     <div class="conv-top"><span class="conv-name">${esc(name)}</span><span class="conv-time">${fmtTimeAgo(c.last_message_at)}</span></div>
@@ -1123,12 +1125,12 @@ function loadConvs() {
     });
 }
 
-function openChat(id, name, meta, archived, avatar = '') {
+function openChat(id, name, meta, archived, avatar = '', staffId = 0) {
     activeId = id; lastId = 0; isConvArch = !!archived; partnerAvatarUrl = avatar ? resolveProfileUrl(avatar) : '';
     if (!window.PFCallState) window.PFCallState = {};
     window.PFCallState.activeId = id;
     window.PFCallState.activePartner = {
-        id: null,
+        id: staffId || null,   // Pre-populate staff ID from conversation list
         type: 'Staff',
         name: name || 'PrintFlow Team',
         avatar: partnerAvatarUrl || ''
@@ -2542,16 +2544,40 @@ function initiateCall(type) {
     if (!window.PFCallState) window.PFCallState = {};
     window.PFCallState.activeId = activeId;
 
-    // Check if PFCall system is ready; if not, wait and retry (mirrors staff-side logic)
+    // ── 1. Wait for PFCall library to be ready ────────────────────────────────
     if (!window.PFCall || typeof window.PFCall.startCall !== 'function' || !window.PFCall.userId) {
-        console.warn('[PFCall] System not ready, waiting before customer call...');
-        const handler = () => initiateCall(type);
-        window.addEventListener('PFCallGlobalReady', handler, { once: true });
+        console.warn('[PFCall] Library not ready, queuing call...');
+        window.addEventListener('PFCallGlobalReady', () => initiateCall(type), { once: true });
         return;
     }
 
-    // Use the reliable get_call_partner API — NOT status.php whose user_status
-    // table only updates when staff is actively on the chat page.
+    // ── 2. Wait for socket connection (retry for up to 8s) ───────────────────
+    if (!window.PFCall.isSocketConnected) {
+        _pfCallToast('Connecting to call server\u2026', 'info');
+        // Try forcing a reconnect
+        if (window.PFCall.socket && typeof window.PFCall.socket.connect === 'function') {
+            window.PFCall.socket.connect();
+        }
+        let attempts = 0;
+        const waitTimer = setInterval(() => {
+            attempts++;
+            if (window.PFCall?.isSocketConnected) {
+                clearInterval(waitTimer);
+                _doInitiateCall(type); // socket is ready now
+            } else if (attempts >= 8) {
+                clearInterval(waitTimer);
+                _pfCallToast('Call server unreachable. Please try again.', 'error');
+            }
+        }, 1000);
+        return;
+    }
+
+    _doInitiateCall(type);
+}
+
+// Internal: resolve partner and start the call (socket is confirmed ready)
+function _doInitiateCall(type) {
+    // ── 3. Resolve the staff partner via DB (not user_status) ────────────────
     const fd = new FormData();
     fd.append('order_id', activeId);
     api('/public/api/chat/get_call_partner.php', 'POST', fd).then(res => {
@@ -2561,7 +2587,7 @@ function initiateCall(type) {
             return;
         }
 
-        // If no partner resolved from DB, fall back to cached data from openChat()
+        // Fall back to partner cached in openChat() if DB returns nothing
         let partner = res.partner;
         if (!partner || !partner.id) {
             const cached = window.PFCallState?.activePartner;
@@ -2574,9 +2600,11 @@ function initiateCall(type) {
         }
 
         const partnerAvatar = resolveProfileUrl(partner.avatar);
-        const partnerName   = partner.name || document.getElementById('hName')?.textContent || 'PrintFlow Team';
+        const partnerName   = partner.name
+            || document.getElementById('hName')?.textContent
+            || 'PrintFlow Team';
 
-        // Store for use by the call overlay / ring UI
+        // Store for call overlay / ring UI
         window.PFCallState.activePartner = {
             id:     partner.id,
             type:   'Staff',
@@ -2584,7 +2612,7 @@ function initiateCall(type) {
             avatar: partnerAvatar || partnerAvatarUrl || ''
         };
 
-        // Initiate — socket server handles offline/busy detection via pf-call-error
+        // Emit call — socket server returns pf-call-error if staff is offline
         window.PFCall.startCall(partner.id, 'Staff', partnerName, partnerAvatar, type);
     }).catch(err => {
         console.error('[PFCall] Network error on get_call_partner:', err);

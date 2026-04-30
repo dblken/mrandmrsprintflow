@@ -538,7 +538,7 @@
                     <video id="pf-remote-video" autoplay playsinline></video>
                     <div class="pf-video-topbar" id="pf-video-topbar">
                         <div class="pf-video-partner">
-                            <img id="pf-video-avatar" src="${PF_DEFAULT_AVATAR}" class="pf-video-avatar">
+                            <img id="pf-video-avatar" src="${PF_DEFAULT_AVATAR}" class="pf-video-avatar" onerror="this.src='${PF_DEFAULT_AVATAR}';this.onerror=null;">
                             <div class="pf-video-partner-meta">
                                 <div id="pf-video-name" class="pf-video-name">User</div>
                                 <div id="pf-video-label" class="pf-video-label">Connecting...</div>
@@ -557,7 +557,7 @@
                         <div class="pf-ripple pf-ripple-1"></div>
                         <div class="pf-ripple pf-ripple-2"></div>
                         <div class="pf-ripple pf-ripple-3"></div>
-                        <img id="pf-call-avatar" src="" class="pf-call-avatar-img">
+                        <img id="pf-call-avatar" src="${PF_DEFAULT_AVATAR}" class="pf-call-avatar-img" onerror="this.src='${PF_DEFAULT_AVATAR}';this.onerror=null;">
                     </div>
                     <div id="pf-call-name" class="pf-call-name">User</div>
                     <div id="pf-call-label" class="pf-call-label">Calling...</div>
@@ -591,7 +591,7 @@
             const toast = document.createElement('div');
             toast.id = 'pf-call-toast';
             toast.innerHTML = `
-                <img src="" class="pf-toast-avatar" id="pf-toast-img">
+                <img src="${PF_DEFAULT_AVATAR}" class="pf-toast-avatar" id="pf-toast-img" onerror="this.src='${PF_DEFAULT_AVATAR}';this.onerror=null;">
                 <div class="pf-toast-content">
                     <div class="pf-toast-name" id="pf-toast-name">User</div>
                     <div class="pf-toast-status">Incoming Call...</div>
@@ -620,9 +620,19 @@
             overlay.className = `pf-call-overlay--${state}`;
             overlay.classList.toggle('pf-video-call-active', this.callType === 'video' && state === PF_STATE.IN_CALL);
             this.$('pf-call-name').textContent = displayName;
-            this.$('pf-call-avatar').src = displayAvatar;
-            this.$('pf-video-name').textContent = displayName;
-            this.$('pf-video-avatar').src = displayAvatar;
+            // Set avatar with onerror fallback so broken URLs never show blank
+            const avatarEl = this.$('pf-call-avatar');
+            if (avatarEl) {
+                avatarEl.onerror = function() { this.src = PF_DEFAULT_AVATAR; this.onerror = null; };
+                avatarEl.src = displayAvatar;
+            }
+            const videoAvatarEl = this.$('pf-video-avatar');
+            if (videoAvatarEl) {
+                videoAvatarEl.onerror = function() { this.src = PF_DEFAULT_AVATAR; this.onerror = null; };
+                videoAvatarEl.src = displayAvatar;
+            }
+            const videoNameEl = this.$('pf-video-name');
+            if (videoNameEl) videoNameEl.textContent = displayName;
             if (label) {
                 this.$('pf-call-label').textContent = label;
                 this.$('pf-video-label').textContent = label;
