@@ -3840,18 +3840,8 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const savedInks = Array.isArray(this.currentJo.ink_usage) ? this.currentJo.ink_usage.length : 0;
                 return savedMaterials > 0 || savedInks > 0 || extraMaterials.length > 0 || extraInks.length > 0;
             },
-            isPosSourcedCurrentJo() {
-                const source = String(this.currentJo?.order_source || '').trim().toLowerCase();
-                if (source === 'pos' || source === 'walk-in') return true;
-                const detailSource = String(this.currentJo?.customization_details?.source || '').trim().toLowerCase();
-                return detailSource === 'pos';
-            },
             async getProductionAssignmentTarget() {
                 const jid = await this.resolveEffectiveJobId();
-                const storeOrderId = Number(this.currentJo?.order_id || this.currentJo?.id || 0);
-                if (this.isPosSourcedCurrentJo() && storeOrderId > 0) {
-                    return { orderId: storeOrderId, orderType: 'ORDER', jobId: jid };
-                }
                 return { orderId: jid, orderType: 'JOB', jobId: jid };
             },
             async submitToPay() {
