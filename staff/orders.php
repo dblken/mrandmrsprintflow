@@ -1856,7 +1856,7 @@ $page_title = 'Orders - Staff';
 
         var actionsHTML = '';
         var verificationStatuses = ['Pending', 'Pending Review', 'Pending Approval', 'To Pay', 'To Verify', 'TO VERIFY'];
-        var completionStatuses   = ['Ready for Pickup', 'TO PICK UP', 'To Pickup'];
+        var completionStatuses   = ['Ready for Pickup', 'TO PICK UP', 'To Pickup', 'Processing', 'In Production', 'Printing', 'Approved Design'];
 
         if (verificationStatuses.includes(d.status)) {
             // Check if it's a POS order needing a price (total is 0 or very small)

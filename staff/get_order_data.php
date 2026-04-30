@@ -309,7 +309,7 @@ $revisions_out = [];
 
 // Normalize status for product orders — production statuses are not valid for fixed products
 $display_status = $order['status'];
-if (($order['order_type'] ?? '') === 'product' && !array_filter($items_out, fn($io) => !in_array(strtolower(trim((string)($io['product_type'] ?? ''))), ['fixed', 'fixed product'], true))) {
+if (($order['order_type'] ?? '') === 'product') {
     $production_statuses = ['Processing', 'In Production', 'Printing', 'Approved Design'];
     if (in_array($display_status, $production_statuses)) {
         $display_status = 'Ready for Pickup';
