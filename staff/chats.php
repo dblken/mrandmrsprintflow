@@ -103,7 +103,8 @@ $current_user = get_logged_in_user();
         .conv-name { font-weight: 700; font-size: 0.95rem; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .conv-time { font-size: 0.7rem; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
         .conv-sub { font-size: 0.75rem; color: #1e293b; font-weight: 700; text-transform: capitalize; letter-spacing: 0.02em; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .conv-preview { font-size: 0.8rem; color: #64748b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+        .conv-preview { font-size: 0.8rem; color: #64748b; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 4px; min-width: 0; }
+        .conv-preview-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; display: block; }
 
         /* Main Window */
         .chat-window { display: flex; flex-direction: column; background: #fff; overflow: hidden; height: 100%; min-height: 0; position: relative; }
@@ -897,6 +898,15 @@ $current_user = get_logged_in_user();
             }
             .reaction-btn {
                 flex: 0 0 auto;
+            }
+            .conv-preview {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                min-width: 0;
+            }
+            .conv-preview-text {
+                max-width: 100%;
             }
             .reaction-display-container {
                 margin-top: 6px;
@@ -1743,7 +1753,7 @@ function loadConvs() {
                         <div class="conv-sub">${escapeHtml(c.product_name || '').toLowerCase()}</div>
                         <div class="conv-preview">
                             ${c.unread_count > 0 ? `<span class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">${c.unread_count}</span>` : ''}
-                            ${escapeHtml(c.last_message || 'No messages yet')}
+                            <span class="conv-preview-text">${escapeHtml(c.last_message || 'No messages yet')}</span>
                         </div>
                     </div>
                 </div>`;
