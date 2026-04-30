@@ -221,8 +221,7 @@ require_once __DIR__ . '/../includes/header.php';
         display: block;
         min-width: 0;
         overflow: visible;
-        white-space: normal;
-        word-break: break-word;
+        white-space: nowrap;
         font-weight: 600;
         color: #0f172a;
     }
@@ -364,10 +363,9 @@ require_once __DIR__ . '/../includes/header.php';
             line-height: 1.3;
             color: #0f172a !important;
             padding-right: 0 !important;
-            white-space: normal !important;
+            white-space: nowrap !important;
             overflow: visible !important;
             text-overflow: clip !important;
-            word-break: break-word !important;
         }
         
         /* Product badge - position in upper right */
