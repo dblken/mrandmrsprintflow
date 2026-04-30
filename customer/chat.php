@@ -371,14 +371,18 @@ require_once __DIR__ . '/../includes/header.php';
     /* Reaction Picker */
     .react-picker {
         display:none; position:absolute; bottom:calc(100% + 12px); left:50%; transform:translateX(-50%);
-        background:#fff; border:1px solid var(--pf-border); border-radius:999px; padding:0 20px;
-        gap:12px; z-index:150; box-shadow:0 12px 40px rgba(15,23,42,0.15); height: 56px; align-items: center; justify-content: center;
+        background:#fff; border:1px solid var(--pf-border); border-radius:999px; padding:6px 12px;
+        gap:8px; z-index:150; box-shadow:0 12px 40px rgba(15,23,42,0.15); height: 50px; align-items: center; justify-content: center;
         animation: pickerPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        width: max-content; min-width: 260px; white-space: nowrap;
+        width: max-content; min-width: auto; white-space: nowrap;
     }
     .react-picker.show { display:flex; }
-    .react-picker span { font-size:1.8rem; cursor:pointer; transition:.15s; margin: 0 6px; display: inline-flex; align-items: center; justify-content: center; }
-    .react-picker span:hover { transform:scale(1.35) translateY(-4px); }
+    .react-picker span {
+        font-size:1.6rem; cursor:pointer; transition:.15s; margin: 0 4px; 
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; border-radius: 50%;
+    }
+    .react-picker span:hover { background: #f1f5f9; transform:scale(1.25) translateY(-4px); }
 
     /* Seen Indicator */
     .seen-wrapper { display:flex; width:100%; margin-top:2px; min-height:16px; align-items:center; }
@@ -1999,49 +2003,37 @@ function positionMobileActionBar(row) {
 
     const bubbleRect = bubble.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
     const messagesArea = document.getElementById('messagesArea');
-    const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight };
+    const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: window.innerHeight, left: 0, right: viewportWidth };
     
     actionBar.style.display = 'flex';
     actionBar.style.visibility = 'hidden';
-    actionBar.style.opacity = '0';
-    const actionRect = actionBar.getBoundingClientRect();
-    const actionWidth = actionRect.width || 116;
-    const actionHeight = actionRect.height || 38;
+    const actionWidth = actionBar.offsetWidth || 120;
+    const actionHeight = actionBar.offsetHeight || 40;
     
-    const rowIsSelf = row.classList.contains('self');
-    const gap = 8;
+    // Horizontal center on bubble
+    let left = bubbleRect.left + (bubbleRect.width / 2) - (actionWidth / 2);
+    // Keep in bounds
+    left = Math.max(8, Math.min(left, viewportWidth - actionWidth - 8));
 
-    let top = bubbleRect.top + (bubbleRect.height / 2);
-    const minTop = messagesRect.top + (actionHeight / 2) + 8;
-    const maxTop = messagesRect.bottom - (actionHeight / 2) - 8;
-    top = Math.max(minTop, Math.min(top, maxTop));
-
-    if (rowIsSelf) {
-        const left = bubbleRect.left - actionWidth - gap;
-        if (left < 12) {
-            actionBar.style.left = `${Math.min(bubbleRect.right + gap, viewportWidth - actionWidth - 12)}px`;
-        } else {
-            actionBar.style.left = `${left}px`;
-        }
-        actionBar.style.right = 'auto';
-    } else {
-        const left = bubbleRect.right + gap;
-        if (left + actionWidth > viewportWidth - 12) {
-            actionBar.style.left = `${Math.max(12, bubbleRect.left - actionWidth - gap)}px`;
-        } else {
-            actionBar.style.left = `${left}px`;
-        }
-        actionBar.style.right = 'auto';
+    // Vertical position: Prefer ABOVE the bubble, like Messenger
+    const gap = 12;
+    let top = bubbleRect.top - actionHeight - gap;
+    
+    // If no space above, show below
+    if (top < messagesRect.top + 8) {
+        top = bubbleRect.bottom + gap;
     }
 
+    actionBar.style.position = 'fixed';
+    actionBar.style.left = `${left}px`;
     actionBar.style.top = `${top}px`;
-    actionBar.style.bottom = 'auto';
-    actionBar.style.transform = 'translateY(-50%)';
+    actionBar.style.transform = 'none';
+    actionBar.style.margin = '0';
     actionBar.style.visibility = 'visible';
     actionBar.style.opacity = '1';
     actionBar.style.pointerEvents = 'auto';
+    actionBar.style.zIndex = '1100';
 }
 function setActiveMessageRow(row) {
     if (!row) return;
@@ -2074,7 +2066,9 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     const triggerRect = trigger.getBoundingClientRect();
     const bubble = trigger.closest('.b-col')?.querySelector('.bubble, .voice-bubble-player, .call-log-bubble, .order-update-bubble');
     const anchorRect = bubble ? bubble.getBoundingClientRect() : triggerRect;
-    const menuRect = menu.getBoundingClientRect();
+    
+    const menuWidth = Math.min(menu.offsetWidth || options.mobileWidth || 220, window.innerWidth - 24);
+    const menuHeight = menu.offsetHeight || (options.preferred === 'top' ? 50 : 100);
     
     if (!isVisible) {
         menu.style.display = '';
@@ -2086,9 +2080,6 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     const messagesArea = document.getElementById('messagesArea');
     const messagesRect = messagesArea ? messagesArea.getBoundingClientRect() : { top: 0, bottom: viewportHeight, left: 0, right: viewportWidth };
 
-    const menuHeight = menuRect.height || (options.preferred === 'top' ? 56 : 100);
-    const menuWidth = Math.min(menuRect.width || options.mobileWidth || 220, viewportWidth - 24);
-
     // Determine vertical position
     const spaceAbove = anchorRect.top - messagesRect.top;
     const spaceBelow = messagesRect.bottom - anchorRect.bottom;
@@ -2097,35 +2088,22 @@ function positionFloatingMenu(menu, trigger, options = {}) {
     let top;
     if (shouldOpenAbove) {
         top = anchorRect.top - menuHeight - gap;
-        // Keep within messages area
-        if (top < messagesRect.top + 8) top = messagesRect.top + 8;
     } else {
         top = anchorRect.bottom + gap;
-        // Keep within messages area
-        if (top + menuHeight > messagesRect.bottom - 8) top = messagesRect.bottom - menuHeight - 8;
     }
 
-    // Horizontal alignment
-    const row = trigger.closest('.brow');
-    const alignRight = row ? row.classList.contains('self') : false;
-    let left;
-    
-    if (alignRight) {
-        left = anchorRect.right - menuWidth;
-    } else {
-        left = anchorRect.left;
-    }
+    // Horizontal center on the anchor (bubble)
+    let left = anchorRect.left + (anchorRect.width / 2) - (menuWidth / 2);
     
     // Keep within viewport bounds
-    left = Math.max(messagesRect.left + 12, Math.min(left, messagesRect.right - menuWidth - 12));
+    left = Math.max(8, Math.min(left, viewportWidth - menuWidth - 8));
+    top = Math.max(messagesRect.top + 8, Math.min(top, messagesRect.bottom - menuHeight - 8));
 
     // Apply positioning
     menu.style.position = 'fixed';
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
-    if (!window.matchMedia('(max-width: 768px)').matches) {
-        menu.style.width = `${menuWidth}px`;
-    }
+    menu.style.width = 'auto';
     menu.style.transform = 'none';
     menu.style.right = 'auto';
     menu.style.bottom = 'auto';
