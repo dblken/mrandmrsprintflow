@@ -66,6 +66,38 @@ if (isset($_GET['action'])) {
             : $base_url . '/admin/notifications.php';
         redirect($redirect_base . '?success=' . urlencode('All notifications marked as read'));
     }
+
+    if ($action === 'get_unread_count') {
+        $visible_notifications = db_query(
+            "SELECT * FROM notifications WHERE user_id = ? AND type != 'Message' ORDER BY created_at DESC",
+            'i',
+            [$admin_id]
+        ) ?: [];
+
+        if ($viewer_role === 'Manager' && $viewer_branch_id > 0) {
+            $visible_notifications = array_values(array_filter(
+                $visible_notifications,
+                static fn(array $notif): bool => printflow_admin_notification_visible($notif, $viewer_branch_id, 'Manager')
+            ));
+        }
+
+        $latest_id = 0;
+        $unread_total = 0;
+        foreach ($visible_notifications as $notif) {
+            $latest_id = max($latest_id, (int)($notif['notification_id'] ?? 0));
+            if ((int)($notif['is_read'] ?? 0) === 0) {
+                $unread_total++;
+            }
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => true,
+            'count' => $unread_total,
+            'latest_id' => $latest_id,
+        ]);
+        exit;
+    }
     
 
 }
@@ -127,6 +159,10 @@ $unread_count = count(array_filter(
     $all_notifications,
     static fn(array $notif): bool => (int)($notif['is_read'] ?? 0) === 0
 ));
+$latest_notification_id = 0;
+foreach ($all_notifications as $notif) {
+    $latest_notification_id = max($latest_notification_id, (int)($notif['notification_id'] ?? 0));
+}
 
 $notif_filter_badge = ($filter !== 'all' ? 1 : 0) + ($search !== '' ? 1 : 0);
 $notif_pagination_params = ['filter' => $filter, 'sort' => $sort_by];
@@ -566,6 +602,8 @@ $page_title = 'Notifications - Admin';
 <script>
 var ntSearchTimer = null;
 var activeSort = '<?php echo $sort_by; ?>';
+window.PF_ADMIN_NOTIF_LATEST_ID = <?php echo (int)$latest_notification_id; ?>;
+window.PF_ADMIN_NOTIF_HAS_PENDING_UPDATES = false;
 
 function notifFilterPanel() {
     return {
@@ -619,11 +657,27 @@ function notifResetField(which) {
 }
 
 function checkForNewNotifications() {
-    var currentFilter = new URLSearchParams(window.location.search).get('filter') || 'all';
-    var searchInput = document.getElementById('nt_fp_search');
-    if (searchInput && !searchInput.value && (currentFilter === 'all' || currentFilter === 'unread')) {
-        window.location.reload();
-    }
+    fetch('?action=get_unread_count', { credentials: 'include' })
+        .then(function (response) { return response.ok ? response.json() : null; })
+        .then(function (data) {
+            if (!data || !data.success) return;
+
+            if (window.PFNotifications && typeof window.PFNotifications.updateBadge === 'function') {
+                window.PFNotifications.updateBadge(data.count || 0);
+            }
+
+            var latestId = parseInt(data.latest_id || 0, 10);
+            var currentLatestId = parseInt(window.PF_ADMIN_NOTIF_LATEST_ID || 0, 10);
+            if (latestId > currentLatestId) {
+                window.PF_ADMIN_NOTIF_HAS_PENDING_UPDATES = true;
+                var refreshButton = document.querySelector('button[onclick="refreshNotifications()"]');
+                if (refreshButton && !refreshButton.dataset.pendingLabelApplied) {
+                    refreshButton.dataset.pendingLabelApplied = '1';
+                    refreshButton.title = 'New notifications available';
+                }
+            }
+        })
+        .catch(function () { /* silently ignore polling errors */ });
 }
 
 function refreshNotifications() {

@@ -129,6 +129,15 @@ async function debugLog(eventType, payload = {}, endpoint = '') {
     }
 }
 
+function scheduleDebugLog(eventType, payload = {}, endpoint = '') {
+    // Diagnostics should never delay a user-visible push popup.
+    try {
+        debugLog(eventType, payload, endpoint);
+    } catch (error) {
+        // Ignore logging errors entirely.
+    }
+}
+
 // -- Install: cache shell + pages immediately ---------------------------------
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing...');
@@ -298,30 +307,6 @@ self.addEventListener('push', (event) => {
 
     event.waitUntil(
         (async () => {
-            await debugLog('sw_push_received', {
-                has_data: !!event.data,
-                title: safeDebugValue(payload.title, 120),
-                body: safeDebugValue(payload.body, 160),
-                tag: safeDebugValue(payload.tag, 80),
-                url: safeDebugValue(payload.url, 180),
-            });
-
-            const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
-            const targetUrl = new URL(normalizeTargetUrl(payload.url), self.location.origin).href;
-            let matchingVisibleClient = null;
-
-            for (const client of windowClients) {
-                const clientUrl = new URL(client.url, self.location.origin).href;
-                if (clientUrl === targetUrl && client.visibilityState === 'visible') {
-                    matchingVisibleClient = client;
-                    break;
-                }
-            }
-
-            if (matchingVisibleClient) {
-                matchingVisibleClient.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
-            }
-
             const resolvedTag = payload.tag
                 ? String(payload.tag)
                 : ('pf-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
@@ -339,9 +324,17 @@ self.addEventListener('push', (event) => {
                 data:    { url: normalizeTargetUrl(payload.url) },
             };
 
+            scheduleDebugLog('sw_push_received', {
+                has_data: !!event.data,
+                title: safeDebugValue(payload.title, 120),
+                body: safeDebugValue(payload.body, 160),
+                tag: safeDebugValue(payload.tag, 80),
+                url: safeDebugValue(payload.url, 180),
+            });
+
             try {
                 await self.registration.showNotification(payload.title, primaryOptions);
-                await debugLog('sw_notification_shown', {
+                scheduleDebugLog('sw_notification_shown', {
                     title: safeDebugValue(payload.title, 120),
                     tag: safeDebugValue(resolvedTag, 80),
                     target: safeDebugValue(primaryOptions.data && primaryOptions.data.url ? primaryOptions.data.url : '', 180),
@@ -353,15 +346,26 @@ self.addEventListener('push', (event) => {
                     badge: defaults.badge,
                     image: undefined,
                 };
-                await debugLog('sw_notification_show_failed', {
+                scheduleDebugLog('sw_notification_show_failed', {
                     error: safeDebugValue(error && error.message ? error.message : 'showNotification failed', 180),
                     title: safeDebugValue(payload.title, 120),
                 });
                 await self.registration.showNotification(payload.title, fallbackOptions);
-                await debugLog('sw_notification_shown_fallback', {
+                scheduleDebugLog('sw_notification_shown_fallback', {
                     title: safeDebugValue(payload.title, 120),
                     tag: safeDebugValue(resolvedTag, 80),
                 });
+            }
+
+            const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+            const targetUrl = new URL(normalizeTargetUrl(payload.url), self.location.origin).href;
+
+            for (const client of windowClients) {
+                const clientUrl = new URL(client.url, self.location.origin).href;
+                if (clientUrl === targetUrl && client.visibilityState === 'visible') {
+                    client.postMessage({ type: 'PF_PUSH_RECEIVED', payload });
+                    break;
+                }
             }
         })()
     );

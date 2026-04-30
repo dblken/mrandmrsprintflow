@@ -217,17 +217,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $middle_name = ucwords(strtolower(trim($middle_name)));
         $last_name = ucwords(strtolower(trim($last_name)));
         
-        // Philippine/International Name Regex: letters and single space only, max 3 words
-        $nameRegex = '/^[A-Za-z]+( [A-Za-z]+){0,2}$/';
+        // Letters and spaces only; input length is capped by maxlength in the form
+        $nameRegex = '/^[A-Za-z]+(?: [A-Za-z]+)*$/';
         $contactRegex = '/^09\d{9}$/';
         
         // Backend strong validation
         if (empty($first_name) || !preg_match($nameRegex, $first_name)) {
-            $error = 'First name must contain only letters and at most 3 words.';
+            $error = 'First name must contain letters only.';
         } elseif (!empty($middle_name) && !preg_match($nameRegex, $middle_name)) {
-            $error = 'Middle name must contain only letters and at most 3 words.';
+            $error = 'Middle name must contain letters only.';
         } elseif (empty($last_name) || !preg_match($nameRegex, $last_name)) {
-            $error = 'Last name must contain only letters and at most 3 words.';
+            $error = 'Last name must contain letters only.';
         } elseif (empty($contact_number) || !preg_match($contactRegex, $contact_number)) {
             $error = 'Contact number must follow format 09XXXXXXXXX.';
         } elseif (empty($dob) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
@@ -944,7 +944,10 @@ require_once __DIR__ . '/../includes/header.php';
                                 <div class="live-indicator" data-for="first_name"></div>
                             </div>
                             <div class="pf-field-group">
-                                <label for="middle_name" class="pf-label">Middle Name</label>
+                                <label for="middle_name" class="pf-label" style="display:flex; align-items:center; gap:0.5rem;">
+                                    <span>Middle Name</span>
+                                    <span style="font-size:0.72rem; font-weight:700; color:#64748b; background:#f8fafc; border:1px solid #cbd5e1; border-radius:999px; padding:0.12rem 0.5rem; letter-spacing:0.01em;">Optional</span>
+                                </label>
                                 <input type="text" id="middle_name" name="middle_name" class="pf-input validate-advanced-name" value="<?php echo htmlspecialchars($customer['middle_name'] ?? ''); ?>" maxlength="50">
                                 <div class="live-indicator" data-for="middle_name"></div>
                             </div>
@@ -1553,14 +1556,14 @@ require_once __DIR__ . '/../includes/header.php';
     const btnSubmit = document.getElementById('btn-update-profile');
 
     const REGEX = {
-        name: /^[A-Za-z]+( [A-Za-z]+){0,2}$/,
+        name: /^[A-Za-z]+(?: [A-Za-z]+)*$/,
         email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     };
 
     const HINTS = {
-        first_name: 'Letters only, max 3 words',
-        middle_name: 'Letters only, max 3 words (optional)',
-        last_name: 'Letters only, max 3 words',
+        first_name: 'Letters only',
+        middle_name: 'Letters only (optional)',
+        last_name: 'Letters only',
         contact_number: 'Format: 09XXXXXXXXX',
         dob: 'Age 13-100 years old'
     };
@@ -1657,10 +1660,8 @@ require_once __DIR__ . '/../includes/header.php';
             }
 
             if (!REGEX.name.test(trimmed)) {
-                let msg = 'Use letters only, max 3 words (e.g. Juan Carlos)';
-                const words = trimmed.split(/\s+/).filter(Boolean).length;
-                if (words > 3) msg = 'Maximum 3 words allowed';
-                else if (/[0-9]/.test(trimmed)) msg = 'Numbers not allowed';
+                let msg = 'Use letters only (e.g. Juan Carlos)';
+                if (/[0-9]/.test(trimmed)) msg = 'Numbers not allowed';
                 else if (/[^A-Za-z\s]/.test(trimmed)) msg = 'Letters and spaces only';
                 updateIndicator(this.id, false, msg);
             } else {

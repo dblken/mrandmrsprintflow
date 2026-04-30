@@ -102,6 +102,11 @@ require_once __DIR__ . '/../includes/header.php';
         background: transparent !important;
         color: #1e293b !important;
     }
+    .cart-theme-page .cart-table {
+        width: 100%;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
     .cart-theme-page thead {
         background: #f8fafc !important;
         color: #475569 !important;
@@ -117,6 +122,11 @@ require_once __DIR__ . '/../includes/header.php';
     }
     .cart-theme-page .cart-row td {
         color: #1e293b !important;
+    }
+    .cart-theme-page .cart-row td:nth-child(2) {
+        position: relative;
+        min-width: 320px;
+        padding-right: 6.5rem !important;
     }
     .cart-theme-page .cart-row:hover {
         background: #f1f5f9 !important;
@@ -200,6 +210,23 @@ require_once __DIR__ . '/../includes/header.php';
         font-weight: 700;
         letter-spacing: 0.02em;
         text-transform: uppercase;
+    }
+
+    .cart-item-meta {
+        flex: 1;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .cart-item-name {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font-weight: 600;
+        color: #0f172a;
     }
 
     .cart-total-wrap {
@@ -300,6 +327,7 @@ require_once __DIR__ . '/../includes/header.php';
         
         .cart-theme-page .cart-row td:nth-child(2) {
             padding-left: 2rem !important;
+            padding-right: 0.5rem !important;
             padding-bottom: 0.4rem !important;
             margin-bottom: 0.4rem;
             border-bottom: 1px solid #e2e8f0 !important;
@@ -325,16 +353,22 @@ require_once __DIR__ . '/../includes/header.php';
             min-width: 0;
             overflow: hidden;
         }
-        
-        /* Product name - allow wrapping */
-        .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child {
+
+        .cart-item-meta {
+            padding-right: 4.5rem;
+        }
+
+        /* Product name */
+        .cart-theme-page .cart-row td:nth-child(2) > div:nth-child(2) > div:first-child,
+        .cart-item-name {
             font-size: 0.85rem !important;
             font-weight: 600 !important;
             line-height: 1.3;
             color: #0f172a !important;
             padding-right: 0 !important;
-            white-space: normal !important;
-            word-wrap: break-word;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
         
         /* Product badge - position in upper right */
@@ -706,7 +740,7 @@ require_once __DIR__ . '/../includes/header.php';
             <form method="POST">
                 <div class="card" style="padding:0;">
                     <div class="overflow-x-auto">
-                        <table style="width:100%; border-collapse:collapse;">
+                        <table class="cart-table">
                             <thead style="background:rgba(8,30,39,0.85); font-size:0.875rem; text-transform:uppercase; letter-spacing:0.05em; color:#9fc6d9;">
                                 <tr>
                                     <th style="padding:1rem; text-align:center; width: 50px;">
@@ -748,6 +782,16 @@ require_once __DIR__ . '/../includes/header.php';
                                     $item_type_border = ($item_origin === 'Product') ? 'rgba(16, 185, 129, 0.5)' : 'rgba(168, 85, 247, 0.5)';
                                     $item_type_text = ($item_origin === 'Product') ? '#065f46' : '#581c87';
                                     $item_name = (string)($item['name'] ?? 'Unknown Product');
+                                    $item_name_limit = 24;
+                                    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+                                        $item_display_name = mb_strlen($item_name) > $item_name_limit
+                                            ? mb_substr($item_name, 0, $item_name_limit) . '...'
+                                            : $item_name;
+                                    } else {
+                                        $item_display_name = strlen($item_name) > $item_name_limit
+                                            ? substr($item_name, 0, $item_name_limit) . '...'
+                                            : $item_name;
+                                    }
                                     $item_category = (string)($item['category'] ?? '');
                                     $qty_for_edit = max(1, (int)($item['quantity'] ?? 1));
                                     $modify_link = $base_url . '/customer/products.php';
@@ -884,8 +928,8 @@ require_once __DIR__ . '/../includes/header.php';
                                                     <img src="<?php echo $base_url; ?>/public/assets/images/icon-192.png" style="width:70%; height:70%; object-fit:contain; opacity:0.8;" alt="Logo">
                                                 <?php endif; ?>
                                             </div>
-                                            <div style="flex:1;">
-                                                <div style="font-weight:600; color:#0f172a; white-space:nowrap; padding-right:4rem;"><?php echo htmlspecialchars($item['name'] ?? 'Unknown Product'); ?></div>
+                                            <div class="cart-item-meta">
+                                                <div class="cart-item-name"><?php echo htmlspecialchars($item_display_name); ?></div>
                                                 <?php if (!empty($item['variant_name'])): ?>
                                                     <div style="font-size:0.75rem; color:#475569;"><?php echo htmlspecialchars((string)$item['variant_name']); ?></div>
                                                 <?php endif; ?>

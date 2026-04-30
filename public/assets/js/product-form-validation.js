@@ -42,15 +42,22 @@
     function isBranchStockModalOpen() {
         if (!el('modal-stock-mgr')) return false;
         var ov = el('product-modal-overlay');
-        return !!(ov && ov.classList.contains('active'));
+        return !!(ov && ov.classList.contains('active') && el('modal-mode-input')?.name === 'update_product');
+    }
+
+    function isStockOnlyModalOpen() {
+        var ov = el('product-modal-overlay');
+        return !!(ov && ov.classList.contains('active') && el('modal-mode-input')?.name === 'add_product_stock');
     }
 
     function resolveFieldUi(fieldId) {
         if (fieldId === 'stock') {
+            if (isStockOnlyModalOpen()) return { inputId: 'stock-modal-add-qty', errId: 'err-add-stock' };
             if (isBranchStockModalOpen()) return { inputId: 'modal-stock-mgr', errId: 'err-stock-mgr' };
             return { inputId: 'modal-stock', errId: 'err-stock' };
         }
         if (fieldId === 'low-stock') {
+            if (isStockOnlyModalOpen()) return { inputId: 'stock-modal-low-level', errId: 'err-stock-only-low' };
             if (isBranchStockModalOpen()) return { inputId: 'modal-low-mgr', errId: 'err-low-mgr' };
             return { inputId: 'modal-low-stock', errId: 'err-low-stock' };
         }
@@ -144,11 +151,12 @@
         const num = parseFloat(v);
         if (isNaN(num) || num < 0) return ERRORS.quantityNegative;
         if (num !== Math.floor(num)) return ERRORS.quantityWhole;
+        if (isStockOnlyModalOpen() && num < 1) return ERRORS.quantityRequired;
         
         // Check if quantity is lower than low stock level
         const lowStockVal = getVal('low-stock');
         const lowStock = parseInt(lowStockVal, 10);
-        if (!isNaN(lowStock) && num < lowStock) {
+        if (!isStockOnlyModalOpen() && !isNaN(lowStock) && num < lowStock) {
             return ERRORS.quantityBelowLowStock;
         }
         
@@ -157,7 +165,11 @@
 
     function validateLowStock() {
         const v = getVal('low-stock');
-        const qty = parseInt((el(resolveFieldUi('stock').inputId)?.value || '0'), 10);
+        let qty = parseInt((el(resolveFieldUi('stock').inputId)?.value || '0'), 10);
+        if (isStockOnlyModalOpen()) {
+            const current = parseInt((el('stock-modal-current')?.value || '0'), 10);
+            qty = current + (isNaN(qty) ? 0 : qty);
+        }
         const num = parseFloat(v);
         if (isNaN(num) || num < 0) return ERRORS.lowStockNegative;
         if (num !== Math.floor(num)) return ERRORS.lowStockWhole;
@@ -167,7 +179,17 @@
 
     function runValidation() {
         var errors;
-        if (isBranchStockModalOpen()) {
+        if (isStockOnlyModalOpen()) {
+            errors = {
+                name: '',
+                category: '',
+                price: '',
+                description: '',
+                photo: '',
+                stock: validateQuantity(),
+                'low-stock': validateLowStock()
+            };
+        } else if (isBranchStockModalOpen()) {
             errors = {
                 name: '',
                 category: '',
@@ -191,8 +213,8 @@
         Object.keys(errors).forEach(function(k) { showError(k, errors[k]); });
         const valid = (errors && typeof errors === 'object') ? Object.values(errors).every(function(e) { return !e; }) : false;
         const btn = el('modal-submit-products-mgr') || el('modal-submit-btn');
-        /* Managers must always be able to click Save; invalid POST is blocked in submit handler. */
-        if (btn) btn.disabled = isBranchStockModalOpen() ? false : !valid;
+        /* Stock-only and branch-stock modals must remain clickable; submit handler and backend still block invalid values. */
+        if (btn) btn.disabled = (isBranchStockModalOpen() || isStockOnlyModalOpen()) ? false : !valid;
         return valid;
     }
 
@@ -224,25 +246,25 @@
     }
 
     function setupValidation() {
-        ['modal-name', 'modal-category', 'modal-price', 'modal-description', 'modal-stock', 'modal-low-stock', 'modal-stock-mgr', 'modal-low-mgr'].forEach(function(id) {
+        ['modal-name', 'modal-category', 'modal-price', 'modal-description', 'modal-stock', 'modal-low-stock', 'modal-stock-mgr', 'modal-low-mgr', 'stock-modal-add-qty', 'stock-modal-low-level'].forEach(function(id) {
             const elm = el(id);
             if (elm) {
                 elm.addEventListener('input', function() {
                     // Mark as touched on input
-                    if (id === 'modal-stock-mgr') touchedFields.add('stock');
-                    else if (id === 'modal-low-mgr') touchedFields.add('low-stock');
+                    if (id === 'modal-stock-mgr' || id === 'stock-modal-add-qty') touchedFields.add('stock');
+                    else if (id === 'modal-low-mgr' || id === 'stock-modal-low-level') touchedFields.add('low-stock');
                     else touchedFields.add(id.replace('modal-', ''));
                     runValidation();
                 });
                 elm.addEventListener('change', function() {
-                    if (id === 'modal-stock-mgr') touchedFields.add('stock');
-                    else if (id === 'modal-low-mgr') touchedFields.add('low-stock');
+                    if (id === 'modal-stock-mgr' || id === 'stock-modal-add-qty') touchedFields.add('stock');
+                    else if (id === 'modal-low-mgr' || id === 'stock-modal-low-level') touchedFields.add('low-stock');
                     else touchedFields.add(id.replace('modal-', ''));
                     runValidation();
                 });
                 elm.addEventListener('blur', function() {
-                    if (id === 'modal-stock-mgr') touchedFields.add('stock');
-                    else if (id === 'modal-low-mgr') touchedFields.add('low-stock');
+                    if (id === 'modal-stock-mgr' || id === 'stock-modal-add-qty') touchedFields.add('stock');
+                    else if (id === 'modal-low-mgr' || id === 'stock-modal-low-level') touchedFields.add('low-stock');
                     else touchedFields.add(id.replace('modal-', ''));
                     runValidation();
                 });
@@ -263,7 +285,7 @@
         if (form.getAttribute('data-pf-product-validation') !== '1') {
             form.setAttribute('data-pf-product-validation', '1');
             form.addEventListener('submit', function(e) {
-                if (isBranchStockModalOpen()) {
+                if (isStockOnlyModalOpen() || isBranchStockModalOpen()) {
                     ['stock', 'low-stock'].forEach(function(k) { touchedFields.add(k); });
                 } else {
                     ['name', 'category', 'price', 'description', 'photo', 'stock', 'low-stock'].forEach(function(k) {
@@ -298,7 +320,7 @@
     // -------------------------------------------------------------------------
     // We use delegation on the document level to ensure listeners persist
     // even if Alpine.js or other scripts re-render the modal content.
-    const NUMERIC_INPUT_IDS = ['modal-stock', 'modal-stock-mgr', 'modal-low-stock', 'modal-low-mgr'];
+    const NUMERIC_INPUT_IDS = ['modal-stock', 'modal-stock-mgr', 'modal-low-stock', 'modal-low-mgr', 'stock-modal-add-qty', 'stock-modal-low-level'];
 
     // Global KeyDown: Block invalid keystrokes immediately
     document.addEventListener('keydown', function(e) {

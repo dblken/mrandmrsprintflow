@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/JobOrderService.php';
 
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
+require_once __DIR__ . '/../includes/require_id_verified.php';
 
 function review_resolve_catalog_image(?string $path): ?string {
     $path = trim((string)$path);

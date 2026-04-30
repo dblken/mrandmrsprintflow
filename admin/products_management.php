@@ -203,6 +203,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             }
         }
         }
+    } elseif (isset($_POST['add_product_stock'])) {
+        $product_id = (int)($_POST['product_id'] ?? 0);
+        $add_stock_quantity = (int)($_POST['add_stock_quantity'] ?? 0);
+        $low_stock_level = (int)($_POST['low_stock_level'] ?? 10);
+        if ($low_stock_level < 1) {
+            $low_stock_level = 10;
+        }
+
+        if ($product_id < 1) {
+            $error = 'Invalid product.';
+        } elseif ($add_stock_quantity <= 0) {
+            $error = 'Add stock quantity must be greater than 0.';
+        } elseif ($add_stock_quantity > 99999) {
+            $error = 'Add stock quantity must not exceed 5 digits.';
+        } elseif ($is_manager && $mgr_branch_id < 1) {
+            $error = 'No branch is assigned to your account.';
+        } else {
+            $existingProduct = db_query(
+                "SELECT product_id, name, stock_quantity FROM products WHERE product_id = ? AND status != 'Archived' LIMIT 1",
+                'i',
+                [$product_id]
+            );
+
+            if ($existingProduct === false) {
+                $error = 'Database error while verifying product.';
+            } elseif (count($existingProduct) === 0) {
+                $error = 'Product not found.';
+            } else {
+                $productName = (string)($existingProduct[0]['name'] ?? ('Product #' . $product_id));
+                $oldStockQuantity = $product_stock_uses_base
+                    ? (int)($existingProduct[0]['stock_quantity'] ?? 0)
+                    : (int)(printflow_product_effective_stock($product_id, $product_stock_branch_id)[0] ?? 0);
+                $newStockQuantity = $oldStockQuantity + $add_stock_quantity;
+
+                if ($low_stock_level > $newStockQuantity) {
+                    $error = 'Low stock level cannot exceed the updated quantity.';
+                } else {
+                    $result = false;
+                    if ($product_stock_uses_base) {
+                        $result = db_execute(
+                            "UPDATE products SET stock_quantity = ?, low_stock_level = ?, updated_at = NOW() WHERE product_id = ?",
+                            'iii',
+                            [$newStockQuantity, $low_stock_level, $product_id]
+                        );
+                    } else {
+                        $result = printflow_product_branch_stock_upsert(
+                            $product_id,
+                            $product_stock_branch_id,
+                            $newStockQuantity,
+                            $low_stock_level
+                        );
+                    }
+
+                    if ($result) {
+                        printflow_record_product_inventory_transaction(
+                            $product_id,
+                            'IN',
+                            (float)$add_stock_quantity,
+                            'PRODUCT_ADJUSTMENT',
+                            $product_id,
+                            "Products Management add stock for {$productName}: {$oldStockQuantity} -> {$newStockQuantity}",
+                            (int)(get_user_id() ?? 0),
+                            date('Y-m-d'),
+                            $product_stock_branch_id
+                        );
+                        $success = 'Stock added successfully.';
+                    } else {
+                        global $conn;
+                        $dberr = isset($conn) ? $conn->error : '';
+                        $error = 'Failed to add stock.' . ($dberr !== '' ? ' (' . htmlspecialchars($dberr, ENT_QUOTES, 'UTF-8') . ')' : '');
+                    }
+                }
+            }
+        }
     } elseif (isset($_POST['update_product'])) {
         if ($is_manager) {
             $product_id = (int)($_POST['product_id'] ?? 0);
@@ -1562,6 +1636,10 @@ if (isset($_GET['ajax'])) {
                                             </span>
                                         </td>
                                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
+                                            <?php if ($product['status'] !== 'Archived'): ?>
+                                            <button class="btn-action teal"
+                                                onclick='openProductModal("stock", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'>Add Stock</button>
+                                            <?php endif; ?>
                                             <button class="btn-action blue"
                                                 onclick='openProductModal("edit", <?php echo htmlspecialchars(json_encode($product), ENT_QUOTES); ?>)'><?php echo $is_manager ? 'Stock' : 'Edit'; ?></button>
                                             <?php if (!$is_manager): ?>
@@ -1653,6 +1731,40 @@ if (isset($_GET['ajax'])) {
                 <?php /* Managers never create products: always POST update_product so server runs branch-stock handler even if JS fails after form.reset() */ ?>
                 <input type="hidden" id="modal-mode-input" name="<?php echo $is_manager ? 'update_product' : 'create_product'; ?>" value="1">
                 <input type="hidden" id="modal-product-id" name="product_id" value="">
+
+                <div id="pf-stock-only" style="display:none;">
+                    <div class="form-group" style="margin-bottom:18px;">
+                        <label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Product name</label>
+                        <div id="stock-modal-product-name" style="padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-weight:600;color:#111827;font-size:15px;">—</div>
+                    </div>
+                    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="form-group">
+                            <label for="stock-modal-current">Current stock</label>
+                            <input type="number" id="stock-modal-current" value="" disabled>
+                            <small>
+                                <?php echo $is_manager ? 'Current quantity for your assigned branch.' : 'Current quantity for the selected stock scope.'; ?>
+                            </small>
+                        </div>
+                        <div class="form-group" id="fg-add-stock">
+                            <label for="stock-modal-add-qty">Add stock quantity <span style="color:#dc2626">*</span></label>
+                            <input type="number" id="stock-modal-add-qty" min="1" max="99999" value="" step="1" disabled autocomplete="off" inputmode="numeric" placeholder="0" oninput="if (this.value.length > 5) this.value = this.value.slice(0, 5);">
+                            <span id="err-add-stock" class="field-error"></span>
+                        </div>
+                    </div>
+                    <div class="form-row" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="form-group" id="fg-stock-only-low">
+                            <label for="stock-modal-low-level">Low stock level <span style="color:#dc2626">*</span></label>
+                            <input type="number" id="stock-modal-low-level" min="0" value="10" step="1" disabled autocomplete="off" placeholder="0" maxlength="5">
+                            <small>Warn when stock falls below this. Must be less than or equal to resulting stock.</small>
+                            <span id="err-stock-only-low" class="field-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-modal-result">Resulting stock</label>
+                            <input type="number" id="stock-modal-result" value="" disabled>
+                            <small>This updates automatically as you enter the added stock quantity.</small>
+                        </div>
+                    </div>
+                </div>
 
                 <?php if ($is_manager): ?>
                 <div id="pf-manager-only" style="display:none;">
@@ -1887,6 +1999,136 @@ function pfGetProductModalSubmitBtn() {
     return document.getElementById('modal-submit-products-mgr') || document.getElementById('modal-submit-btn');
 }
 
+function pfStockOnlyModalSetActive(active, product) {
+    var stockOnly = document.getElementById('pf-stock-only');
+    var mgr = document.getElementById('pf-manager-only');
+    var adm = document.getElementById('pf-admin-only');
+    if (!stockOnly || !adm) return;
+
+    var addQty = document.getElementById('stock-modal-add-qty');
+    var lowLevel = document.getElementById('stock-modal-low-level');
+    var currentStock = document.getElementById('stock-modal-current');
+    var resultStock = document.getElementById('stock-modal-result');
+    var productName = document.getElementById('stock-modal-product-name');
+
+    function toggleSection(sectionEl, disabled) {
+        if (!sectionEl) return;
+        sectionEl.querySelectorAll('input, select, textarea, button').forEach(function(el) {
+            if (el.type === 'hidden') return;
+            if (disabled) {
+                el.setAttribute('data-pf-prev-disabled', el.disabled ? '1' : '0');
+                el.disabled = true;
+            } else {
+                var prev = el.getAttribute('data-pf-prev-disabled');
+                el.disabled = (prev === '1');
+                el.removeAttribute('data-pf-prev-disabled');
+            }
+        });
+    }
+
+    if (active) {
+        stockOnly.style.display = 'block';
+        if (mgr) mgr.style.display = 'none';
+        adm.style.display = 'none';
+        toggleSection(mgr, true);
+        toggleSection(adm, true);
+
+        if (addQty) {
+            addQty.disabled = false;
+            addQty.name = 'add_stock_quantity';
+        }
+        if (lowLevel) {
+            lowLevel.disabled = false;
+            lowLevel.name = 'low_stock_level';
+        }
+        if (productName) productName.textContent = product && product.name ? product.name : '—';
+        var qty = product && product.stock_quantity != null ? parseInt(product.stock_quantity, 10) || 0 : 0;
+        var low = product && product.low_stock_level != null ? parseInt(product.low_stock_level, 10) || 10 : 10;
+        if (currentStock) currentStock.value = String(qty);
+        if (resultStock) resultStock.value = String(qty);
+        if (addQty) addQty.value = '';
+        if (lowLevel) lowLevel.value = String(low);
+    } else {
+        stockOnly.style.display = 'none';
+        if (mgr) mgr.style.display = 'none';
+        adm.style.display = window.PF_PRODUCTS_IS_MANAGER ? 'none' : 'block';
+        if (addQty) {
+            addQty.disabled = true;
+            addQty.removeAttribute('name');
+            addQty.value = '';
+        }
+        if (lowLevel) {
+            lowLevel.disabled = true;
+            lowLevel.removeAttribute('name');
+            lowLevel.value = '10';
+        }
+        if (currentStock) currentStock.value = '';
+        if (resultStock) resultStock.value = '';
+        if (productName) productName.textContent = '—';
+        toggleSection(mgr, false);
+        toggleSection(adm, false);
+    }
+}
+
+function pfSyncStockOnlyResult() {
+    var currentStock = document.getElementById('stock-modal-current');
+    var addQty = document.getElementById('stock-modal-add-qty');
+    var resultStock = document.getElementById('stock-modal-result');
+    if (!currentStock || !addQty || !resultStock) return;
+    var current = parseInt(currentStock.value || '0', 10);
+    var add = parseInt(addQty.value || '0', 10);
+    if (isNaN(current)) current = 0;
+    if (isNaN(add) || add < 0) add = 0;
+    resultStock.value = String(current + add);
+}
+
+function pfSubmitStockOnlyForm() {
+    var form = document.getElementById('product-form');
+    var addQty = document.getElementById('stock-modal-add-qty');
+    var lowLevel = document.getElementById('stock-modal-low-level');
+    var currentStock = document.getElementById('stock-modal-current');
+    if (!form || !addQty || !lowLevel || !currentStock) return;
+
+    var add = parseInt(addQty.value || '0', 10);
+    var low = parseInt(lowLevel.value || '0', 10);
+    var current = parseInt(currentStock.value || '0', 10);
+    if (isNaN(current)) current = 0;
+
+    var errAdd = document.getElementById('err-add-stock');
+    var errLow = document.getElementById('err-stock-only-low');
+    if (errAdd) errAdd.textContent = '';
+    if (errLow) errLow.textContent = '';
+
+    if (isNaN(add) || add < 1) {
+        if (errAdd) errAdd.textContent = 'Add stock quantity must be greater than 0.';
+        addQty.focus();
+        return;
+    }
+    if (isNaN(low) || low < 0) {
+        if (errLow) errLow.textContent = 'Low stock level must be a non-negative whole number.';
+        lowLevel.focus();
+        return;
+    }
+    if (low > (current + add)) {
+        if (errLow) errLow.textContent = 'Low stock level cannot exceed the updated quantity.';
+        lowLevel.focus();
+        return;
+    }
+
+    HTMLFormElement.prototype.submit.call(form);
+}
+
+function pfEnsureStockOnlySubmitEnabled() {
+    var modeInput = document.getElementById('modal-mode-input');
+    var submitBtn = pfGetProductModalSubmitBtn();
+    if (!modeInput || !submitBtn) return;
+    if (modeInput.name !== 'add_product_stock') return;
+    submitBtn.disabled = false;
+    submitBtn.removeAttribute('disabled');
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+}
+
 /** Manager: show only product name + branch quantity + low stock; hide full catalog form and avoid duplicate POST names. */
 function pfManagerModalSetActive(active, product) {
     if (!window.PF_PRODUCTS_IS_MANAGER) return;
@@ -1964,6 +2206,7 @@ window.openProductModal = function openProductModal(mode, product) {
         console.warn('openProductModal: product modal markup not in DOM.');
         return;
     }
+    pfStockOnlyModalSetActive(false);
     pfManagerModalSetActive(false);
     var pti = document.getElementById('modal-photo');
     if (pti) pti.disabled = false;
@@ -1975,10 +2218,25 @@ window.openProductModal = function openProductModal(mode, product) {
     var previewText = document.getElementById('photo-preview-text');
     var photoInput = document.getElementById('modal-photo');
 
-    if (mode === 'edit' && product) {
+    if (mode === 'stock' && product) {
+        if (title) title.textContent = 'Add Stock';
+        if (modeInput) { modeInput.name = 'add_product_stock'; modeInput.value = '1'; }
+        if (submitBtn) {
+            submitBtn.textContent = 'Add Stock';
+            submitBtn.type = 'button';
+            submitBtn.onclick = pfSubmitStockOnlyForm;
+        }
+        var pidStockEl = document.getElementById('modal-product-id');
+        if (pidStockEl) pidStockEl.value = product.product_id != null ? String(product.product_id) : '';
+        pfStockOnlyModalSetActive(true, product);
+    } else if (mode === 'edit' && product) {
         if (title) title.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Branch stock' : 'Edit Product';
         if (modeInput) { modeInput.name = 'update_product'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+        if (submitBtn) {
+            submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
+        }
         var pidEl = document.getElementById('modal-product-id');
         if (pidEl) pidEl.value = product.product_id != null ? String(product.product_id) : '';
         if (window.PF_PRODUCTS_IS_MANAGER) {
@@ -2013,7 +2271,12 @@ window.openProductModal = function openProductModal(mode, product) {
     } else {
         if (title) title.textContent = 'Add New Product';
         if (modeInput) { modeInput.name = 'create_product'; modeInput.value = '1'; }
-        if (submitBtn) submitBtn.textContent = 'Create Product';
+        if (submitBtn) {
+            submitBtn.textContent = 'Create Product';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
+        }
+        pfStockOnlyModalSetActive(false);
         pfManagerModalSetActive(false);
         var pidEl2 = document.getElementById('modal-product-id');
         if (pidEl2) pidEl2.value = '';
@@ -2030,10 +2293,17 @@ window.openProductModal = function openProductModal(mode, product) {
     if (typeof window.printflowProductFormValidationRun === 'function') {
         window.printflowProductFormValidationRun();
     }
+    if (mode === 'stock' && product) {
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                pfEnsureStockOnlySubmitEnabled();
+            });
+        });
+    }
     try {
         document.dispatchEvent(new CustomEvent('pf-product-modal-shown'));
     } catch (e) { /* ignore */ }
-    if (window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product && submitBtn) {
+    if ((window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product && submitBtn) || (mode === 'stock' && product && submitBtn)) {
         requestAnimationFrame(function() {
             requestAnimationFrame(function() {
                 var b = pfGetProductModalSubmitBtn();
@@ -2044,13 +2314,16 @@ window.openProductModal = function openProductModal(mode, product) {
             });
         });
     }
-    var focusEl = (window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product)
+    var focusEl = (mode === 'stock' && product)
+        ? document.getElementById('stock-modal-add-qty')
+        : (window.PF_PRODUCTS_IS_MANAGER && mode === 'edit' && product)
         ? document.getElementById('modal-stock-mgr')
         : document.getElementById('modal-name');
     if (focusEl) setTimeout(function() { focusEl.focus(); }, 10);
 };
 
 function closeProductModal() {
+    pfStockOnlyModalSetActive(false);
     pfManagerModalSetActive(false);
     var pti = document.getElementById('modal-photo');
     if (pti) pti.disabled = false;
@@ -2067,8 +2340,16 @@ function closeProductModal() {
         submitBtn.removeAttribute('disabled');
         if (modeInput.name === 'update_product') {
             submitBtn.textContent = window.PF_PRODUCTS_IS_MANAGER ? 'Save branch stock' : 'Save Changes';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
+        } else if (modeInput.name === 'add_product_stock') {
+            submitBtn.textContent = 'Add Stock';
+            submitBtn.type = 'button';
+            submitBtn.onclick = pfSubmitStockOnlyForm;
         } else {
             submitBtn.textContent = 'Create Product';
+            submitBtn.type = 'submit';
+            submitBtn.onclick = null;
         }
     }
 }
@@ -2076,6 +2357,27 @@ function closeProductModal() {
 function handleOverlayClick(e) {
     if (e.target.id === 'product-modal-overlay') closeProductModal();
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var addQty = document.getElementById('stock-modal-add-qty');
+    if (addQty && !addQty.dataset.pfStockPreviewBound) {
+        addQty.dataset.pfStockPreviewBound = '1';
+        addQty.addEventListener('input', function() {
+            pfSyncStockOnlyResult();
+            pfEnsureStockOnlySubmitEnabled();
+        });
+        addQty.addEventListener('change', function() {
+            pfSyncStockOnlyResult();
+            pfEnsureStockOnlySubmitEnabled();
+        });
+    }
+    var lowLevel = document.getElementById('stock-modal-low-level');
+    if (lowLevel && !lowLevel.dataset.pfStockPreviewBound) {
+        lowLevel.dataset.pfStockPreviewBound = '1';
+        lowLevel.addEventListener('input', pfEnsureStockOnlySubmitEnabled);
+        lowLevel.addEventListener('change', pfEnsureStockOnlySubmitEnabled);
+    }
+});
 
 function openViewModal(product) {
     if (!product) return;
