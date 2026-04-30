@@ -467,6 +467,7 @@ class JobOrderService {
      * Add a material to a job order with advanced metadata.
      */
     public static function addMaterial($orderId, $itemId, $qty, $uom, $rollId = null, $notes = '', $metadata = null, $orderType = null) {
+        $liveJobId = null;
         if ($orderType === null) {
             // Auto-detect based on existence in job_orders table
             $isJob = db_query("SELECT id FROM job_orders WHERE id = ?", 'i', [$orderId]);
@@ -516,11 +517,15 @@ class JobOrderService {
         $colId = 'job_order_id';
         if ($orderType === 'ORDER' && self::tableHasColumn('job_order_materials', 'std_order_id')) {
             $colId = 'std_order_id';
+            $liveJobId = self::ensureJobsForStoreOrder((int)$orderId);
         } elseif ($orderType === 'ORDER') {
             $resolvedJobId = self::ensureJobsForStoreOrder((int)$orderId);
             if ($resolvedJobId) {
+                $liveJobId = (int)$resolvedJobId;
                 $orderId = $resolvedJobId;
             }
+        } else {
+            $liveJobId = (int)$orderId;
         }
 
         // Check for duplicates
@@ -531,12 +536,15 @@ class JobOrderService {
         }
         
         if (!empty($exists)) {
+            self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
             return $exists[0]['id']; // Return existing ID instead of creating duplicate
         }
 
         $sql = "INSERT INTO job_order_materials ($colId, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        return db_execute($sql, 'iiidsddss', [$orderId, $itemId, $rollId, $qty, $uom, $computed_len, $cost, $notes, $metaJson]);
+        $insertedId = db_execute($sql, 'iiidsddss', [$orderId, $itemId, $rollId, $qty, $uom, $computed_len, $cost, $notes, $metaJson]);
+        self::syncLiveJobMaterialsIfNeeded((int)$liveJobId);
+        return $insertedId;
     }
 
     /**
@@ -782,11 +790,13 @@ class JobOrderService {
     /**
      * Idempotent deduction for all materials in an order.
      */
-    private static function processDeductions($orderId) {
+    private static function processDeductions($orderId, array $options = []) {
+        $processMaterials = $options['materials'] ?? true;
+        $processInks = $options['inks'] ?? true;
         $branchId = self::getJobBranchId((int)$orderId);
         $jobRef = printflow_get_job_inventory_reference((int)$orderId);
         $jobLabel = $jobRef['label'] ?? ('Job #' . printflow_format_job_code((int)$orderId));
-        $materials = self::getScopedMaterials((int)$orderId, true);
+        $materials = $processMaterials ? self::getScopedMaterials((int)$orderId, true) : [];
         
         if ($materials) {
             foreach ($materials as $m) {
@@ -879,7 +889,7 @@ class JobOrderService {
         }
 
         // Process Ink Deductions
-        $inks = self::getScopedInkUsage((int)$orderId);
+        $inks = $processInks ? self::getScopedInkUsage((int)$orderId) : [];
         if ($inks) {
             foreach ($inks as $ink) {
                 // Determine item from inventory
@@ -900,6 +910,24 @@ class JobOrderService {
                 );
             }
         }
+    }
+
+    private static function syncLiveJobMaterialsIfNeeded(int $jobId): void {
+        if ($jobId <= 0) {
+            return;
+        }
+
+        $jobRows = db_query(
+            "SELECT status FROM job_orders WHERE id = ? LIMIT 1",
+            'i',
+            [$jobId]
+        ) ?: [];
+        $status = strtoupper(trim((string)($jobRows[0]['status'] ?? '')));
+        if (!in_array($status, ['IN_PRODUCTION', 'PROCESSING', 'PRINTING', 'TO_RECEIVE', 'COMPLETED'], true)) {
+            return;
+        }
+
+        self::processDeductions($jobId, ['materials' => true, 'inks' => false]);
     }
 
     private static function isServiceStoreOrderItem(array $item, array $custom): bool {
