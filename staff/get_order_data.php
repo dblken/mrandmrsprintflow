@@ -271,6 +271,7 @@ foreach ($items as $item) {
 
     $items_out[] = [
         'order_item_id' => $item['order_item_id'],
+        'product_id'    => (int)($item['product_id'] ?? 0),
         'product_name'  => printflow_resolve_order_item_name($item['product_name'] ?? 'Custom Order', $custom_data, 'Custom Order'),
         'sku'           => $item['sku'] ?? '',
         'category'      => $item['category'] ?? '',

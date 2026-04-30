@@ -1485,6 +1485,7 @@ $page_title = 'Orders - Staff';
 
     // ── Open / close order modal ─────────────────────────
     var currentOrderId = null;
+    var currentOrderModalData = null;
 
     function refreshOrderModalData(orderId, preserveOpen) {
         fetch(staffUrl('staff/get_order_data.php?id=') + orderId, {
@@ -1526,6 +1527,7 @@ $page_title = 'Orders - Staff';
             }
             var orderCode = data.order_code || ('ORD-' + orderId);
             document.getElementById('omSubtitle').textContent = orderCode + (data.order_date ? ' • ' + data.order_date : '');
+            currentOrderModalData = data;
             try { renderOrderModal(data); }
             catch (err) {
                 console.error('Render Error:', err);
@@ -1563,6 +1565,7 @@ $page_title = 'Orders - Staff';
         if (modal) modal.classList.remove('open');
         document.body.style.overflow = '';
         currentOrderId = null;
+        currentOrderModalData = null;
     }
     window.closeOrderModal = closeOrderModal;
 
@@ -1751,6 +1754,31 @@ $page_title = 'Orders - Staff';
         .catch(function() { alert('Network error'); });
     }
 
+    function orderNeedsCustomizationRedirect(orderData) {
+        if (!orderData || !Array.isArray(orderData.items) || !orderData.items.length) return false;
+        return orderData.items.some(function(item) {
+            var productType = String(item && item.product_type ? item.product_type : '').trim().toLowerCase();
+            return productType !== '' && productType !== 'fixed';
+        });
+    }
+
+    function buildCustomizationRedirectUrl(orderData) {
+        var params = new URLSearchParams();
+        params.set('order_id', orderData.order_id);
+        params.set('from', 'pos');
+        if (String(orderData.order_source || '').toLowerCase() === 'pos') {
+            params.set('return_to_pos', '1');
+        }
+        var firstCustomItem = (orderData.items || []).find(function(item) {
+            var productType = String(item && item.product_type ? item.product_type : '').trim().toLowerCase();
+            return productType !== 'fixed';
+        });
+        if (firstCustomItem && Number(firstCustomItem.product_id) > 0) {
+            params.set('product_id', firstCustomItem.product_id);
+        }
+        return staffUrl('staff/customizations.php?') + params.toString();
+    }
+
     async function setOrderPrice(orderId) {
         var price = parseFloat(document.getElementById('omPriceInput').value);
         if (isNaN(price) || price <= 0) {
@@ -1780,8 +1808,10 @@ $page_title = 'Orders - Staff';
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
-                // After setting price, also move to "Ready for Pickup" or "To Pay"
-                // For POS, let's just refresh the modal
+                if (orderNeedsCustomizationRedirect(currentOrderModalData)) {
+                    window.location.href = buildCustomizationRedirectUrl(currentOrderModalData);
+                    return;
+                }
                 showStatusOverlay('', 'Price set successfully!');
                 setTimeout(function() { openOrderModal(orderId); fetchUpdatedTable(); }, 1200);
             } else {
