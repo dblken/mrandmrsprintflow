@@ -418,6 +418,44 @@ class JobOrderService {
     }
 
     /**
+     * Ensure a store order has linked job orders, then move every active job to
+     * the requested status through the same status pipeline used by online
+     * payment approval and production flows.
+     *
+     * @return int[] Updated job order IDs
+     */
+    public static function syncStoreOrderToStatus(int $storeOrderId, string $targetStatus, ?int $machineId = null, string $reason = '', bool $silent = false): array {
+        if ($storeOrderId <= 0 || trim($targetStatus) === '') {
+            return [];
+        }
+
+        self::ensureJobsForStoreOrder($storeOrderId);
+
+        $jobs = db_query(
+            "SELECT id
+             FROM job_orders
+             WHERE order_id = ?
+               AND status NOT IN ('COMPLETED', 'CANCELLED')
+             ORDER BY id ASC",
+            'i',
+            [$storeOrderId]
+        ) ?: [];
+
+        $updatedJobIds = [];
+        foreach ($jobs as $job) {
+            $jobId = (int)($job['id'] ?? 0);
+            if ($jobId <= 0) {
+                continue;
+            }
+
+            self::updateStatus($jobId, $targetStatus, $machineId, $reason, $silent);
+            $updatedJobIds[] = $jobId;
+        }
+
+        return $updatedJobIds;
+    }
+
+    /**
      * Assign a specific roll to a job order material item.
      */
     public static function assignRoll($jomId, $rollId) {

@@ -178,16 +178,63 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
 }
 
 /**
- * POS customization rows must resolve to real job_orders, but JobOrderService
- * manages its own transactions, so run this only after the outer POS checkout
- * transaction has committed.
+ * Copy pending POS material assignments to the final sale order, then run the
+ * shared job-order status pipeline so inventory deduction/ledger logic matches
+ * the online payment approval flow.
+ */
+function pos_finalize_inventory_after_checkout(int $finalOrderId, string $targetStatus, int $pendingOrderId = 0): void {
+    if ($finalOrderId <= 0 || $targetStatus === '') {
+        return;
+    }
+
+    if ($pendingOrderId > 0) {
+        pos_migrate_pending_assignments_to_order($pendingOrderId, $finalOrderId);
+    }
+
+    $jobIds = JobOrderService::syncStoreOrderToStatus($finalOrderId, $targetStatus);
+    if (empty($jobIds)) {
+        throw new Exception('No linked production job was available for POS inventory processing.');
+    }
+
+    $params = [$finalOrderId];
+    $types = 'i';
+    $pendingSql = "
+        SELECT COUNT(*) AS remaining
+        FROM job_order_materials
+        WHERE deducted_at IS NULL
+          AND (
+                (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))
+    ";
+
+    if (!empty($jobIds)) {
+        $pendingSql .= " OR job_order_id IN (" . implode(',', array_fill(0, count($jobIds), '?')) . ")";
+        $params = array_merge($params, $jobIds);
+        $types .= str_repeat('i', count($jobIds));
+    }
+
+    $pendingSql .= '
+              )';
+
+    $remainingRow = db_query(
+        $pendingSql,
+        $types,
+        $params
+    ) ?: [];
+    $remaining = (int)($remainingRow[0]['remaining'] ?? 0);
+    if ($remaining > 0 && strtoupper($targetStatus) === 'IN_PRODUCTION') {
+        throw new Exception('Inventory sync finished with undeducted materials still attached to the POS order.');
+    }
+}
+
+/**
+ * POS customization rows must resolve to real job_orders, but the order insert
+ * transaction must commit first before jobs are finalized.
  */
 function pos_sync_customization_jobs_after_commit(int $orderId, string $targetStatus): void {
     if ($orderId <= 0 || $targetStatus === '') {
         return;
     }
 
-    JobOrderService::ensureJobsForStoreOrder($orderId);
     $jobs = db_query(
         "SELECT id FROM job_orders WHERE order_id = ? AND status NOT IN ('COMPLETED', 'CANCELLED') ORDER BY id ASC",
         'i',
@@ -523,10 +570,7 @@ try {
         $syncOrderId = (int)$sync_order_id;
         $syncStatus = is_array($syncMeta) ? (string)($syncMeta['status'] ?? '') : (string)$syncMeta;
         $pendingOrderId = is_array($syncMeta) ? (int)($syncMeta['pending_order_id'] ?? 0) : 0;
-        if ($pendingOrderId > 0) {
-            pos_migrate_pending_assignments_to_order($pendingOrderId, $syncOrderId);
-        }
-        pos_sync_customization_jobs_after_commit($syncOrderId, $syncStatus);
+        pos_finalize_inventory_after_checkout($syncOrderId, $syncStatus, $pendingOrderId);
     }
     echo json_encode(['success' => true, 'order_id' => $order_id, 'customization_id' => $last_customization_id ?? null, 'message' => 'Sale completed successfully.']);
 
@@ -537,11 +581,10 @@ try {
     if (!empty($order_id) && !$transaction_open) {
         error_log('PrintFlow POS checkout post-commit sync failed for order #' . (int)$order_id . ': ' . $e->getMessage());
         echo json_encode([
-            'success' => true,
+            'success' => false,
             'order_id' => (int)$order_id,
             'customization_id' => $last_customization_id ?? null,
-            'message' => 'Sale completed successfully.',
-            'warning' => 'Production sync needs follow-up.'
+            'message' => 'Sale was recorded, but inventory deduction failed: ' . $e->getMessage()
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
