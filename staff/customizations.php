@@ -4351,13 +4351,23 @@ window.pfCustomizationPreloadedOrders = (() => {
                 const res = await (await fetch(`../admin/job_orders_api.php?action=get_order&id=${jid}`)).json();
                 if(res.success) {
                     const previousJo = this.currentJo || {};
-                    this.currentJo = {
+                    const merged = {
                         ...previousJo,
                         ...res.data,
                         order_type: previousJo.order_type || 'JOB',
                         order_id: previousJo.order_id || res.data.order_id,
                         job_order_id: jid
                     };
+                    if ((previousJo.order_type || '').toUpperCase() === 'CUSTOMIZATION') {
+                        merged.status = previousJo.status || merged.status;
+                        merged.payment_proof_status = previousJo.payment_proof_status || merged.payment_proof_status;
+                        merged.payment_proof_path = previousJo.payment_proof_path || merged.payment_proof_path;
+                        merged.payment_submitted_amount = previousJo.payment_submitted_amount ?? merged.payment_submitted_amount;
+                        merged.final_price = previousJo.final_price ?? merged.final_price;
+                        merged.estimated_total = previousJo.estimated_total ?? merged.estimated_total;
+                        merged.estimated_price = previousJo.estimated_price ?? merged.estimated_price;
+                    }
+                    this.currentJo = merged;
                     for(const m of (this.currentJo.materials || [])) {
                         if(m.track_by_roll == 1) this.loadAvailableRolls(m.item_id);
                     }
