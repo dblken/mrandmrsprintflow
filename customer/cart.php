@@ -220,8 +220,10 @@ require_once __DIR__ . '/../includes/header.php';
     .cart-item-name {
         display: block;
         min-width: 0;
-        overflow: visible;
+        max-width: 100%;
+        overflow: hidden;
         white-space: nowrap;
+        text-overflow: ellipsis;
         font-weight: 600;
         color: #0f172a;
     }
@@ -364,8 +366,8 @@ require_once __DIR__ . '/../includes/header.php';
             color: #0f172a !important;
             padding-right: 0 !important;
             white-space: nowrap !important;
-            overflow: visible !important;
-            text-overflow: clip !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
         }
         
         /* Product badge - position in upper right */
