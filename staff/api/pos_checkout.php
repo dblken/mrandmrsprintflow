@@ -259,9 +259,9 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
 }
 
 /**
- * Copy pending POS material assignments to the final sale order, then run the
- * shared job-order status pipeline so inventory deduction/ledger logic matches
- * the online payment approval flow.
+ * Copy pending POS material assignments to the final sale order and move the
+ * linked production jobs into the live POS status without deducting inventory
+ * yet. Final deduction must happen only when the POS order is marked Completed.
  */
 function pos_finalize_inventory_after_checkout(int $finalOrderId, string $targetStatus, int $pendingOrderId = 0): void {
     if ($finalOrderId <= 0 || $targetStatus === '') {
@@ -272,39 +272,41 @@ function pos_finalize_inventory_after_checkout(int $finalOrderId, string $target
         pos_migrate_pending_assignments_to_order($pendingOrderId, $finalOrderId);
     }
 
-    $jobIds = JobOrderService::syncStoreOrderToStatus($finalOrderId, $targetStatus);
-    if (empty($jobIds)) {
+    JobOrderService::ensureJobsForStoreOrder($finalOrderId);
+    $jobRows = db_query(
+        "SELECT id
+         FROM job_orders
+         WHERE order_id = ?
+           AND status NOT IN ('COMPLETED', 'CANCELLED')
+         ORDER BY id ASC",
+        'i',
+        [$finalOrderId]
+    ) ?: [];
+    if (empty($jobRows)) {
         throw new Exception('No linked production job was available for POS inventory processing.');
     }
 
-    $params = [$finalOrderId];
-    $types = 'i';
-    $pendingSql = "
-        SELECT COUNT(*) AS remaining
-        FROM job_order_materials
-        WHERE deducted_at IS NULL
-          AND (
-                (std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))
-    ";
+    $jobIds = array_values(array_filter(array_map(static function (array $row): int {
+        return (int)($row['id'] ?? 0);
+    }, $jobRows)));
 
     if (!empty($jobIds)) {
-        $pendingSql .= " OR job_order_id IN (" . implode(',', array_fill(0, count($jobIds), '?')) . ")";
-        $params = array_merge($params, $jobIds);
-        $types .= str_repeat('i', count($jobIds));
+        $placeholders = implode(',', array_fill(0, count($jobIds), '?'));
+        db_execute(
+            "UPDATE job_orders
+             SET status = ?, updated_at = NOW()
+             WHERE id IN ($placeholders)",
+            's' . str_repeat('i', count($jobIds)),
+            array_merge([$targetStatus], $jobIds)
+        );
     }
 
-    $pendingSql .= '
-              )';
-
-    $remainingRow = db_query(
-        $pendingSql,
-        $types,
-        $params
-    ) ?: [];
-    $remaining = (int)($remainingRow[0]['remaining'] ?? 0);
-    if ($remaining > 0 && strtoupper($targetStatus) === 'IN_PRODUCTION') {
-        throw new Exception('Inventory sync finished with undeducted materials still attached to the POS order.');
-    }
+    error_log(sprintf(
+        'PrintFlow POS finalization: linked %d active jobs to order %d with status %s; inventory deduction deferred until completion',
+        count($jobIds),
+        $finalOrderId,
+        $targetStatus
+    ));
 }
 
 /**

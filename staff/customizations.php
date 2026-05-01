@@ -3372,7 +3372,10 @@ window.pfCustomizationPreloadedOrders = (() => {
                             this.currentJo.customer_type = this.normalizeCustomerType(this.currentJo.customer_type, this.currentJo.transaction_count);
                             this.currentJo.customer_profile_picture = this.currentJo.customer_profile_picture || this.currentJo.profile_picture || this.currentJo.customer_picture || '';
                             this.jobPriceInput = this.currentJo.final_price || 0;
-                            if ((!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
+                            const isPreApprovalPosCustomization =
+                                (String(this.currentJo.order_source || '').toLowerCase() === 'pos' || String(this.currentJo.order_source || '').toLowerCase() === 'walk-in') &&
+                                String(this.currentJo.status || '').toUpperCase() === 'APPROVED';
+                            if (!isPreApprovalPosCustomization && (!Array.isArray(this.currentJo.materials) || this.currentJo.materials.length === 0) && this.currentJo.job_order_id) {
                                 await this.refreshMaterials();
                             }
                         } else {

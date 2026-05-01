@@ -228,6 +228,59 @@ class JobOrderService {
         ));
     }
 
+    private static function purgePreApprovalPosAutoAssignments(int $storeOrderId, array &$materials): void {
+        if ($storeOrderId <= 0 || empty($materials)) {
+            return;
+        }
+
+        $orderRows = db_query(
+            "SELECT order_source, status FROM orders WHERE order_id = ? LIMIT 1",
+            'i',
+            [$storeOrderId]
+        ) ?: [];
+        $orderSource = strtolower(trim((string)($orderRows[0]['order_source'] ?? '')));
+        $orderStatus = strtolower(trim((string)($orderRows[0]['status'] ?? '')));
+        if (!in_array($orderSource, ['pos', 'walk-in'], true) || $orderStatus !== 'approved') {
+            return;
+        }
+
+        $invalidIds = [];
+        $filtered = [];
+        foreach ($materials as $material) {
+            $metadata = $material['metadata'] ?? null;
+            if (is_string($metadata)) {
+                $metadata = json_decode($metadata, true);
+            }
+            $manualAssignment = is_array($metadata) && !empty($metadata['manual_assignment']);
+            $deductedAt = trim((string)($material['deducted_at'] ?? ''));
+
+            if (!$manualAssignment && $deductedAt === '') {
+                $invalidIds[] = (int)($material['id'] ?? 0);
+                continue;
+            }
+
+            $material['metadata'] = $metadata;
+            $filtered[] = $material;
+        }
+
+        $invalidIds = array_values(array_filter($invalidIds));
+        if (!empty($invalidIds)) {
+            $placeholders = implode(',', array_fill(0, count($invalidIds), '?'));
+            db_execute(
+                "DELETE FROM job_order_materials WHERE id IN ($placeholders) AND deducted_at IS NULL",
+                str_repeat('i', count($invalidIds)),
+                $invalidIds
+            );
+            error_log(sprintf(
+                'PrintFlow POS cleanup: removed %d pre-approval auto-assigned material rows from order %d',
+                count($invalidIds),
+                $storeOrderId
+            ));
+        }
+
+        $materials = $filtered;
+    }
+
     private static function itemUsesLiters(array $item): bool {
         $uom = strtolower(trim((string)($item['unit_of_measure'] ?? '')));
         return $uom === 'l' || $uom === 'liter' || $uom === 'liters' || (strpos($uom, 'liter') !== false) || (strpos($uom, '(l)') !== false);
@@ -1225,6 +1278,8 @@ class JobOrderService {
         foreach ($order['materials'] as &$m) {
             $m['metadata'] = $m['metadata'] ? json_decode($m['metadata'], true) : null;
         }
+        unset($m);
+        self::purgePreApprovalPosAutoAssignments($storeOrderId, $order['materials']);
 
         $order['files'] = db_query(
             "SELECT id, file_path, file_name, file_type, uploaded_at FROM job_order_files WHERE job_order_id = ?",
