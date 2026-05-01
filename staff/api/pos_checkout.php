@@ -44,215 +44,42 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
 
     $useStdOrderId = pos_table_has_column('job_order_materials', 'std_order_id')
         && pos_table_has_column('job_order_ink_usage', 'std_order_id');
-    $targetJobId = JobOrderService::ensureJobsForStoreOrder($targetOrderId);
 
-    if (empty($sourceJobIds) && !$useStdOrderId && !$targetJobId) {
+    if (empty($sourceJobIds) && !$useStdOrderId) {
         return;
     }
-
-    $materialSql = "
-        SELECT item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata
-        FROM job_order_materials
-        WHERE deducted_at IS NULL
-          AND ((std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))
-    ";
-    $materialParams = [$sourceOrderId];
-    $materialTypes = 'i';
-    if (!empty($sourceJobIds)) {
-        $materialSql .= " OR job_order_id IN (" . implode(',', array_fill(0, count($sourceJobIds), '?')) . ")";
-        $materialParams = array_merge($materialParams, $sourceJobIds);
-        $materialTypes .= str_repeat('i', count($sourceJobIds));
-    }
-    $materialSql .= '))';
-    $sourceMaterials = db_query($materialSql, $materialTypes, $materialParams) ?: [];
-
-    $inkSql = "
-        SELECT item_id, ink_color, quantity_used
-        FROM job_order_ink_usage
-        WHERE ((std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0))
-    ";
-    $inkParams = [$sourceOrderId];
-    $inkTypes = 'i';
-    if (!empty($sourceJobIds)) {
-        $inkSql .= " OR job_order_id IN (" . implode(',', array_fill(0, count($sourceJobIds), '?')) . ")";
-        $inkParams = array_merge($inkParams, $sourceJobIds);
-        $inkTypes .= str_repeat('i', count($sourceJobIds));
-    }
-    $inkSql .= '))';
-    $sourceInks = db_query($inkSql, $inkTypes, $inkParams) ?: [];
-
-    if (empty($sourceMaterials) && empty($sourceInks)) {
-        error_log(sprintf(
-            'PrintFlow POS material migration warning: no pending assignments found for source order %d (target order %d)',
-            $sourceOrderId,
-            $targetOrderId
-        ));
-    }
-
-    if ($targetJobId > 0) {
-        db_execute("DELETE FROM job_order_materials WHERE job_order_id = ?", 'i', [$targetJobId]);
-        db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$targetJobId]);
-
-        if ($useStdOrderId) {
-            db_execute(
-                "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
-                'i',
-                [$targetOrderId]
-            );
-            db_execute(
-                "DELETE FROM job_order_ink_usage WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
-                'i',
-                [$targetOrderId]
-            );
-        }
-
-        foreach ($sourceMaterials as $material) {
-            if ($useStdOrderId) {
-                db_execute(
-                    "INSERT INTO job_order_materials
-                        (job_order_id, std_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    'iiiidsddss',
-                    [
-                        $targetJobId,
-                        $targetOrderId,
-                        (int)($material['item_id'] ?? 0),
-                        !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
-                        (float)($material['quantity'] ?? 0),
-                        (string)($material['uom'] ?? 'pcs'),
-                        (float)($material['computed_required_length_ft'] ?? 0),
-                        (float)($material['unit_cost_at_assignment'] ?? 0),
-                        (string)($material['notes'] ?? ''),
-                        (string)($material['metadata'] ?? '')
-                    ]
-                );
-            } else {
-                db_execute(
-                    "INSERT INTO job_order_materials
-                        (job_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    'iiidsddss',
-                    [
-                        $targetJobId,
-                        (int)($material['item_id'] ?? 0),
-                        !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
-                        (float)($material['quantity'] ?? 0),
-                        (string)($material['uom'] ?? 'pcs'),
-                        (float)($material['computed_required_length_ft'] ?? 0),
-                        (float)($material['unit_cost_at_assignment'] ?? 0),
-                        (string)($material['notes'] ?? ''),
-                        (string)($material['metadata'] ?? '')
-                    ]
-                );
-            }
-        }
-
-        foreach ($sourceInks as $ink) {
-            if ($useStdOrderId) {
-                db_execute(
-                    "INSERT INTO job_order_ink_usage (job_order_id, std_order_id, item_id, ink_color, quantity_used)
-                     VALUES (?, ?, ?, ?, ?)",
-                    'iiisd',
-                    [
-                        $targetJobId,
-                        $targetOrderId,
-                        (int)($ink['item_id'] ?? 0),
-                        (string)($ink['ink_color'] ?? ''),
-                        (float)($ink['quantity_used'] ?? 0)
-                    ]
-                );
-            } else {
-                db_execute(
-                    "INSERT INTO job_order_ink_usage (job_order_id, item_id, ink_color, quantity_used)
-                     VALUES (?, ?, ?, ?)",
-                    'iisd',
-                    [
-                        $targetJobId,
-                        (int)($ink['item_id'] ?? 0),
-                        (string)($ink['ink_color'] ?? ''),
-                        (float)($ink['quantity_used'] ?? 0)
-                    ]
-                );
-            }
-        }
-    } elseif ($useStdOrderId) {
-        db_execute(
-            "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
-            'i',
-            [$targetOrderId]
-        );
-        db_execute(
-            "DELETE FROM job_order_ink_usage WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
-            'i',
-            [$targetOrderId]
-        );
-
-        foreach ($sourceMaterials as $material) {
-            db_execute(
-                "INSERT INTO job_order_materials
-                    (std_order_id, item_id, roll_id, quantity, uom, computed_required_length_ft, unit_cost_at_assignment, notes, metadata)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                'iiidsddss',
-                [
-                    $targetOrderId,
-                    (int)($material['item_id'] ?? 0),
-                    !empty($material['roll_id']) ? (int)$material['roll_id'] : null,
-                    (float)($material['quantity'] ?? 0),
-                    (string)($material['uom'] ?? 'pcs'),
-                    (float)($material['computed_required_length_ft'] ?? 0),
-                    (float)($material['unit_cost_at_assignment'] ?? 0),
-                    (string)($material['notes'] ?? ''),
-                    (string)($material['metadata'] ?? '')
-                ]
-            );
-        }
-
-        foreach ($sourceInks as $ink) {
-            db_execute(
-                "INSERT INTO job_order_ink_usage (std_order_id, item_id, ink_color, quantity_used)
-                 VALUES (?, ?, ?, ?)",
-                'iisd',
-                [
-                    $targetOrderId,
-                    (int)($ink['item_id'] ?? 0),
-                    (string)($ink['ink_color'] ?? ''),
-                    (float)($ink['quantity_used'] ?? 0)
-                ]
-            );
-        }
-    }
-
     if (!empty($sourceJobIds)) {
         $sourceJobPlaceholders = implode(',', array_fill(0, count($sourceJobIds), '?'));
-        $sourceJobTypes = str_repeat('i', count($sourceJobIds));
         db_execute(
-            "DELETE FROM job_order_materials WHERE job_order_id IN ($sourceJobPlaceholders) AND deducted_at IS NULL",
-            $sourceJobTypes,
-            $sourceJobIds
-        );
-        db_execute(
-            "DELETE FROM job_order_ink_usage WHERE job_order_id IN ($sourceJobPlaceholders)",
-            $sourceJobTypes,
-            $sourceJobIds
+            "UPDATE job_orders
+             SET order_id = ?
+             WHERE id IN ($sourceJobPlaceholders)",
+            'i' . str_repeat('i', count($sourceJobIds)),
+            array_merge([$targetOrderId], $sourceJobIds)
         );
     }
     if ($useStdOrderId) {
         db_execute(
-            "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0) AND deducted_at IS NULL",
-            'i',
-            [$sourceOrderId]
+            "UPDATE job_order_materials
+             SET std_order_id = ?
+             WHERE std_order_id = ?
+               AND (job_order_id IS NULL OR job_order_id = 0)",
+            'ii',
+            [$targetOrderId, $sourceOrderId]
         );
         db_execute(
-            "DELETE FROM job_order_ink_usage WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
-            'i',
-            [$sourceOrderId]
+            "UPDATE job_order_ink_usage
+             SET std_order_id = ?
+             WHERE std_order_id = ?
+               AND (job_order_id IS NULL OR job_order_id = 0)",
+            'ii',
+            [$targetOrderId, $sourceOrderId]
         );
     }
 
     error_log(sprintf(
-        'PrintFlow POS material migration: copied %d materials and %d inks from pending order %d to final order %d',
-        count($sourceMaterials),
-        count($sourceInks),
+        'PrintFlow POS material migration: re-linked %d source jobs from pending order %d to final order %d',
+        count($sourceJobIds),
         $sourceOrderId,
         $targetOrderId
     ));
@@ -609,26 +436,87 @@ try {
         
         $order_item_id = $conn->insert_id;
 
-        // Always create customization entry for service items
+        // Always create or re-link customization entry for service items
         if ($is_service) {
             $details = $custom_details;
             $details['source'] = 'POS'; // Mark as POS purchase
             $details_json = json_encode($details ?: new stdClass());
-            $customization_result = db_execute(
-                "INSERT INTO customizations (order_id, order_item_id, customer_id, service_type, customization_details, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'In Production', NOW(), NOW())",
-                'iiiss',
-                [$order_id, $order_item_id, $customer_id, $name, $details_json]
-            );
+            $pendingOrderId = (int)($item['pending_order_id'] ?? 0);
+            if ($pendingOrderId <= 0 && isset($_SESSION['pos_pending_orders'][$product_id])) {
+                $pendingOrderId = (int)$_SESSION['pos_pending_orders'][$product_id];
+            }
+            $pendingCustomizationId = (int)($item['pending_customization_id'] ?? 0);
+
+            $customization_result = false;
+            if ($pendingOrderId > 0) {
+                if ($pendingCustomizationId > 0) {
+                    $customizationExists = db_query(
+                        "SELECT customization_id
+                         FROM customizations
+                         WHERE customization_id = ?
+                         LIMIT 1",
+                        'i',
+                        [$pendingCustomizationId]
+                    ) ?: [];
+
+                    if (!empty($customizationExists)) {
+                        $customization_result = db_execute(
+                            "UPDATE customizations
+                             SET order_id = ?, order_item_id = ?, customer_id = ?, service_type = ?, customization_details = ?, status = 'In Production', updated_at = NOW()
+                             WHERE customization_id = ?",
+                            'iiissi',
+                            [$order_id, $order_item_id, $customer_id, $name, $details_json, $pendingCustomizationId]
+                        );
+                        if ($customization_result) {
+                            $last_customization_id = $pendingCustomizationId;
+                        }
+                    }
+                }
+
+                if (!$customization_result) {
+                    $existingCustomizationRows = db_query(
+                        "SELECT customization_id
+                         FROM customizations
+                         WHERE order_id = ?
+                         ORDER BY customization_id ASC",
+                        'i',
+                        [$pendingOrderId]
+                    ) ?: [];
+
+                    if (!empty($existingCustomizationRows)) {
+                        $customizationIds = array_values(array_filter(array_map(static function (array $row): int {
+                            return (int)($row['customization_id'] ?? 0);
+                        }, $existingCustomizationRows)));
+                        if (!empty($customizationIds)) {
+                            $placeholders = implode(',', array_fill(0, count($customizationIds), '?'));
+                            $customization_result = db_execute(
+                                "UPDATE customizations
+                                 SET order_id = ?, order_item_id = ?, customer_id = ?, service_type = ?, customization_details = ?, status = 'In Production', updated_at = NOW()
+                                 WHERE customization_id IN ($placeholders)",
+                                'iiiss' . str_repeat('i', count($customizationIds)),
+                                array_merge([$order_id, $order_item_id, $customer_id, $name, $details_json], $customizationIds)
+                            );
+                            $last_customization_id = $customizationIds[0] ?? null;
+                        }
+                    }
+                }
+            }
+
+            if (!$customization_result) {
+                $customization_result = db_execute(
+                    "INSERT INTO customizations (order_id, order_item_id, customer_id, service_type, customization_details, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'In Production', NOW(), NOW())",
+                    'iiiss',
+                    [$order_id, $order_item_id, $customer_id, $name, $details_json]
+                );
+                if ($customization_result) {
+                    $last_customization_id = $conn->insert_id;
+                }
+            }
+
             if (!$customization_result) {
                 $conn->rollback();
                 echo json_encode(['success' => false, 'message' => 'Failed to create customization entry.']);
                 exit;
-            }
-            $last_customization_id = $conn->insert_id;
-
-            $pendingOrderId = (int)($item['pending_order_id'] ?? 0);
-            if ($pendingOrderId <= 0 && isset($_SESSION['pos_pending_orders'][$product_id])) {
-                $pendingOrderId = (int)$_SESSION['pos_pending_orders'][$product_id];
             }
             if ($pendingOrderId <= 0) {
                 error_log(sprintf(
@@ -645,16 +533,18 @@ try {
             // Update any existing pending customization orders for this item to mark as paid
             if ($pendingOrderId > 0) {
                 db_execute(
-                    "UPDATE orders SET payment_status = 'Paid', payment_method = ?, total_amount = ?, status = 'In Production', updated_at = NOW() WHERE order_id = ?",
+                    "UPDATE orders
+                     SET payment_status = 'Paid',
+                         payment_method = ?,
+                         total_amount = ?,
+                         status = 'In Production',
+                         order_source = 'pos_merged',
+                         updated_at = NOW()
+                     WHERE order_id = ?",
                     'sdi',
                     [$payment_method, $price * $qty, $pendingOrderId]
                 );
-                // Update customization with the price — also move to In Production
-                db_execute(
-                    "UPDATE customizations SET status = 'In Production' WHERE order_id = ?",
-                    'i',
-                    [$pendingOrderId]
-                );
+                // Hide the temporary POS source order after its customization is re-linked.
                 unset($_SESSION['pos_pending_orders'][$product_id]);
             }
         }
