@@ -55,8 +55,9 @@ function admin_service_media_list_url(string $value): string {
 /** Duplicate name check (case-insensitive, trimmed). */
 function service_name_exists(string $name, int $excludeId = 0): bool {
     $name = trim($name);
+    $statusExpr = "CASE WHEN TRIM(COALESCE(status, '')) = '' THEN 'Activated' ELSE status END";
     $rows = db_query(
-        "SELECT service_id FROM services WHERE LOWER(TRIM(name)) = LOWER(?) AND service_id != ? AND status != 'Archived'",
+        "SELECT service_id FROM services WHERE LOWER(TRIM(name)) = LOWER(?) AND service_id != ? AND {$statusExpr} != 'Archived'",
         'si',
         [$name, $excludeId]
     );
@@ -288,7 +289,8 @@ $sort_by = $_GET['sort'] ?? 'newest';
 $date_from = $_GET['date_from'] ?? '';
 $date_to = $_GET['date_to'] ?? '';
 
-$sql = "SELECT * FROM services WHERE status != 'Archived'";
+$service_status_expr = "CASE WHEN TRIM(COALESCE(status, '')) = '' THEN 'Activated' ELSE status END";
+$sql = "SELECT *, {$service_status_expr} AS effective_status FROM services WHERE {$service_status_expr} != 'Archived'";
 $params = [];
 $types = '';
 
@@ -304,7 +306,7 @@ if ($cat_filter !== '') {
     $types .= 's';
 }
 if ($status_filter !== '') {
-    $sql .= " AND status = ?";
+    $sql .= " AND {$service_status_expr} = ?";
     $params[] = $status_filter;
     $types .= 's';
 }
@@ -319,7 +321,7 @@ if (!empty($date_to)) {
     $types .= 's';
 }
 
-$count_sql = str_replace('SELECT *', 'SELECT COUNT(*) as total', $sql);
+$count_sql = 'SELECT COUNT(*) as total' . strstr($sql, ' FROM ');
 $total_row = db_query($count_sql, $types ?: null, $params ?: null);
 $total_services = $total_row[0]['total'] ?? 0;
 $total_pages = max(1, ceil($total_services / $per_page));
@@ -337,12 +339,12 @@ $services = db_query($sql, $types ?: null, $params ?: null) ?: [];
 
 $page_title = 'Services Management - Admin';
 
-$stat_total = db_query("SELECT COUNT(*) as c FROM services WHERE status != 'Archived'")[0]['c'] ?? 0;
-$stat_active = db_query("SELECT COUNT(*) as c FROM services WHERE status='Activated'")[0]['c'] ?? 0;
-$stat_inactive = db_query("SELECT COUNT(*) as c FROM services WHERE status='Deactivated'")[0]['c'] ?? 0;
-$stat_archived = db_query("SELECT COUNT(*) as c FROM services WHERE status='Archived'")[0]['c'] ?? 0;
+$stat_total = db_query("SELECT COUNT(*) as c FROM services WHERE {$service_status_expr} != 'Archived'")[0]['c'] ?? 0;
+$stat_active = db_query("SELECT COUNT(*) as c FROM services WHERE {$service_status_expr} = 'Activated'")[0]['c'] ?? 0;
+$stat_inactive = db_query("SELECT COUNT(*) as c FROM services WHERE {$service_status_expr} = 'Deactivated'")[0]['c'] ?? 0;
+$stat_archived = db_query("SELECT COUNT(*) as c FROM services WHERE {$service_status_expr} = 'Archived'")[0]['c'] ?? 0;
 
-$categories = db_query("SELECT DISTINCT category FROM services WHERE category IS NOT NULL AND category != '' AND status != 'Archived' ORDER BY category ASC") ?: [];
+$categories = db_query("SELECT DISTINCT category FROM services WHERE category IS NOT NULL AND category != '' AND {$service_status_expr} != 'Archived' ORDER BY category ASC") ?: [];
 
 function render_services_table_rows(array $services): void {
     ?>
@@ -361,33 +363,34 @@ function render_services_table_rows(array $services): void {
                 <tr><td colspan="5" style="padding:40px;text-align:center;color:#9ca3af;font-size:14px;">No services found.</td></tr>
             <?php else: ?>
                 <?php foreach ($services as $svc): ?>
+                    <?php $svc_status = $svc['effective_status'] ?? (($svc['status'] ?? '') !== '' ? $svc['status'] : 'Activated'); ?>
                     <tr onclick="openViewModal(<?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)">
                         <td style="color:#1f2937;"><?php echo (int)$svc['service_id']; ?></td>
                         <td style="font-weight:500;color:#1f2937;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars($svc['name']); ?></td>
                         <td><?php echo htmlspecialchars($svc['category'] ?? '—'); ?></td>
                         <td>
                             <?php
-                            $sc = match ($svc['status']) {
+                            $sc = match ($svc_status) {
                                 'Activated' => 'background:#dcfce7;color:#166534;',
                                 'Deactivated' => 'background:#fee2e2;color:#991b1b;',
                                 'Archived' => 'background:#f3f4f6;color:#374151;',
                                 default => 'background:#fef9c3;color:#854d0e;',
                             };
                             ?>
-                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo htmlspecialchars($svc['status']); ?></span>
+                            <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;<?php echo $sc; ?>"><?php echo htmlspecialchars($svc_status); ?></span>
                         </td>
                         <td style="text-align:right;white-space:nowrap;" onclick="event.stopPropagation();">
                             <button type="button" class="btn-action blue" onclick='openServiceModal("edit", <?php echo htmlspecialchars(json_encode($svc), ENT_QUOTES); ?>)'>Edit</button>
                             <a href="service_field_config.php?service_id=<?php echo (int)$svc['service_id']; ?>" class="btn-action" style="color:#059669;border-color:#059669;text-decoration:none;" title="Configure service fields">Fields</a>
-                            <?php if ($svc['status'] !== 'Archived'): ?>
-                                <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="<?php echo $svc['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
+                            <?php if ($svc_status !== 'Archived'): ?>
+                                <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="<?php echo $svc_status === 'Activated' ? 'Deactivate' : 'Activate'; ?>" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
-                                    <button type="submit" name="delete_service" class="btn-action <?php echo $svc['status'] === 'Activated' ? 'red' : 'teal'; ?>">
-                                        <?php echo $svc['status'] === 'Activated' ? 'Deactivate' : 'Activate'; ?>
+                                    <button type="submit" name="delete_service" class="btn-action <?php echo $svc_status === 'Activated' ? 'red' : 'teal'; ?>">
+                                        <?php echo $svc_status === 'Activated' ? 'Deactivate' : 'Activate'; ?>
                                     </button>
                                 </form>
-                                <?php if ($svc['status'] === 'Deactivated'): ?>
+                                <?php if ($svc_status === 'Deactivated'): ?>
                                     <form method="POST" class="inline service-status-form" data-pf-skip-guard data-action="Archive" data-service-name="<?php echo htmlspecialchars($svc['name'], ENT_QUOTES); ?>" onsubmit="showServiceStatusModal(event, this);return false;">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="service_id" value="<?php echo (int)$svc['service_id']; ?>">
@@ -1079,7 +1082,8 @@ function openServiceModal(mode, svc) {
         renderExistingVideoPreview(existingVideo);
         const cm = svc.customer_modal_text;
         document.getElementById('modal-customer-modal-text').value = (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '');
-        document.getElementById('modal-status').value = (svc.status === 'Deactivated') ? 'Deactivated' : 'Activated';
+        const effectiveStatus = svc.effective_status || svc.status || 'Activated';
+        document.getElementById('modal-status').value = (effectiveStatus === 'Deactivated') ? 'Deactivated' : 'Activated';
         
         // Update configure fields link
         const configLink = document.getElementById('configure-fields-link');
@@ -1136,7 +1140,7 @@ function handleOverlayClick(e) {
 function openViewModal(svc) {
     document.getElementById('view-name').textContent = svc.name || '—';
     document.getElementById('view-category').textContent = svc.category || '—';
-    const st = svc.status || '';
+    const st = svc.effective_status || svc.status || '';
     document.getElementById('view-status').textContent = st === 'Activated' ? 'Active' : (st === 'Deactivated' ? 'Inactive' : st);
     document.getElementById('view-description').textContent = svc.description || '—';
     const cm = svc.customer_modal_text;
