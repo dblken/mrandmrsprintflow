@@ -673,9 +673,9 @@ if (isset($_GET['ajax'])) {
                     <div class="kpi-sub">All accounts</div>
                 </div>
                 <div class="kpi-card rose">
-                    <div class="kpi-label">Admins</div>
-                    <div class="kpi-value"><?php echo $stat_admins; ?></div>
-                    <div class="kpi-sub">Administrator roles</div>
+                    <div class="kpi-label">Staff</div>
+                    <div class="kpi-value"><?php echo $stat_staff; ?></div>
+                    <div class="kpi-sub">Staff roles</div>
                 </div>
                 <div class="kpi-card amber">
                     <div class="kpi-label">Managers</div>
