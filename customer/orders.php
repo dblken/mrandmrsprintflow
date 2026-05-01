@@ -1893,13 +1893,15 @@ async function refreshOrdersList() {
     if (window.__ordersPollingInterval) return;
     if (currentPage > 1) return;
 
-    function notifyNewOrder(orderId) {
+    function notifyNewOrder(order) {
+        const orderId = parseInt(order && order.order_id ? order.order_id : 0, 10);
+        const orderCode = String((order && order.order_code) ? order.order_code : '').trim() || `ORD-${orderId}`;
         const lastNotified = parseInt(localStorage.getItem('pf_last_order_notice_id') || '0', 10);
         if (orderId <= lastNotified) return;
         localStorage.setItem('pf_last_order_notice_id', String(orderId));
-        renderOrderSuccessBanner(`Order #${orderId} placed successfully! Our team will review and price your order shortly.`);
+        renderOrderSuccessBanner(`${orderCode} placed successfully! Our team will review and price your order shortly.`);
         if (typeof showToast === 'function') {
-            showToast(`Order #${orderId} placed successfully! Our team will review and price your order shortly.`);
+            showToast(`${orderCode} placed successfully! Our team will review and price your order shortly.`);
         }
     }
 
@@ -1997,7 +1999,7 @@ async function refreshOrdersList() {
             }, 0);
             const newOrder = data.orders.find(order => (order.order_id > highestVisibleId) && doesOrderBelongToActiveTab(order));
             if (newOrder && shouldReloadForNewOrder(newOrder)) {
-                notifyNewOrder(newOrder.order_id);
+                notifyNewOrder(newOrder);
                 refreshOrdersList();
                 return;
             }

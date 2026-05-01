@@ -18,6 +18,10 @@ $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For 
 try {
     $orders = db_query(
         "SELECT o.order_id, o.status, o.order_type, o.total_amount, o.order_date, o.updated_at, o.cancelled_at,
+                (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-')
+                 FROM order_items oi
+                 LEFT JOIN products p ON oi.product_id = p.product_id
+                 WHERE oi.order_id = o.order_id) as order_sku,
                 (SELECT COALESCE(p.name, 'Order Item')
                  FROM order_items oi
                  LEFT JOIN products p ON oi.product_id = p.product_id
@@ -48,9 +52,13 @@ try {
         // Price visibility control
         $show_price = !in_array($o['status'], $HIDDEN_PRICE_STATUSES);
         $timestampMeta = printflow_customer_order_timestamp_meta($o);
+        $orderSku = (string)($o['order_sku'] ?? '');
+        $orderCode = printflow_format_order_code((int)($o['order_id'] ?? 0), $orderSku);
 
         $result[] = [
             'order_id'     => (int)$o['order_id'],
+            'order_sku'    => $orderSku,
+            'order_code'   => $orderCode,
             'status'       => $o['status'],
             'order_type'   => (string)($o['order_type'] ?? ''),
             'display_name' => $display_name,
