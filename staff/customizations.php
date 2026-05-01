@@ -184,10 +184,10 @@ foreach ($job_rows as $row) {
             $row['service_type'] = $payload['service_type'];
             $row['job_title'] = $payload['service_type'];
         }
-        $row['order_code'] = printflow_get_order_inventory_reference((int)$row['order_id'])['code'] ?? '';
-    } else {
-        $row['order_code'] = printflow_get_job_inventory_reference((int)($row['id'] ?? 0))['code'] ?? '';
     }
+    // Match the modal exactly: resolve the visible code from the linked job
+    // reference helper rather than formatting store-order rows separately.
+    $row['order_code'] = printflow_get_job_inventory_reference((int)($row['id'] ?? 0))['code'] ?? '';
     $row['order_type'] = 'JOB';
     $preloaded_customization_rows[] = $row;
 }

@@ -271,10 +271,11 @@ try {
                             $jo['service_type'] = $payload['service_type'];
                             $jo['job_title'] = $payload['service_type'];
                         }
-                        $jo['order_code'] = printflow_get_order_inventory_reference((int)$jo['order_id'])['code'] ?? '';
-                    } else {
-                        $jo['order_code'] = printflow_get_job_inventory_reference((int)($jo['id'] ?? 0))['code'] ?? '';
                     }
+                    // Keep JOB rows aligned with the modal by using the same
+                    // linked reference resolver (order code, customization code,
+                    // or raw JO code depending on what the job is attached to).
+                    $jo['order_code'] = printflow_get_job_inventory_reference((int)($jo['id'] ?? 0))['code'] ?? '';
                     $jobMats = $materialsByJob[$jo['id']] ?? [];
                     $jobInks = $inksByJob[$jo['id']] ?? [];
                     
