@@ -171,7 +171,8 @@ if ($action === 'toggle_status') {
         echo json_encode(['success' => false, 'error' => 'Failed to activate account.']);
     }
 } elseif ($action === 'archive_user') {
-    if (($_SESSION['user_type'] ?? '') !== 'Admin') {
+    $viewer_role = (string)(function_exists('get_user_type') ? get_user_type() : ($_SESSION['user_type'] ?? ''));
+    if ($viewer_role !== 'Admin') {
         echo json_encode(['success' => false, 'error' => 'Only admins can archive team accounts.']);
         exit;
     }
@@ -187,20 +188,22 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    if (($u[0]['status'] ?? '') !== 'Deactivated') {
-        echo json_encode(['success' => false, 'error' => 'Only deactivated accounts can be archived.']);
+    $target_status = trim((string)($u[0]['status'] ?? ''));
+    if ($target_status === 'Archived') {
+        echo json_encode(['success' => true, 'message' => 'Account is already archived.']);
         exit;
     }
 
     printflow_ensure_user_archived_status_available_api();
-    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
+    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?", 'i', [$user_id]);
     if ($ok) {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to archive account.']);
     }
 } elseif ($action === 'delete_user') {
-    if (($_SESSION['user_type'] ?? '') !== 'Admin') {
+    $viewer_role = (string)(function_exists('get_user_type') ? get_user_type() : ($_SESSION['user_type'] ?? ''));
+    if ($viewer_role !== 'Admin') {
         echo json_encode(['success' => false, 'error' => 'Only admins can delete team accounts.']);
         exit;
     }
@@ -216,13 +219,14 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    if (($u[0]['status'] ?? '') !== 'Deactivated') {
-        echo json_encode(['success' => false, 'error' => 'Only deactivated accounts can be deleted.']);
+    $target_status = trim((string)($u[0]['status'] ?? ''));
+    if ($target_status === 'Archived') {
+        echo json_encode(['success' => true, 'message' => 'Account is already archived.']);
         exit;
     }
 
     printflow_ensure_user_archived_status_available_api();
-    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
+    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?", 'i', [$user_id]);
     if ($ok) {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {

@@ -230,17 +230,17 @@ $featured_products = db_query(
                     <div class="lp-showcase-glow"></div>
 
                     <div class="lp-sc-card lp-sc-a">
-                        <img src="<?php echo $asset_base; ?>/images/products/signage1.jpg" alt="Tarpaulin & Signage">
+                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/tarpaulin.jpg" alt="Tarpaulin & Signage">
                         <div class="lp-sc-label">Tarpaulin & Signage</div>
                     </div>
 
                     <div class="lp-sc-card lp-sc-b">
-                        <img src="<?php echo $asset_base; ?>/images/tshirt_replacement/Front Center Print.webp" alt="T-shirt Printing">
+                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/tshirt.jpg" alt="T-shirt Printing">
                         <div class="lp-sc-label">T-shirt Printing</div>
                     </div>
 
                     <div class="lp-sc-card lp-sc-c">
-                        <img src="<?php echo $asset_base; ?>/images/products/Glass Stickers  Wall  Frosted Stickers.png" alt="Stickers & Decals">
+                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/sintraboard.jpg" alt="Stickers & Decals">
                         <div class="lp-sc-label">Stickers & Decals</div>
                     </div>
                 </div>
