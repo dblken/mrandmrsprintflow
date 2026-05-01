@@ -61,10 +61,7 @@ function landing_product_image_url(array $product, string $base_path): string
     return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
 }
 
-/**
- * Landing hero cards: images live under project /uploads (e.g. tarpaulin.jpg).
- * URLs go through public/landing-showcase-image.php so images load even when /uploads is not directly exposed.
- */
+/** Landing hero cards: images live under project /uploads (e.g. tarpaulin.jpg). */
 function landing_hero_showcase_src(string $stem, string $base_path): string
 {
     $stem = strtolower(trim($stem));
@@ -74,10 +71,22 @@ function landing_hero_showcase_src(string $stem, string $base_path): string
 
     $root = dirname(__DIR__);
     $uploads_dir = $root . '/uploads';
+    $filename_by_stem = [
+        'tarpaulin' => 'tarpaulin.jpg',
+        'tshirt' => 'tshirt.jpg',
+        'sintraboard' => 'sintraboard.jpg',
+    ];
+    $preferred = $filename_by_stem[$stem] ?? ($stem . '.jpg');
+    $preferred_path = $uploads_dir . '/' . $preferred;
+
+    if (is_file($preferred_path)) {
+        return rtrim($base_path, '/') . '/uploads/' . rawurlencode($preferred) . '?v=' . filemtime($preferred_path);
+    }
+
     foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
         $fn = $stem . '.' . $ext;
         if (is_file($uploads_dir . '/' . $fn)) {
-            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn) . '&v=' . filemtime($uploads_dir . '/' . $fn);
+            return rtrim($base_path, '/') . '/uploads/' . rawurlencode($fn) . '?v=' . filemtime($uploads_dir . '/' . $fn);
         }
     }
 
@@ -86,11 +95,11 @@ function landing_hero_showcase_src(string $stem, string $base_path): string
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) && is_file($path)) {
             $fn = basename($path);
-            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn) . '&v=' . filemtime($path);
+            return rtrim($base_path, '/') . '/uploads/' . rawurlencode($fn) . '?v=' . filemtime($path);
         }
     }
 
-    return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
+    return rtrim($base_path, '/') . '/uploads/' . rawurlencode($preferred) . '?v=landing-hero';
 }
 
 /** Label matches upload basename stem (e.g. sintraboard → Sintraboard). */

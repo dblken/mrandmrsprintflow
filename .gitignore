@@ -45,6 +45,9 @@ yarn-error.log
 # ===========================================
 /uploads/*
 !/uploads/.gitkeep
+!/uploads/tarpaulin.jpg
+!/uploads/tshirt.jpg
+!/uploads/sintraboard.jpg
 
 # ===========================================
 # Test & Diagnostic Files
