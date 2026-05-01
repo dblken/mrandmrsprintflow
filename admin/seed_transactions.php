@@ -571,6 +571,7 @@ function pf_seed_part2_execute(): array {
     $inserted_hist    = 0;
     $inserted_custom  = 0;
     $inserted_svc     = 0;
+    $inserted_jobs    = 0;
     $year_counts      = [];
     $errors           = [];
 
@@ -604,8 +605,9 @@ function pf_seed_part2_execute(): array {
 
                     // ── Service order (separate table) ──
                     if ($is_svc) {
-                        $svc_name  = $service_types[mt_rand(0, count($service_types) - 1)];
-                        $svc_price = pf_seed_rand_price(260, 2500);
+                        $svc_name  = $job_service_types[mt_rand(0, count($job_service_types) - 1)];
+                        $jobPricing = pf_seed_job_pricing($svc_name, pf_seed_quantity($svc_name));
+                        $svc_price = (float)$jobPricing['estimated_total'];
                         $svc_status = $status;
                         $conn->query(sprintf(
                             "INSERT INTO service_orders (service_name, customer_id, branch_id, status, total_price, created_at, updated_at)
@@ -616,6 +618,52 @@ function pf_seed_part2_execute(): array {
                             $svc_price, $order_dt, $order_dt
                         ));
                         $inserted_svc++;
+
+                        $customer = $customer_map[(int)$cust_id] ?? [];
+                        $jobStatus = pf_seed_job_status_from_order($status);
+                        $jobPayStatus = pf_seed_job_payment_status($status);
+                        $amountPaid = $jobPayStatus === 'PAID' ? $svc_price : (in_array($jobPayStatus, ['PARTIAL', 'PENDING_VERIFICATION'], true) ? round($svc_price * 0.5, 2) : 0.00);
+                        $requiredPayment = max(0.00, $svc_price - $amountPaid);
+                        $dueDate = date('Y-m-d H:i:s', strtotime($order_dt . ' +' . mt_rand(2, 7) . ' days'));
+                        $conn->query(sprintf(
+                            "INSERT INTO job_orders
+                                (customer_id, branch_id, job_title, customer_name, service_type, status, customer_type,
+                                 width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece,
+                                 estimated_total, amount_paid, required_payment, payment_status,
+                                 due_date, priority, created_at, updated_at, payment_method)
+                             VALUES
+                                (%d, %d, '%s', '%s', '%s', '%s', '%s',
+                                 %s, %s, %d, %s, %s, %s,
+                                 %.2f, %.2f, %.2f, '%s',
+                                 '%s', '%s', '%s', '%s', '%s')",
+                            $cust_id,
+                            $branch_i,
+                            $conn->real_escape_string($svc_name),
+                            $conn->real_escape_string(pf_seed_customer_name($customer)),
+                            $conn->real_escape_string($svc_name),
+                            $conn->real_escape_string($jobStatus),
+                            $conn->real_escape_string(strtoupper((string)($customer['customer_type'] ?? 'NEW')) === 'REGULAR' ? 'REGULAR' : 'NEW'),
+                            $jobPricing['width_ft'] === null ? 'NULL' : number_format((float)$jobPricing['width_ft'], 2, '.', ''),
+                            $jobPricing['height_ft'] === null ? 'NULL' : number_format((float)$jobPricing['height_ft'], 2, '.', ''),
+                            (int)$jobPricing['quantity'],
+                            $jobPricing['total_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['total_sqft'], 2, '.', ''),
+                            $jobPricing['price_per_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_sqft'], 2, '.', ''),
+                            $jobPricing['price_per_piece'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_piece'], 2, '.', ''),
+                            $svc_price,
+                            $amountPaid,
+                            $requiredPayment,
+                            $conn->real_escape_string($jobPayStatus),
+                            $dueDate,
+                            $conn->real_escape_string(pf_seed_weighted_pick([
+                                ['status' => 'NORMAL', 'weight' => 75],
+                                ['status' => 'HIGH', 'weight' => 15],
+                                ['status' => 'LOW', 'weight' => 10],
+                            ])),
+                            $order_dt,
+                            $order_dt,
+                            $conn->real_escape_string($pm['name'])
+                        ));
+                        $inserted_jobs++;
                         // Don't also create a product order for this iteration
                         $year_counts[$year]++;
                         continue;
@@ -752,6 +800,58 @@ function pf_seed_part2_execute(): array {
                                 $order_dt, $order_dt
                             ));
                             $inserted_custom++;
+
+                            $jobSvcType = $job_service_types[mt_rand(0, count($job_service_types) - 1)];
+                            $jobPricing = pf_seed_job_pricing($jobSvcType, $qty);
+                            $jobTotal = min(5100.00, max(260.00, (float)$jobPricing['estimated_total']));
+                            $jobStatus = pf_seed_job_status_from_order($status);
+                            $jobPayStatus = pf_seed_job_payment_status($status);
+                            $amountPaid = $jobPayStatus === 'PAID' ? $jobTotal : (in_array($jobPayStatus, ['PARTIAL', 'PENDING_VERIFICATION'], true) ? round($jobTotal * 0.5, 2) : 0.00);
+                            $requiredPayment = max(0.00, $jobTotal - $amountPaid);
+                            $customer = $customer_map[(int)$cust_id] ?? [];
+                            $dueDate = date('Y-m-d H:i:s', strtotime($order_dt . ' +' . mt_rand(2, 7) . ' days'));
+
+                            $conn->query(sprintf(
+                                "INSERT INTO job_orders
+                                    (order_id, customer_id, order_item_id, branch_id, job_title, customer_name, service_type, status, customer_type,
+                                     width_ft, height_ft, quantity, total_sqft, price_per_sqft, price_per_piece,
+                                     estimated_total, amount_paid, required_payment, payment_status,
+                                     due_date, priority, created_at, updated_at, payment_method)
+                                 VALUES
+                                    (%d, %d, %d, %d, '%s', '%s', '%s', '%s', '%s',
+                                     %s, %s, %d, %s, %s, %s,
+                                     %.2f, %.2f, %.2f, '%s',
+                                     '%s', '%s', '%s', '%s', '%s')",
+                                $order_id,
+                                $cust_id,
+                                $item_id,
+                                $branch_i,
+                                $conn->real_escape_string($jobSvcType),
+                                $conn->real_escape_string(pf_seed_customer_name($customer)),
+                                $conn->real_escape_string($jobSvcType),
+                                $conn->real_escape_string($jobStatus),
+                                $conn->real_escape_string(strtoupper((string)($customer['customer_type'] ?? 'NEW')) === 'REGULAR' ? 'REGULAR' : 'NEW'),
+                                $jobPricing['width_ft'] === null ? 'NULL' : number_format((float)$jobPricing['width_ft'], 2, '.', ''),
+                                $jobPricing['height_ft'] === null ? 'NULL' : number_format((float)$jobPricing['height_ft'], 2, '.', ''),
+                                (int)$jobPricing['quantity'],
+                                $jobPricing['total_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['total_sqft'], 2, '.', ''),
+                                $jobPricing['price_per_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_sqft'], 2, '.', ''),
+                                $jobPricing['price_per_piece'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_piece'], 2, '.', ''),
+                                $jobTotal,
+                                $amountPaid,
+                                $requiredPayment,
+                                $conn->real_escape_string($jobPayStatus),
+                                $dueDate,
+                                $conn->real_escape_string(pf_seed_weighted_pick([
+                                    ['status' => 'NORMAL', 'weight' => 75],
+                                    ['status' => 'HIGH', 'weight' => 15],
+                                    ['status' => 'LOW', 'weight' => 10],
+                                ])),
+                                $order_dt,
+                                $order_dt,
+                                $conn->real_escape_string($pm_name)
+                            ));
+                            $inserted_jobs++;
                         }
                     }
 
@@ -819,6 +919,7 @@ function pf_seed_part2_execute(): array {
         'inserted_hist'   => $inserted_hist,
         'inserted_custom' => $inserted_custom,
         'inserted_svc'    => $inserted_svc,
+        'inserted_jobs'   => $inserted_jobs,
     ];
 }
 
@@ -1067,6 +1168,10 @@ $current_page = 'seed_transactions';
                         <div class="val" x-text="p1.data.item_count.toLocaleString()"></div>
                         <div class="lbl">Order Items</div>
                     </div>
+                    <div class="stat-box">
+                        <div class="val" x-text="p1.data.job_count.toLocaleString()"></div>
+                        <div class="lbl">Job Orders</div>
+                    </div>
                 </div>
 
                 <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:16px 0 6px;">
@@ -1135,7 +1240,9 @@ $current_page = 'seed_transactions';
                     <h4><i class="fas fa-circle-check"></i> Pricing updated successfully</h4>
                     <p>
                         <strong x-text="p1.result ? p1.result.updated_orders : 0"></strong> orders and
-                        <strong x-text="p1.result ? p1.result.updated_items : 0"></strong> line items repriced with realistic values. Order counts did not change because this step only updates prices.
+                        <strong x-text="p1.result ? p1.result.updated_items : 0"></strong> line items repriced with realistic values.
+                        <strong x-text="p1.result ? p1.result.updated_jobs : 0"></strong> customization/job order amounts were normalized too.
+                        Order counts did not change because this step only updates prices.
                     </p>
                 </div>
                 <div class="error-banner" x-show="p1.result && !p1.result.ok">
@@ -1261,7 +1368,8 @@ $current_page = 'seed_transactions';
                         <strong x-text="p2.result ? p2.result.inserted_items.toLocaleString() : 0"></strong> order items ·
                         <strong x-text="p2.result ? p2.result.inserted_hist.toLocaleString() : 0"></strong> status history entries ·
                         <strong x-text="p2.result ? p2.result.inserted_custom.toLocaleString() : 0"></strong> customizations ·
-                        <strong x-text="p2.result ? p2.result.inserted_svc.toLocaleString() : 0"></strong> service orders
+                        <strong x-text="p2.result ? p2.result.inserted_svc.toLocaleString() : 0"></strong> service orders ·
+                        <strong x-text="p2.result ? p2.result.inserted_jobs.toLocaleString() : 0"></strong> job orders
                     </p>
                 </div>
                 <div class="error-banner" x-show="p2.result && !p2.result.ok">
