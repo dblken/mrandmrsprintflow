@@ -61,6 +61,32 @@ function landing_product_image_url(array $product, string $base_path): string
     return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
 }
 
+/** Landing hero cards: image stem must match whitelist in public/landing-showcase-image.php */
+function landing_hero_showcase_src(string $stem, string $base_path): string
+{
+    static $allowed = ['tarpaulin', 'tshirt', 'sintraboard'];
+    $stem = strtolower(trim($stem));
+    if (!in_array($stem, $allowed, true)) {
+        return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
+    }
+
+    $root = dirname(__DIR__);
+    foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+        $fn = $stem . '.' . $ext;
+        if (is_file($root . '/uploads/' . $fn)) {
+            return rtrim($base_path, '/') . '/uploads/' . $fn;
+        }
+    }
+
+    return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($stem . '.jpg');
+}
+
+function landing_hero_showcase_label(string $stem): string
+{
+    $stem = strtolower(trim($stem));
+    return $stem !== '' ? ucfirst($stem) : '';
+}
+
 // Fetch featured products for the homepage showcase
 $has_photo_path = !empty(db_query("SHOW COLUMNS FROM products LIKE 'photo_path'"));
 $photo_path_select = $has_photo_path ? 'photo_path,' : '';
@@ -199,8 +225,8 @@ $featured_products = db_query(
                     font-size: .7rem;
                     font-weight: 700;
                     color: #7fd3ea;
-                    letter-spacing: .08em;
-                    text-transform: uppercase;
+                    letter-spacing: .06em;
+                    text-transform: none;
                     z-index: 3;
                 }
                 .lp-sc-a {
@@ -229,20 +255,21 @@ $featured_products = db_query(
                 <div class="lp-showcase">
                     <div class="lp-showcase-glow"></div>
 
-                    <div class="lp-sc-card lp-sc-a">
-                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/tarpaulin.jpg" alt="Tarpaulin & Signage">
-                        <div class="lp-sc-label">Tarpaulin & Signage</div>
+                    <?php
+                    $lp_hero_cards = [
+                        ['class' => 'lp-sc-a', 'stem' => 'tarpaulin'],
+                        ['class' => 'lp-sc-b', 'stem' => 'tshirt'],
+                        ['class' => 'lp-sc-c', 'stem' => 'sintraboard'],
+                    ];
+                    foreach ($lp_hero_cards as $lpc):
+                        $lp_src = landing_hero_showcase_src($lpc['stem'], $base_path);
+                        $lp_lbl = landing_hero_showcase_label($lpc['stem']);
+                    ?>
+                    <div class="lp-sc-card <?php echo htmlspecialchars($lpc['class']); ?>">
+                        <img src="<?php echo htmlspecialchars($lp_src); ?>" alt="<?php echo htmlspecialchars($lp_lbl); ?>">
+                        <div class="lp-sc-label"><?php echo htmlspecialchars($lp_lbl); ?></div>
                     </div>
-
-                    <div class="lp-sc-card lp-sc-b">
-                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/tshirt.jpg" alt="T-shirt Printing">
-                        <div class="lp-sc-label">T-shirt Printing</div>
-                    </div>
-
-                    <div class="lp-sc-card lp-sc-c">
-                        <img src="<?php echo htmlspecialchars(rtrim($base_path, '/')); ?>/uploads/sintraboard.jpg" alt="Stickers & Decals">
-                        <div class="lp-sc-label">Stickers & Decals</div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
