@@ -118,6 +118,53 @@ if (isset($_GET['address_action'])) {
     }
 }
 
+if (isset($_GET['validation_action'])) {
+    header('Content-Type: application/json');
+
+    try {
+        $action = trim((string)($_GET['validation_action'] ?? ''));
+        $currentUserId = (int)get_user_id();
+
+        if ($action === 'contact_number') {
+            $contactNumber = preg_replace('/\D/', '', (string)($_GET['contact_number'] ?? ''));
+            if ($contactNumber === '') {
+                echo json_encode(['success' => true, 'valid' => false, 'exists' => false, 'message' => 'Contact number is required.']);
+                exit;
+            }
+            if (!preg_match('/^09\d{9}$/', $contactNumber)) {
+                echo json_encode(['success' => true, 'valid' => false, 'exists' => false, 'message' => 'Contact number must be exactly 11 digits and start with 09.']);
+                exit;
+            }
+
+            $userMatch = db_query(
+                "SELECT user_id FROM users WHERE contact_number = ? AND user_id != ? LIMIT 1",
+                'si',
+                [$contactNumber, $currentUserId]
+            );
+            $customerMatch = db_query(
+                "SELECT customer_id FROM customers WHERE contact_number = ? LIMIT 1",
+                's',
+                [$contactNumber]
+            );
+            $exists = !empty($userMatch) || !empty($customerMatch);
+
+            echo json_encode([
+                'success' => true,
+                'valid' => true,
+                'exists' => $exists,
+                'message' => $exists ? 'This contact number is already used in the system.' : ''
+            ]);
+            exit;
+        }
+
+        throw new RuntimeException('Invalid validation action.');
+    } catch (Throwable $e) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        exit;
+    }
+}
+
 $admin_id = get_user_id();
 $error = '';
 $success = '';
@@ -139,6 +186,7 @@ $addressCity = '';
 $addressBarangay = '';
 $addressLine = '';
 $maxBirthday = date('Y-m-d', strtotime('-18 years'));
+$minBirthday = date('Y-m-d', strtotime('-70 years'));
 $existingAddress = trim((string)($admin['address'] ?? ''));
 
 if ($existingAddress !== '') {
@@ -304,6 +352,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
                 $error = 'Birthday cannot be a future date.';
             } elseif ($age < 18) {
                 $error = 'You must be at least 18 years old.';
+            } elseif ($age > 70) {
+                $error = 'Birthday must be within 18 to 70 years old.';
             }
         } catch (Throwable $e) {
             $error = 'Invalid birthday value.';
@@ -312,6 +362,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
 
     if (!$error && !preg_match("/^09\d{9}$/", $contact_number)) {
         $error = 'Contact number must be exactly 11 digits and start with 09.';
+    } elseif (!$error) {
+        $existingUserPhone = db_query(
+            "SELECT user_id FROM users WHERE contact_number = ? AND user_id != ? LIMIT 1",
+            'si',
+            [$contact_number, $admin_id]
+        );
+        $existingCustomerPhone = db_query(
+            "SELECT customer_id FROM customers WHERE contact_number = ? LIMIT 1",
+            's',
+            [$contact_number]
+        );
+        if (!empty($existingUserPhone) || !empty($existingCustomerPhone)) {
+            $error = 'This contact number is already used in the system.';
+        }
     } elseif (!$error && ($addressProvince === '' || $addressCity === '' || $addressBarangay === '')) {
         $error = 'Please select Province, City/Municipality, and Barangay.';
     } elseif (!$error && (strlen($address) < 5 || strlen($address) > 200)) {
@@ -843,8 +907,8 @@ $page_title = 'My Profile - PrintFlow Admin';
                             </div>
                             <div class="form-group" id="group_birthday">
                                 <label>Birthday *</label>
-                                <input type="date" name="birthday" id="birthday" value="<?php echo htmlspecialchars($admin['birthday'] ?? ''); ?>" required max="<?php echo htmlspecialchars($maxBirthday); ?>">
-                                <div class="error-message" id="error_birthday">You must be at least 18 years old.</div>
+                                <input type="date" name="birthday" id="birthday" value="<?php echo htmlspecialchars($admin['birthday'] ?? ''); ?>" required min="<?php echo htmlspecialchars($minBirthday); ?>" max="<?php echo htmlspecialchars($maxBirthday); ?>">
+                                <div class="error-message" id="error_birthday">Birthday must be within 18 to 70 years old.</div>
                             </div>
                         </div>
                         
@@ -1412,6 +1476,11 @@ $page_title = 'My Profile - PrintFlow Admin';
 
     // --- Validation Logic ---
     var birthdayMax = <?php echo json_encode($maxBirthday); ?>;
+    var birthdayMin = <?php echo json_encode($minBirthday); ?>;
+    var currentContactNumber = <?php echo json_encode((string)($admin['contact_number'] ?? '')); ?>;
+    var phoneValidationState = { value: currentContactNumber, pending: false, exists: false };
+    var phoneValidationTimer = null;
+    var personalSubmitInProgress = false;
     var personalForm = document.getElementById('personalInfoForm');
     var passwordForm = document.getElementById('passwordForm');
     var passwordFieldIds = ['current_password', 'new_password', 'confirm_password'];
@@ -1449,8 +1518,10 @@ $page_title = 'My Profile - PrintFlow Admin';
             const selected = new Date(val + 'T00:00:00');
             if (Number.isNaN(selected.getTime())) return "Invalid birthday.";
             if (selected > today) return "Birthday cannot be a future date.";
+            const seniorLimit = new Date(birthdayMin + 'T00:00:00');
             const adultLimit = new Date(birthdayMax + 'T00:00:00');
             if (selected > adultLimit) return "You must be at least 18 years old.";
+            if (selected < seniorLimit) return "Birthday must be within 18 to 70 years old.";
             return null;
         },
         contact_number: (val) => {
@@ -1487,6 +1558,70 @@ $page_title = 'My Profile - PrintFlow Admin';
         const group = document.getElementById('group_' + id);
         if (!group) return;
         group.classList.remove('is-invalid', 'is-valid');
+    }
+
+    function setValidationError(id, message) {
+        const group = document.getElementById('group_' + id);
+        const error = document.getElementById('error_' + id);
+        if (!group || !error) return;
+        group.classList.add('is-invalid');
+        group.classList.remove('is-valid');
+        error.textContent = message;
+    }
+
+    async function validateContactNumberUniqueness(force = false) {
+        const input = document.getElementById('contact_number');
+        if (!input) return true;
+
+        const value = (input.value || '').trim();
+        const syncError = validators.contact_number(value);
+        if (syncError) {
+            phoneValidationState = { value: value, pending: false, exists: false };
+            return false;
+        }
+
+        if (value === currentContactNumber) {
+            phoneValidationState = { value: value, pending: false, exists: false };
+            return true;
+        }
+
+        if (!force && phoneValidationState.value === value && !phoneValidationState.pending) {
+            if (phoneValidationState.exists) {
+                setValidationError('contact_number', 'This contact number is already used in the system.');
+                return false;
+            }
+            return true;
+        }
+
+        phoneValidationState = { value: value, pending: true, exists: false };
+        checkPersonalInfo();
+
+        try {
+            const url = `${window.location.pathname}?validation_action=contact_number&contact_number=${encodeURIComponent(value)}`;
+            const response = await fetch(url, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            const result = await response.json();
+            if ((document.getElementById('contact_number')?.value || '').trim() !== value) {
+                return false;
+            }
+            phoneValidationState.pending = false;
+            phoneValidationState.exists = !!(result && result.exists);
+            if (phoneValidationState.exists) {
+                setValidationError('contact_number', result.message || 'This contact number is already used in the system.');
+                checkPersonalInfo();
+                return false;
+            }
+            validateField('contact_number', validators.contact_number);
+            checkPersonalInfo();
+            return true;
+        } catch (_err) {
+            phoneValidationState.pending = false;
+            setValidationError('contact_number', 'Unable to validate contact number right now. Please try again.');
+            checkPersonalInfo();
+            return false;
+        }
     }
 
     function validateField(id, validator, options = {}) {
@@ -1542,8 +1677,12 @@ $page_title = 'My Profile - PrintFlow Admin';
         const ciValid = validateField('address_city', validators.address_city);
         const bValid = validateField('address_barangay', validators.address_barangay);
         const aValid = validateField('address', validators.address);
+        const currentPhoneValue = (document.getElementById('contact_number')?.value || '').trim();
+        const phoneUniqueValid =
+            currentPhoneValue === currentContactNumber ||
+            (!phoneValidationState.pending && !phoneValidationState.exists && phoneValidationState.value === currentPhoneValue);
         var btnSave = document.getElementById('btn_save_profile');
-        if (btnSave) btnSave.disabled = !(fValid && mValid && lValid && eValid && bdayValid && cValid && pValid && ciValid && bValid && aValid);
+        if (btnSave) btnSave.disabled = !(fValid && mValid && lValid && eValid && bdayValid && cValid && phoneUniqueValid && pValid && ciValid && bValid && aValid);
     }
 
     function checkPassword(force = false) {
@@ -1595,13 +1734,32 @@ $page_title = 'My Profile - PrintFlow Admin';
     }
 
     function validatePersonalInfoForm(event) {
+        if (personalSubmitInProgress) return true;
         checkPersonalInfo();
+        const currentPhoneValue = (document.getElementById('contact_number')?.value || '').trim();
+        const syncPhoneError = validators.contact_number(currentPhoneValue);
+        const needsPhoneValidation =
+            !syncPhoneError &&
+            currentPhoneValue !== currentContactNumber &&
+            (phoneValidationState.pending || phoneValidationState.value !== currentPhoneValue || phoneValidationState.exists);
         var btn = document.getElementById('btn_save_profile');
-        var ok = !!(btn && !btn.disabled);
-        if (!ok && event && typeof event.preventDefault === 'function') {
+        var ok = !!(btn && !btn.disabled) && !needsPhoneValidation;
+        if (ok) return true;
+
+        if (event && typeof event.preventDefault === 'function') {
             event.preventDefault();
         }
-        return ok;
+        if (needsPhoneValidation && !phoneValidationState.pending) {
+            validateContactNumberUniqueness(true).then(function (phoneIsUnique) {
+                checkPersonalInfo();
+                var submitBtn = document.getElementById('btn_save_profile');
+                if (phoneIsUnique && submitBtn && !submitBtn.disabled && personalForm) {
+                    personalSubmitInProgress = true;
+                    personalForm.submit();
+                }
+            });
+        }
+        return false;
     }
 
     function validatePasswordForm(event) {
@@ -1744,6 +1902,37 @@ $page_title = 'My Profile - PrintFlow Admin';
         var phoneInput = document.getElementById('contact_number');
         if (phoneInput && (!phoneInput.value || phoneInput.value.trim() === '')) {
             phoneInput.value = '09';
+        }
+        if (phoneInput) {
+            if (phoneInput._pfUniqueInputHandler) {
+                phoneInput.removeEventListener('input', phoneInput._pfUniqueInputHandler);
+            }
+            if (phoneInput._pfUniqueBlurHandler) {
+                phoneInput.removeEventListener('blur', phoneInput._pfUniqueBlurHandler);
+            }
+            phoneInput._pfUniqueInputHandler = function() {
+                const value = (phoneInput.value || '').trim();
+                phoneValidationState = { value: '', pending: false, exists: false };
+                if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
+                if (!validators.contact_number(value) && value !== currentContactNumber) {
+                    phoneValidationTimer = setTimeout(function() {
+                        validateContactNumberUniqueness(true);
+                    }, 350);
+                } else {
+                    checkPersonalInfo();
+                }
+            };
+            phoneInput._pfUniqueBlurHandler = function() {
+                if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
+                const value = (phoneInput.value || '').trim();
+                if (!validators.contact_number(value) && value !== currentContactNumber) {
+                    validateContactNumberUniqueness(true);
+                } else {
+                    checkPersonalInfo();
+                }
+            };
+            phoneInput.addEventListener('input', phoneInput._pfUniqueInputHandler);
+            phoneInput.addEventListener('blur', phoneInput._pfUniqueBlurHandler);
         }
 
         loadProvinces(addressInitial.province, addressInitial.city, addressInitial.barangay)
