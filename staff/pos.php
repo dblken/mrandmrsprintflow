@@ -2692,7 +2692,16 @@ try {
                 payment_method: pm,
                 reference_number: ref,
                 amount_tendered: tendered,
-                items: cart.map(i => ({ id: i.product_id, qty: i.qty, price: i.price, name: i.name || null, customization: i.customization || null, is_service: i.is_service || false }))
+                items: cart.map(i => ({
+                    id: i.product_id,
+                    qty: i.qty,
+                    price: i.price,
+                    name: i.name || null,
+                    customization: i.customization || null,
+                    is_service: i.is_service || false,
+                    pending_order_id: i.pending_order_id || 0,
+                    pending_customization_id: i.pending_customization_id || 0
+                }))
             };
 
             try {

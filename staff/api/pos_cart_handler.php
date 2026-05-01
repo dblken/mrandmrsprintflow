@@ -125,6 +125,24 @@ try {
             $_SESSION['pos_cart'][$index]['price_set'] = true;
             break;
 
+        case 'update_service_link':
+            $index = isset($data['index']) ? (int)$data['index'] : -1;
+            if ($index < 0 || !isset($_SESSION['pos_cart'][$index])) {
+                throw new Exception('Invalid cart item.');
+            }
+
+            $pending_order_id = (int)($data['pending_order_id'] ?? 0);
+            $customization_id = (int)($data['customization_id'] ?? 0);
+            if ($pending_order_id <= 0) {
+                throw new Exception('Pending order ID is required.');
+            }
+
+            $_SESSION['pos_cart'][$index]['pending_order_id'] = $pending_order_id;
+            if ($customization_id > 0) {
+                $_SESSION['pos_cart'][$index]['pending_customization_id'] = $customization_id;
+            }
+            break;
+
         case 'remove':
             $index = isset($data['index']) ? (int)$data['index'] : -1;
             if ($index >= 0 && isset($_SESSION['pos_cart'][$index])) {

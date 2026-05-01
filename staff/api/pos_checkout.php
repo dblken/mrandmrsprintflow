@@ -81,6 +81,14 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
     $inkSql .= '))';
     $sourceInks = db_query($inkSql, $inkTypes, $inkParams) ?: [];
 
+    if (empty($sourceMaterials) && empty($sourceInks)) {
+        error_log(sprintf(
+            'PrintFlow POS material migration warning: no pending assignments found for source order %d (target order %d)',
+            $sourceOrderId,
+            $targetOrderId
+        ));
+    }
+
     if ($targetJobId > 0) {
         db_execute("DELETE FROM job_order_materials WHERE job_order_id = ?", 'i', [$targetJobId]);
         db_execute("DELETE FROM job_order_ink_usage WHERE job_order_id = ?", 'i', [$targetJobId]);
@@ -212,6 +220,33 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
                 ]
             );
         }
+    }
+
+    if (!empty($sourceJobIds)) {
+        $sourceJobPlaceholders = implode(',', array_fill(0, count($sourceJobIds), '?'));
+        $sourceJobTypes = str_repeat('i', count($sourceJobIds));
+        db_execute(
+            "DELETE FROM job_order_materials WHERE job_order_id IN ($sourceJobPlaceholders) AND deducted_at IS NULL",
+            $sourceJobTypes,
+            $sourceJobIds
+        );
+        db_execute(
+            "DELETE FROM job_order_ink_usage WHERE job_order_id IN ($sourceJobPlaceholders)",
+            $sourceJobTypes,
+            $sourceJobIds
+        );
+    }
+    if ($useStdOrderId) {
+        db_execute(
+            "DELETE FROM job_order_materials WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0) AND deducted_at IS NULL",
+            'i',
+            [$sourceOrderId]
+        );
+        db_execute(
+            "DELETE FROM job_order_ink_usage WHERE std_order_id = ? AND (job_order_id IS NULL OR job_order_id = 0)",
+            'i',
+            [$sourceOrderId]
+        );
     }
 
     error_log(sprintf(
@@ -589,9 +624,17 @@ try {
             }
             $last_customization_id = $conn->insert_id;
 
-            $pendingOrderId = isset($_SESSION['pos_pending_orders'][$product_id])
-                ? (int)$_SESSION['pos_pending_orders'][$product_id]
-                : 0;
+            $pendingOrderId = (int)($item['pending_order_id'] ?? 0);
+            if ($pendingOrderId <= 0 && isset($_SESSION['pos_pending_orders'][$product_id])) {
+                $pendingOrderId = (int)$_SESSION['pos_pending_orders'][$product_id];
+            }
+            if ($pendingOrderId <= 0) {
+                error_log(sprintf(
+                    'PrintFlow POS checkout warning: missing pending_order_id for service item product_id=%d on final order #%d',
+                    $product_id,
+                    $order_id
+                ));
+            }
             $post_commit_job_sync[$order_id] = [
                 'status' => 'IN_PRODUCTION',
                 'pending_order_id' => $pendingOrderId

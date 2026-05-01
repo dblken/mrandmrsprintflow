@@ -104,14 +104,21 @@ $linked_job_id = JobOrderService::ensureJobsForStoreOrder($order_id);
 
 $materials = [];
 if ($linked_job_id) {
-    $materials = db_query(
-        "SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code
-         FROM job_order_materials m 
-         JOIN inv_items i ON m.item_id = i.id 
-         LEFT JOIN inv_rolls r ON m.roll_id = r.id 
-         WHERE m.job_order_id = ?",
-        'i', [$linked_job_id]
-    ) ?: [];
+    $material_sql = "
+        SELECT m.*, i.name as item_name, i.track_by_roll, i.category_id, r.roll_code
+        FROM job_order_materials m
+        JOIN inv_items i ON m.item_id = i.id
+        LEFT JOIN inv_rolls r ON m.roll_id = r.id
+        WHERE m.job_order_id = ?
+    ";
+    $material_params = [$linked_job_id];
+    $material_types = 'i';
+    if (db_table_has_column('job_order_materials', 'std_order_id')) {
+        $material_sql .= " OR (m.std_order_id = ? AND (m.job_order_id IS NULL OR m.job_order_id = 0))";
+        $material_params[] = $order_id;
+        $material_types .= 'i';
+    }
+    $materials = db_query($material_sql, $material_types, $material_params) ?: [];
 }
 
 // Parse JSON metadata for each material
@@ -122,13 +129,20 @@ unset($m);
 
 $ink_usage = [];
 if ($linked_job_id) {
-    $ink_usage = db_query(
-        "SELECT u.*, i.name as item_name
-         FROM job_order_ink_usage u
-         JOIN inv_items i ON u.item_id = i.id
-         WHERE u.job_order_id = ?",
-         'i', [$linked_job_id]
-    ) ?: [];
+    $ink_sql = "
+        SELECT u.*, i.name as item_name
+        FROM job_order_ink_usage u
+        JOIN inv_items i ON u.item_id = i.id
+        WHERE u.job_order_id = ?
+    ";
+    $ink_params = [$linked_job_id];
+    $ink_types = 'i';
+    if (db_table_has_column('job_order_ink_usage', 'std_order_id')) {
+        $ink_sql .= " OR (u.std_order_id = ? AND (u.job_order_id IS NULL OR u.job_order_id = 0))";
+        $ink_params[] = $order_id;
+        $ink_types .= 'i';
+    }
+    $ink_usage = db_query($ink_sql, $ink_types, $ink_params) ?: [];
 }
 
 $data = [

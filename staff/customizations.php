@@ -3973,6 +3973,16 @@ window.pfCustomizationPreloadedOrders = (() => {
                                                 price: priceValue
                                             })
                                         });
+                                        await fetch(this.staffApiUrl('api/pos_cart_handler.php'), {
+                                            method: 'POST',
+                                            headers: {'Content-Type': 'application/json'},
+                                            body: JSON.stringify({
+                                                action: 'update_service_link',
+                                                index: state.item_index,
+                                                pending_order_id: parseInt(this.currentJo.order_id || this.deepLinkSourceOrderId || 0, 10) || 0,
+                                                customization_id: parseInt(this.currentJo.id || 0, 10) || 0
+                                            })
+                                        });
                                     } catch (e) {
                                         console.error('Error updating cart price:', e);
                                     }
@@ -4075,6 +4085,16 @@ window.pfCustomizationPreloadedOrders = (() => {
                                         action: 'update_price',
                                         index: itemIndex,
                                         price: userEnteredPrice
+                                    })
+                                });
+                                await fetch(this.staffApiUrl('api/pos_cart_handler.php'), {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        action: 'update_service_link',
+                                        index: itemIndex,
+                                        pending_order_id: parseInt(this.currentJo.order_id || this.deepLinkSourceOrderId || 0, 10) || 0,
+                                        customization_id: parseInt(this.currentJo.id || 0, 10) || 0
                                     })
                                 });
                                 window.location.href = this.staffApiUrl('pos.php?from_customizations=1');
