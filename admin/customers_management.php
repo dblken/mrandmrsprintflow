@@ -701,7 +701,8 @@ $page_title = 'Customers Management - Admin';
                 }
                 if (isAjax) params.set('ajax', '1');
                 else params.delete('ajax');
-                params.delete('page');
+                if (overrides.page !== undefined && parseInt(overrides.page, 10) > 1) params.set('page', overrides.page);
+                else params.delete('page');
                 return window.location.pathname + '?' + params.toString();
             }
 
