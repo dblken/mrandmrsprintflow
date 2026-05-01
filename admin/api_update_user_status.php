@@ -116,7 +116,18 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    $status         = in_array($data['status'] ?? '', ['Activated','Pending','Deactivated']) ? $data['status'] : 'Pending';
+    $requested_status = in_array($data['status'] ?? '', ['Activated','Pending','Deactivated'], true) ? $data['status'] : 'Pending';
+    $current_user_row = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
+    if (empty($current_user_row)) {
+        echo json_encode(['success' => false, 'error' => 'User not found.']);
+        exit;
+    }
+    $current_status = (string)($current_user_row[0]['status'] ?? '');
+    if ($current_status === 'Activated' && $requested_status === 'Pending') {
+        echo json_encode(['success' => false, 'error' => 'Activated accounts cannot be moved back to pending.']);
+        exit;
+    }
+    $status = $requested_status;
 
     $ok = db_execute(
         "UPDATE users SET first_name=?, middle_name=?, last_name=?, contact_number=?, address=?, gender=?, birthday=?, role=?, branch_id=?, status=? WHERE user_id=?",

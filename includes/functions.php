@@ -240,6 +240,22 @@ function create_notification($user_id, $user_type, $message, $type = 'System', $
     $safe_message = trim((string)$message);
     $safe_data_id = ($data_id === null || $data_id === '') ? 0 : (int)$data_id;
 
+    if ($customer_id === null && in_array($user_type, ['Staff', 'Manager'], true) && $staff_user_id !== null) {
+        $recipient = db_query(
+            "SELECT branch_id FROM users WHERE user_id = ? LIMIT 1",
+            'i',
+            [$staff_user_id]
+        );
+        $recipient_branch_id = !empty($recipient) ? (int)($recipient[0]['branch_id'] ?? 0) : 0;
+        if (!printflow_staff_notification_visible([
+            'type' => $safe_type,
+            'data_id' => $safe_data_id,
+            'message' => $safe_message,
+        ], $recipient_branch_id > 0 ? $recipient_branch_id : null)) {
+            return 0;
+        }
+    }
+
     // Guard against accidental duplicate inserts fired within a few seconds.
     if ($customer_id !== null) {
         $dup = db_query(
@@ -480,18 +496,17 @@ function printflow_staff_notification_visible(array $notification, ?int $branchI
     }
 
     $type = (string)($notification['type'] ?? '');
+    $notificationBranch = printflow_notification_branch_id($notification);
+    if ($notificationBranch !== null) {
+        return $notificationBranch === $branchId;
+    }
     $shopScopedTypes = ['Order', 'Payment', 'Design', 'Job Order', 'Payment Issue'];
     if (in_array($type, $shopScopedTypes, true)) {
-        $notificationBranch = printflow_notification_branch_id($notification);
-        return $notificationBranch !== null && $notificationBranch === $branchId;
+        return false;
     }
 
     if ($type === 'Stock') {
-        $notificationBranch = printflow_notification_branch_id($notification);
-        if ($notificationBranch === null) {
-            return false;
-        }
-        return $notificationBranch === $branchId;
+        return false;
     }
 
     return true;

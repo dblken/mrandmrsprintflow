@@ -234,9 +234,18 @@ class InventoryManager {
         if ($result && !empty($item['reorder_level']) && (float)$item['reorder_level'] > 0) {
             $newSoh = self::getStockOnHand($itemId, $branchId);
             if ($newSoh <= (float)$item['reorder_level']) {
-                if (function_exists('notify_shop_users')) {
+                if (function_exists('create_notification')) {
                     $msg = "Low stock: {$item['name']} is at {$newSoh} {$item['unit_of_measure']} (reorder at {$item['reorder_level']})";
-                    notify_shop_users($msg, 'Stock', false, false, $itemId, ['Admin', 'Manager']);
+                    $users = db_query(
+                        "SELECT user_id, role, branch_id FROM users WHERE role IN ('Admin', 'Manager') AND status = 'Activated'"
+                    ) ?: [];
+                    foreach ($users as $user) {
+                        $role = (string)($user['role'] ?? 'Admin');
+                        if ($role === 'Manager' && (int)($user['branch_id'] ?? 0) !== (int)$branchId) {
+                            continue;
+                        }
+                        create_notification((int)$user['user_id'], $role, $msg, 'Stock', false, false, $itemId);
+                    }
                 }
             }
         }

@@ -1150,7 +1150,9 @@ if (isset($_GET['ajax'])) {
                             <label>Account Status</label>
                             <select x-model="editModal.user.status">
                                 <option value="Activated">Activated</option>
-                                <option value="Pending">Pending</option>
+                                <template x-if="editModal.user.original_status !== 'Activated'">
+                                    <option value="Pending">Pending</option>
+                                </template>
                                 <option value="Deactivated">Deactivated</option>
                             </select>
                         </div>
@@ -1847,6 +1849,7 @@ function userManagement() {
                 address_line: '',
                 role: '',
                 branch_id: '',
+                original_status: '',
                 status: '',
                 created_at: ''
             }
@@ -2111,6 +2114,7 @@ function userManagement() {
                     u.address = originalAddress;
                     // Ensure branch_id is properly set (convert to string for select binding)
                     u.branch_id = u.branch_id ? String(u.branch_id) : '';
+                    u.original_status = u.status || '';
                     this.editModal.user = u;
                     if (!this.editModal.user.address && (u.address_line || u.address_barangay || u.address_city || u.address_province)) {
                         this.buildAddress();
