@@ -673,7 +673,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
 <div id="serviceStatusConfirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10100;align-items:center;justify-content:center;padding:16px;flex-wrap:wrap;">
     <div style="background:white;border-radius:16px;padding:26px;max-width:420px;width:100%;box-shadow:0 25px 50px rgba(0,0,0,0.25);text-align:center;position:relative;z-index:1;" role="dialog" aria-modal="true" aria-labelledby="serviceStatusConfirmTitle" onclick="event.stopPropagation();">
         <h3 id="serviceStatusConfirmTitle" style="font-size:18px;font-weight:700;margin:0 0 8px;">Confirm</h3>
-        <p id="serviceStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;"></p>
+        <p id="serviceStatusConfirmText" style="font-size:14px;color:#4b5563;margin:0 0 16px;line-height:1.5;overflow-wrap:anywhere;"></p>
         <div id="serviceStatusInfoBox" style="font-size:12px;color:#6b7280;background:#f9fafb;padding:12px;border-radius:10px;margin-bottom:20px;text-align:left;border:1px solid #e5e7eb;">
             <div id="serviceStatusInfoText"></div>
         </div>
@@ -1211,7 +1211,7 @@ function showServiceStatusModal(event, form) {
     closeViewModal();
 
     document.getElementById('serviceStatusConfirmTitle').textContent = 'Confirm ' + action;
-    document.getElementById('serviceStatusConfirmText').innerHTML = 'Are you sure you want to <strong>' + action.toLowerCase() + '</strong> <strong style="color:#111827;">' + svcName.replace(/</g, '&lt;') + '</strong>?';
+    document.getElementById('serviceStatusConfirmText').innerHTML = 'Are you sure you want to <strong>' + action.toLowerCase() + '</strong> <strong style="color:#111827;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;">' + svcName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</strong>?';
 
     let msg = '';
     if (action === 'Deactivate') msg = 'This service will be marked inactive and hidden from default customer flows.';
