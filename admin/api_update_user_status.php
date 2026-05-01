@@ -194,12 +194,23 @@ if ($action === 'toggle_status') {
         exit;
     }
 
+    if ($target_status !== 'Deactivated') {
+        echo json_encode(['success' => false, 'error' => 'Deactivate this account before archiving.']);
+        exit;
+    }
+
     printflow_ensure_user_archived_status_available_api();
-    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?", 'i', [$user_id]);
-    if ($ok) {
+    $ok = db_execute(
+        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'",
+        'i',
+        [$user_id]
+    );
+    $verify = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
+    $now = trim((string)($verify[0]['status'] ?? ''));
+    if ($ok && $now === 'Archived') {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Failed to archive account.']);
+        echo json_encode(['success' => false, 'error' => 'Failed to archive account. Ensure the account is deactivated and try again.']);
     }
 } elseif ($action === 'delete_user') {
     $viewer_role = (string)(function_exists('get_user_type') ? get_user_type() : ($_SESSION['user_type'] ?? ''));
@@ -225,12 +236,23 @@ if ($action === 'toggle_status') {
         exit;
     }
 
+    if ($target_status !== 'Deactivated') {
+        echo json_encode(['success' => false, 'error' => 'Deactivate this account before archiving.']);
+        exit;
+    }
+
     printflow_ensure_user_archived_status_available_api();
-    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?", 'i', [$user_id]);
-    if ($ok) {
+    $ok = db_execute(
+        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'",
+        'i',
+        [$user_id]
+    );
+    $verify = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
+    $now = trim((string)($verify[0]['status'] ?? ''));
+    if ($ok && $now === 'Archived') {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {
-        echo json_encode(['success' => false, 'error' => 'Failed to archive account.']);
+        echo json_encode(['success' => false, 'error' => 'Failed to archive account. Ensure the account is deactivated and try again.']);
     }
 } elseif ($action === 'resend_completion_link') {
     $u = db_query("SELECT user_id, first_name, email FROM users WHERE user_id = ?", 'i', [$user_id]);

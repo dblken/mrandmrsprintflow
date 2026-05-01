@@ -27,7 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user
     $restore_user_id = (int)($_POST['user_id'] ?? 0);
     if ($restore_user_id > 0) {
         $pre = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
-        if (empty($pre) || (string)($pre[0]['status'] ?? '') !== 'Archived') {
+        $pre_st = trim((string)($pre[0]['status'] ?? ''));
+        if (empty($pre) || $pre_st !== 'Archived') {
             $error = 'That account is not archived or could not be found.';
         } else {
             $restored = db_execute(
@@ -36,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user
                 [$restore_user_id]
             );
             $post = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
-            $now_st = (string)($post[0]['status'] ?? '');
+            $now_st = trim((string)($post[0]['status'] ?? ''));
             if ($restored && $now_st === 'Deactivated') {
                 $success = 'Archived account restored successfully.';
             } else {
@@ -360,7 +361,7 @@ if (isset($_GET['ajax'])) {
                 <td class="py-3 text-right" onclick="event.stopPropagation();">
                     <button type="button" class="btn-action blue" style="margin-right:4px;" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View</button>
                     <button type="button" class="btn-action teal" style="margin-right:4px;" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
-                    <?php if (in_array(($user['status'] ?? ''), ['Activated', 'Deactivated'], true)): ?>
+                    <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
                     <button type="button" class="btn-action gray" onclick="window._archiveUser && _archiveUser(<?php echo $user['user_id']; ?>)">Archive</button>
                     <?php endif; ?>
                 </td>
@@ -992,7 +993,7 @@ if (isset($_GET['get_archived'])) {
                                     <td class="py-3 text-right" @click.stop>
                                         <button type="button" @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action blue" style="margin-right:4px;">View</button>
                                         <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal" style="margin-right:4px;">Edit</button>
-                                        <?php if (in_array(($user['status'] ?? ''), ['Activated', 'Deactivated'], true)): ?>
+                                        <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
                                         <button type="button" @click="showArchiveConfirm(<?php echo $user['user_id']; ?>)" class="btn-action gray">Archive</button>
                                         <?php endif; ?>
                                     </td>
@@ -1130,7 +1131,7 @@ if (isset($_GET['get_archived'])) {
             <template x-if="viewModal.user?.status === 'Activated'">
                 <button type="button" @click="showDeactivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Deactivate Account</button>
             </template>
-            <template x-if="viewModal.user?.status === 'Activated' || viewModal.user?.status === 'Deactivated'">
+            <template x-if="viewModal.user?.status === 'Deactivated'">
                 <button type="button" @click="showArchiveConfirm(viewModal.user.user_id)" class="mf-btn-outline gray">Archive Account</button>
             </template>
             <button type="button" @click="viewModal.isOpen = false; editUser(viewModal.user?.user_id)" class="mf-btn-outline teal">Edit</button>
@@ -1322,7 +1323,7 @@ if (isset($_GET['get_archived'])) {
             <button @click="archiveConfirm.isOpen = false">&times;</button>
         </div>
         <div class="modal-bdy">
-            <p style="margin:0 0 20px 0; color:#374151;">Archive this team account? It will be moved to archived storage, removed from the active team list, and kept in the system.</p>
+            <p style="margin:0 0 20px 0; color:#374151;">Archive this deactivated account? It will be moved to archived storage, removed from the active team list, and kept in the system.</p>
             <div class="mf-footer" style="border:none; padding:0;">
                 <button type="button" @click="archiveConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
                 <button type="button" @click="confirmArchiveUser()" class="mf-btn-outline gray" :disabled="archiveConfirm.saving" x-text="archiveConfirm.saving ? 'Archiving...' : 'Archive'"></button>

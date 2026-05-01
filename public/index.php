@@ -61,12 +61,14 @@ function landing_product_image_url(array $product, string $base_path): string
     return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
 }
 
-/** Landing hero cards: image stem must match whitelist in public/landing-showcase-image.php */
+/**
+ * Landing hero cards: images live under project /uploads (e.g. tarpaulin.jpg).
+ * URLs go through public/landing-showcase-image.php so images load even when /uploads is not directly exposed.
+ */
 function landing_hero_showcase_src(string $stem, string $base_path): string
 {
-    static $allowed = ['tarpaulin', 'tshirt', 'sintraboard'];
     $stem = strtolower(trim($stem));
-    if (!in_array($stem, $allowed, true)) {
+    if ($stem === '') {
         return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
     }
 
@@ -74,13 +76,14 @@ function landing_hero_showcase_src(string $stem, string $base_path): string
     foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
         $fn = $stem . '.' . $ext;
         if (is_file($root . '/uploads/' . $fn)) {
-            return rtrim($base_path, '/') . '/uploads/' . $fn;
+            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn);
         }
     }
 
-    return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($stem . '.jpg');
+    return rtrim($base_path, '/') . '/public/assets/images/services/default.png';
 }
 
+/** Label matches upload basename stem (e.g. sintraboard → Sintraboard). */
 function landing_hero_showcase_label(string $stem): string
 {
     $stem = strtolower(trim($stem));
