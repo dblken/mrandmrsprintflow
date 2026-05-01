@@ -44,6 +44,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['check_email'])) {
     exit;
 }
 
+function printflow_ensure_user_archived_status_available(): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $flagFile = __DIR__ . '/../tmp/.printflow_users_status_archived_ok';
+    if (is_file($flagFile)) {
+        return;
+    }
+
+    try {
+        $statusColumn = db_query("SHOW COLUMNS FROM users LIKE 'status'");
+        $type = strtolower((string)($statusColumn[0]['Type'] ?? ''));
+        if ($type !== '' && strpos($type, "'archived'") === false) {
+            db_execute("ALTER TABLE users MODIFY COLUMN status ENUM('Activated','Pending','Deactivated','Archived') NOT NULL DEFAULT 'Pending'");
+        }
+        @file_put_contents($flagFile, '1');
+    } catch (Throwable $e) {
+        error_log('printflow_ensure_user_archived_status_available: ' . $e->getMessage());
+    }
+}
+
 // Ensure columns exist (safe migration) — skip after first successful run (saves SHOW COLUMNS every request)
 $__pfUsersSchemaOk = __DIR__ . '/../tmp/.printflow_users_schema_ok';
 if (!is_file($__pfUsersSchemaOk)) {
@@ -60,6 +84,7 @@ if (!is_file($__pfUsersSchemaOk)) {
     } catch (Throwable $e) { /* ignore */ }
 }
 unset($__pfUsersSchemaOk);
+printflow_ensure_user_archived_status_available();
 
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -213,7 +238,7 @@ $sort_col_sql = match($sort) {
     default  => 'u.created_at DESC',
 };
 
-$sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE 1=1";
+$sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE u.status != 'Archived'";
 $params = []; $types = '';
 
 if (!empty($search)) {
@@ -253,10 +278,10 @@ $users = db_query("SELECT u.*, b.branch_name $sql_base ORDER BY $sort_col_sql LI
 $branches = db_query("SELECT id, branch_name FROM branches WHERE status != 'Archived' ORDER BY id ASC");
 
 // Summary statistics
-$stat_total    = db_query("SELECT COUNT(*) as c FROM users")[0]['c'];
-$stat_admins   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin'")[0]['c'];
-$stat_managers = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Manager'")[0]['c'];
-$stat_staff    = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff'")[0]['c'];
+$stat_total    = db_query("SELECT COUNT(*) as c FROM users WHERE status != 'Archived'")[0]['c'];
+$stat_admins   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin' AND status != 'Archived'")[0]['c'];
+$stat_managers = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Manager' AND status != 'Archived'")[0]['c'];
+$stat_staff    = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff' AND status != 'Archived'")[0]['c'];
 $stat_active   = db_query("SELECT COUNT(*) as c FROM users WHERE status = 'Activated'")[0]['c'];
 
 // Sort helpers
@@ -311,7 +336,7 @@ if (isset($_GET['ajax'])) {
                     <button type="button" class="btn-action blue" style="margin-right:4px;" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View</button>
                     <button type="button" class="btn-action teal" style="margin-right:4px;" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
                     <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
-                    <button type="button" class="btn-action red" onclick="window._deleteUser && _deleteUser(<?php echo $user['user_id']; ?>)">Delete</button>
+                    <button type="button" class="btn-action red" onclick="window._archiveUser && _archiveUser(<?php echo $user['user_id']; ?>)">Archive</button>
                     <?php endif; ?>
                 </td>
             </tr>
@@ -881,7 +906,7 @@ if (isset($_GET['ajax'])) {
                                         <button type="button" @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action blue" style="margin-right:4px;">View</button>
                                         <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal" style="margin-right:4px;">Edit</button>
                                         <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
-                                        <button type="button" @click="showDeleteConfirm(<?php echo $user['user_id']; ?>)" class="btn-action red">Delete</button>
+                                        <button type="button" @click="showArchiveConfirm(<?php echo $user['user_id']; ?>)" class="btn-action red">Archive</button>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1019,7 +1044,7 @@ if (isset($_GET['ajax'])) {
                 <button type="button" @click="showDeactivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Deactivate Account</button>
             </template>
             <template x-if="viewModal.user?.status === 'Deactivated'">
-                <button type="button" @click="showDeleteConfirm(viewModal.user.user_id)" class="mf-btn-outline red">Delete Account</button>
+                <button type="button" @click="showArchiveConfirm(viewModal.user.user_id)" class="mf-btn-outline red">Archive Account</button>
             </template>
             <button type="button" @click="viewModal.isOpen = false; editUser(viewModal.user?.user_id)" class="mf-btn-outline teal">Edit</button>
         </div>
@@ -1202,18 +1227,18 @@ if (isset($_GET['ajax'])) {
     </div>
 </div>
 
-<!-- Delete Account Confirmation Modal -->
-<div x-show="deleteConfirm.isOpen" x-cloak class="modal-overlay" :class="{'is-open': deleteConfirm.isOpen}" @click.self="deleteConfirm.isOpen = false">
+<!-- Archive Account Confirmation Modal -->
+<div x-show="archiveConfirm.isOpen" x-cloak class="modal-overlay" :class="{'is-open': archiveConfirm.isOpen}" @click.self="archiveConfirm.isOpen = false">
     <div class="modal-box" style="max-width:400px;" @click.stop>
         <div class="modal-hdr">
-            <h2>Delete Account</h2>
-            <button @click="deleteConfirm.isOpen = false">&times;</button>
+            <h2>Archive Account</h2>
+            <button @click="archiveConfirm.isOpen = false">&times;</button>
         </div>
         <div class="modal-bdy">
-            <p style="margin:0 0 20px 0; color:#374151;">Delete this deactivated account? This cannot be undone.</p>
+            <p style="margin:0 0 20px 0; color:#374151;">Archive this deactivated account? It will be removed from the active team list but kept in the system.</p>
             <div class="mf-footer" style="border:none; padding:0;">
-                <button type="button" @click="deleteConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
-                <button type="button" @click="confirmDeleteUser()" class="mf-btn-outline red" :disabled="deleteConfirm.deleting" x-text="deleteConfirm.deleting ? 'Deleting...' : 'Delete'"></button>
+                <button type="button" @click="archiveConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
+                <button type="button" @click="confirmArchiveUser()" class="mf-btn-outline red" :disabled="archiveConfirm.saving" x-text="archiveConfirm.saving ? 'Archiving...' : 'Archive'"></button>
             </div>
         </div>
     </div>
@@ -1808,10 +1833,10 @@ function userManagement() {
             isOpen: false,
             userId: 0
         },
-        deleteConfirm: {
+        archiveConfirm: {
             isOpen: false,
             userId: 0,
-            deleting: false
+            saving: false
         },
         resendModal: {
             isOpen: false,
@@ -2144,9 +2169,9 @@ function userManagement() {
             this.deactivateConfirm.userId = userId;
             this.deactivateConfirm.isOpen = true;
         },
-        showDeleteConfirm(userId) {
-            this.deleteConfirm.userId = userId;
-            this.deleteConfirm.isOpen = true;
+        showArchiveConfirm(userId) {
+            this.archiveConfirm.userId = userId;
+            this.archiveConfirm.isOpen = true;
         },
         async confirmActivateUser() {
             const userId = this.activateConfirm.userId;
@@ -2202,32 +2227,32 @@ function userManagement() {
                 this.pageSubmitting = false;
             }
         },
-        async confirmDeleteUser() {
-            const userId = this.deleteConfirm.userId;
-            if (!userId || this.deleteConfirm.deleting) return;
-            this.deleteConfirm.deleting = true;
+        async confirmArchiveUser() {
+            const userId = this.archiveConfirm.userId;
+            if (!userId || this.archiveConfirm.saving) return;
+            this.archiveConfirm.saving = true;
             try {
                 const res = await fetch('<?php echo $base_path; ?>/admin/api_update_user_status.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        action: 'delete_user',
+                        action: 'archive_user',
                         user_id: userId,
                         csrf_token: '<?php echo $_SESSION["csrf_token"] ?? ""; ?>'
                     })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    this.deleteConfirm.isOpen = false;
+                    this.archiveConfirm.isOpen = false;
                     this.viewModal.isOpen = false;
                     location.reload();
                 } else {
-                    alert(data.error || 'Failed to delete account.');
+                    alert(data.error || 'Failed to archive account.');
                 }
             } catch (e) {
                 alert('Network error.');
             } finally {
-                this.deleteConfirm.deleting = false;
+                this.archiveConfirm.saving = false;
             }
         },
         openResendModal(userId) {
@@ -2407,7 +2432,7 @@ function initAlpineGlobalBridge() {
     };
     window._viewUser = (id) => { const d = getData(); if (d) d.viewUser(id); };
     window._editUser = (id) => { const d = getData(); if (d) d.editUser(id); };
-    window._deleteUser = (id) => { const d = getData(); if (d) d.showDeleteConfirm(id); };
+    window._archiveUser = (id) => { const d = getData(); if (d) d.showArchiveConfirm(id); };
 }
 
 // Initialize immediately and on all page events

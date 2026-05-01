@@ -52,6 +52,22 @@ function admin_service_media_list_url(string $value): string {
     return implode(',', array_filter($items, static fn($item) => $item !== ''));
 }
 
+function admin_default_service_customer_link(string $serviceName): ?string {
+    $needle = strtolower(trim($serviceName));
+    if ($needle === '') {
+        return null;
+    }
+
+    foreach (printflow_default_customer_service_catalog() as $service) {
+        if (strtolower(trim((string)($service['name'] ?? ''))) === $needle) {
+            $link = trim((string)($service['link'] ?? ''));
+            return $link !== '' ? $link : null;
+        }
+    }
+
+    return null;
+}
+
 /** Duplicate name check (case-insensitive, trimmed). */
 function service_name_exists(string $name, int $excludeId = 0): bool {
     $name = trim($name);
@@ -151,6 +167,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 [$name, $category, $description, $price, $status, $hero_image, $display_image, $video_url, $customer_modal_text]
             );
             if ($result) {
+                global $conn;
+                $service_id = (int)($conn->insert_id ?? 0);
+                if ($service_id > 0 && !service_has_field_config($service_id)) {
+                    try {
+                        init_service_field_config($service_id, admin_default_service_customer_link($name));
+                    } catch (Throwable $e) {
+                        error_log('admin/services_management.php default field init failed for service ' . $service_id . ': ' . $e->getMessage());
+                    }
+                }
                 $msg = 'Service created successfully.';
                 if (!empty($uploaded_images)) {
                     $msg .= ' Uploaded ' . count($uploaded_images) . ' image(s).';
@@ -769,20 +794,6 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                     <span id="err-customer-modal-text" class="field-error"></span>
                 </div>
 
-                <div class="form-group" style="margin-top:20px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;" onclick="toggleFieldConfig()">
-                        <div>
-                            <label style="margin:0;font-size:13px;font-weight:700;color:#374151;cursor:pointer;">Customize Service Fields</label>
-                            <small style="display:block;color:#6b7280;font-size:11px;margin-top:2px;">Configure labels, options, and visibility for customer order form</small>
-                        </div>
-                        <svg id="field-config-arrow" style="width:20px;height:20px;color:#6b7280;transition:transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                    </div>
-                    <div id="field-config-panel" style="display:none;margin-top:12px;padding:16px;background:#fafbfc;border:1px solid #e5e7eb;border-radius:8px;">
-                        <p style="font-size:12px;color:#6b7280;margin:0 0 12px;">Click "Configure Fields" button after saving the service to customize form fields.</p>
-                        <a href="#" id="configure-fields-link" class="btn-secondary" style="display:inline-block;padding:8px 16px;background:#0d9488;color:#fff;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;" onclick="return false;">Configure Fields</a>
-                    </div>
-                </div>
-
                 <div class="form-group">
                     <label for="modal-status">Status <span style="color:red">*</span></label>
                     <select id="modal-status" name="status" required>
@@ -1028,18 +1039,6 @@ if (document.readyState === 'loading') {
 }
 document.addEventListener('printflow:page-init', printflowInitServicesPage);
 
-function toggleFieldConfig() {
-    const panel = document.getElementById('field-config-panel');
-    const arrow = document.getElementById('field-config-arrow');
-    if (panel.style.display === 'none') {
-        panel.style.display = 'block';
-        arrow.style.transform = 'rotate(180deg)';
-    } else {
-        panel.style.display = 'none';
-        arrow.style.transform = 'rotate(0deg)';
-    }
-}
-
 function openServiceModal(mode, svc) {
     const overlay = document.getElementById('service-modal-overlay');
     const title = document.getElementById('modal-title');
@@ -1052,12 +1051,6 @@ function openServiceModal(mode, svc) {
     }
     form.reset();
     
-    // Reset field config panel
-    const panel = document.getElementById('field-config-panel');
-    const arrow = document.getElementById('field-config-arrow');
-    if (panel) panel.style.display = 'none';
-    if (arrow) arrow.style.transform = 'rotate(0deg)';
-
     if (mode === 'edit' && svc) {
         title.textContent = 'Edit Service';
         modeInput.name = 'update_service';
@@ -1085,12 +1078,6 @@ function openServiceModal(mode, svc) {
         const effectiveStatus = svc.effective_status || svc.status || 'Activated';
         document.getElementById('modal-status').value = (effectiveStatus === 'Deactivated') ? 'Deactivated' : 'Activated';
         
-        // Update configure fields link
-        const configLink = document.getElementById('configure-fields-link');
-        if (configLink) {
-            configLink.href = 'service_field_config.php?service_id=' + (svc.service_id || '');
-            configLink.onclick = null;
-        }
     } else {
         title.textContent = 'Add Service';
         modeInput.name = 'create_service';
@@ -1107,12 +1094,6 @@ function openServiceModal(mode, svc) {
         document.getElementById('modal-status').value = 'Activated';
         document.getElementById('modal-customer-modal-text').value = window.PF_DEFAULT_SERVICE_MODAL_TEXT || '';
         
-        // Disable configure fields link for new services
-        const configLink = document.getElementById('configure-fields-link');
-        if (configLink) {
-            configLink.href = '#';
-            configLink.onclick = function(e) { e.preventDefault(); alert('Please save the service first before configuring fields.'); return false; };
-        }
     }
     submitBtn.disabled = false;
     overlay.classList.add('active');

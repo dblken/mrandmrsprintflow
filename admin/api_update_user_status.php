@@ -16,6 +16,24 @@ if (!isset($base_path)) {
 }
 header('Content-Type: application/json');
 
+function printflow_ensure_user_archived_status_available_api(): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $statusColumn = db_query("SHOW COLUMNS FROM users LIKE 'status'");
+        $type = strtolower((string)($statusColumn[0]['Type'] ?? ''));
+        if ($type !== '' && strpos($type, "'archived'") === false) {
+            db_execute("ALTER TABLE users MODIFY COLUMN status ENUM('Activated','Pending','Deactivated','Archived') NOT NULL DEFAULT 'Pending'");
+        }
+    } catch (Throwable $e) {
+        error_log('printflow_ensure_user_archived_status_available_api: ' . $e->getMessage());
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { 
     echo json_encode(['success' => false, 'error' => 'Invalid method']); 
     exit; 
@@ -152,6 +170,35 @@ if ($action === 'toggle_status') {
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to activate account.']);
     }
+} elseif ($action === 'archive_user') {
+    if (($_SESSION['user_type'] ?? '') !== 'Admin') {
+        echo json_encode(['success' => false, 'error' => 'Only admins can archive team accounts.']);
+        exit;
+    }
+
+    if ($user_id === (int)($_SESSION['user_id'] ?? 0)) {
+        echo json_encode(['success' => false, 'error' => 'Cannot archive your own account.']);
+        exit;
+    }
+
+    $u = db_query("SELECT user_id, status FROM users WHERE user_id = ?", 'i', [$user_id]);
+    if (empty($u)) {
+        echo json_encode(['success' => false, 'error' => 'User not found.']);
+        exit;
+    }
+
+    if (($u[0]['status'] ?? '') !== 'Deactivated') {
+        echo json_encode(['success' => false, 'error' => 'Only deactivated accounts can be archived.']);
+        exit;
+    }
+
+    printflow_ensure_user_archived_status_available_api();
+    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
+    if ($ok) {
+        echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Failed to archive account.']);
+    }
 } elseif ($action === 'delete_user') {
     if (($_SESSION['user_type'] ?? '') !== 'Admin') {
         echo json_encode(['success' => false, 'error' => 'Only admins can delete team accounts.']);
@@ -174,89 +221,12 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    global $conn;
-    try {
-        $tableExists = static function (string $table) use ($conn): bool {
-            $safe = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
-            $res = $conn->query("SHOW TABLES LIKE '" . $conn->real_escape_string($safe) . "'");
-            return $res && $res->num_rows > 0;
-        };
-
-        $columnExists = static function (string $table, string $column) use ($conn): bool {
-            $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
-            $safeColumn = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
-            $res = $conn->query("SHOW COLUMNS FROM `{$safeTable}` LIKE '" . $conn->real_escape_string($safeColumn) . "'");
-            return $res && $res->num_rows > 0;
-        };
-
-        $displayName = trim(
-            implode(' ', array_filter([
-                (string)($u[0]['first_name'] ?? ''),
-                (string)($u[0]['middle_name'] ?? ''),
-                (string)($u[0]['last_name'] ?? ''),
-            ], static fn($part): bool => trim($part) !== ''))
-        );
-        if ($displayName === '') {
-            $displayName = (string)($u[0]['email'] ?? ('Deleted User #' . $user_id));
-        }
-
-        if ($tableExists('pos_transactions')) {
-            if ($columnExists('pos_transactions', 'cashier_name_snapshot') === false) {
-                db_execute("ALTER TABLE pos_transactions ADD COLUMN cashier_name_snapshot VARCHAR(191) NULL AFTER user_id");
-            }
-
-            $posUserColumn = db_query("SHOW COLUMNS FROM pos_transactions LIKE 'user_id'");
-            $posUserAllowsNull = strtoupper((string)($posUserColumn[0]['Null'] ?? 'NO')) === 'YES';
-            if (!$posUserAllowsNull) {
-                db_execute("ALTER TABLE pos_transactions MODIFY user_id INT NULL");
-            }
-        }
-
-        $conn->begin_transaction();
-
-        if ($tableExists('pos_transactions')) {
-            db_execute(
-                "UPDATE pos_transactions
-                 SET cashier_name_snapshot = COALESCE(NULLIF(cashier_name_snapshot, ''), ?)
-                 WHERE user_id = ?",
-                'si',
-                [$displayName, $user_id]
-            );
-            db_execute("UPDATE pos_transactions SET user_id = NULL WHERE user_id = ?", 'i', [$user_id]);
-        }
-
-        if ($tableExists('notifications')) {
-            db_execute("DELETE FROM notifications WHERE user_id = ?", 'i', [$user_id]);
-        }
-        if ($tableExists('activity_logs')) {
-            db_execute("UPDATE activity_logs SET user_id = NULL WHERE user_id = ?", 'i', [$user_id]);
-        }
-        if ($tableExists('backups')) {
-            db_execute("UPDATE backups SET created_by = NULL WHERE created_by = ?", 'i', [$user_id]);
-        }
-        if ($tableExists('push_subscriptions')) {
-            db_execute("DELETE FROM push_subscriptions WHERE user_id = ? AND user_type IN ('Admin','Manager','Staff')", 'i', [$user_id]);
-        }
-        if ($tableExists('password_resets')) {
-            db_execute("DELETE FROM password_resets WHERE user_id = ? AND user_type = 'User'", 'i', [$user_id]);
-        }
-        if ($tableExists('user_status')) {
-            db_execute("DELETE FROM user_status WHERE user_id = ? AND user_type = 'Staff'", 'i', [$user_id]);
-        }
-
-        $deleted = db_execute("DELETE FROM users WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
-        $remaining = db_query("SELECT user_id FROM users WHERE user_id = ?", 'i', [$user_id]);
-        if (!$deleted || !empty($remaining)) {
-            throw new RuntimeException('Failed to delete account.');
-        }
-
-        $conn->commit();
-        echo json_encode(['success' => true, 'message' => 'Account deleted successfully.']);
-    } catch (Throwable $e) {
-        if ($conn instanceof mysqli) {
-            try { $conn->rollback(); } catch (Throwable $ignored) {}
-        }
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    printflow_ensure_user_archived_status_available_api();
+    $ok = db_execute("UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
+    if ($ok) {
+        echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
+    } else {
+        echo json_encode(['success' => false, 'error' => 'Failed to archive account.']);
     }
 } elseif ($action === 'resend_completion_link') {
     $u = db_query("SELECT user_id, first_name, email FROM users WHERE user_id = ?", 'i', [$user_id]);
