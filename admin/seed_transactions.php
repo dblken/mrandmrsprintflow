@@ -118,8 +118,16 @@ function pf_seed_rand(int $min, int $max): int {
 /** Random float price rounded to 2 decimal places */
 function pf_seed_rand_price(int $min, int $max): float {
     // Use increments of 50 for realism
+    if ($max < $min) {
+        return (float)max(50, $max);
+    }
     $steps = (int)(($max - $min) / 50);
     return (float)($min + mt_rand(0, $steps) * 50);
+}
+
+/** Demo order amounts should stay inside this range unless a real existing order has unusual quantities. */
+function pf_seed_amount_bounds(): array {
+    return [260.00, 5100.00];
 }
 
 /** Random datetime within a given year/month, skewing toward weekdays */
@@ -198,18 +206,31 @@ function pf_seed_unit_price(array $product): float {
     return pf_seed_rand_price($adj_min, $adj_max);
 }
 
+/** Pick a unit price that keeps the line/order amount under the demo cap. */
+function pf_seed_unit_price_for_quantity(string $category, int $qty, float $remaining_budget = 5100.00): float {
+    [$min, $max] = pf_seed_price_range($category);
+    $qty = max(1, $qty);
+    $cap = (int)floor($remaining_budget / $qty);
+
+    // For bulk items, unit price may need to go below the category floor so the displayed amount stays realistic.
+    $max_unit = min($max, max(50, $cap));
+    $min_unit = min($min, $max_unit);
+
+    return pf_seed_rand_price((int)$min_unit, (int)$max_unit);
+}
+
 /** Random order quantity appropriate for product category */
 function pf_seed_quantity(string $category): int {
-    // Stickers/merch can have bulk qty; large items are 1–3
+    // Keep demo totals realistic; bulk appears sometimes, but not enough to create 20K+ amounts.
     $bulky = ['Tarpaulin', 'Signage', 'Sintraboard', 'Sintraboard Standees'];
     foreach ($bulky as $b) {
-        if (stripos($category, $b) !== false) return mt_rand(1, 5);
+        if (stripos($category, $b) !== false) return mt_rand(1, 2);
     }
-    if (stripos($category, 'Sticker') !== false) return mt_rand(1, 30);
+    if (stripos($category, 'Sticker') !== false) return mt_rand(1, 10);
     if (stripos($category, 'Merchandise') !== false || stripos($category, 'Souvenir') !== false) {
-        return mt_rand(1, 20);
+        return mt_rand(1, 8);
     }
-    return mt_rand(1, 10);
+    return mt_rand(1, 5);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -235,8 +256,11 @@ function pf_seed_part1_preview(): array {
     // Calculate what the new prices would look like
     $sample_preview = [];
     foreach ($sample as $row) {
-        [$min, $max] = pf_seed_price_range((string)($row['category'] ?? 'default'));
-        $new_unit = pf_seed_rand_price($min, $max);
+        $new_unit = pf_seed_unit_price_for_quantity(
+            (string)($row['category'] ?? 'default'),
+            (int)$row['quantity'],
+            5100.00
+        );
         $new_total_item = round($new_unit * (int)$row['quantity'], 2);
         $sample_preview[] = [
             'order_id'     => $row['order_id'],
@@ -288,12 +312,16 @@ function pf_seed_part1_execute(): array {
     try {
         foreach ($order_items_map as $order_id => $order_items) {
             $order_total = 0.0;
-            foreach ($order_items as $item) {
+            $remaining_budget = 5100.00;
+            $item_count = count($order_items);
+            foreach ($order_items as $idx => $item) {
                 $cat      = (string)($item['category'] ?? 'default');
-                [$mn, $mx] = pf_seed_price_range($cat);
-                $new_price = pf_seed_rand_price($mn, $mx);
                 $qty       = (int)$item['quantity'];
+                $slots_left = max(1, $item_count - $idx);
+                $line_budget = max(260.00, $remaining_budget / $slots_left);
+                $new_price = pf_seed_unit_price_for_quantity($cat, $qty, $line_budget);
                 $order_total += $new_price * $qty;
+                $remaining_budget = max(0.00, 5100.00 - $order_total);
 
                 $conn->query(sprintf(
                     "UPDATE order_items SET unit_price = %.2f WHERE order_item_id = %d",
@@ -502,8 +530,8 @@ function pf_seed_part2_execute(): array {
                     if ($order_id <= 0) continue;
                     $inserted_orders++;
 
-                    // ── Insert 1–3 order items ──
-                    $num_items   = mt_rand(1, 3);
+                    // ── Insert 1–2 order items ──
+                    $num_items   = (mt_rand(1, 10) <= 8) ? 1 : 2;
                     $order_total = 0.0;
                     $picked_prods = [];
 
@@ -517,7 +545,10 @@ function pf_seed_part2_execute(): array {
                         $picked_prods[] = $prod['product_id'];
 
                         $qty        = pf_seed_quantity($prod['category']);
-                        $unit_price = pf_seed_unit_price($prod);
+                        $slots_left = max(1, $num_items - $j);
+                        $remaining_budget = max(260.00, 5100.00 - $order_total);
+                        $line_budget = $remaining_budget / $slots_left;
+                        $unit_price = pf_seed_unit_price_for_quantity($prod['category'], $qty, $line_budget);
                         $order_total += $unit_price * $qty;
 
                         // Shifted item date (slightly after order date)
@@ -843,16 +874,16 @@ $current_page = 'seed_transactions';
         <i class="fas fa-database" style="color:#4299e1;"></i> Seed & Reprice Transactions
     </h2>
     <p style="margin:0 0 24px;color:#718096;font-size:.9rem;">
-        Part 1 updates existing order pricing. Part 2 generates historical data from 2021 to 2026.
+        Generate realistic historical demo data from 2021 to 2026. Repricing is optional and only changes peso amounts, not order counts.
     </p>
 
     <!-- Tabs -->
     <div class="part-tabs">
-        <button class="tab-btn" :class="{ active: tab === 1 }" @click="switchTab(1)">
-            <i class="fas fa-tags"></i> Part 1 — Reprice Orders
-        </button>
         <button class="tab-btn" :class="{ active: tab === 2 }" @click="switchTab(2)">
-            <i class="fas fa-chart-line"></i> Part 2 — Generate History
+            <i class="fas fa-chart-line"></i> Add Historical Data
+        </button>
+        <button class="tab-btn" :class="{ active: tab === 1 }" @click="switchTab(1)">
+            <i class="fas fa-tags"></i> Optional — Reprice Existing Orders
         </button>
     </div>
 
@@ -862,7 +893,7 @@ $current_page = 'seed_transactions';
             <div class="part-icon">💰</div>
             <div>
                 <h3>Update Pricing on Existing Orders</h3>
-                <p>Assigns realistic unit prices (₱260–₱5,100) to all existing order items based on product category. Recalculates all order totals automatically.</p>
+                <p>Assigns realistic unit prices (₱260–₱5,100) to existing order items and recalculates totals. This does <strong>not</strong> add orders, so dashboard order counts will stay the same.</p>
             </div>
         </div>
 
@@ -958,7 +989,7 @@ $current_page = 'seed_transactions';
                     <h4><i class="fas fa-circle-check"></i> Pricing updated successfully</h4>
                     <p>
                         <strong x-text="p1.result ? p1.result.updated_orders : 0"></strong> orders and
-                        <strong x-text="p1.result ? p1.result.updated_items : 0"></strong> line items repriced with realistic values.
+                        <strong x-text="p1.result ? p1.result.updated_items : 0"></strong> line items repriced with realistic values. Order counts did not change because this step only updates prices.
                     </p>
                 </div>
                 <div class="error-banner" x-show="p1.result && !p1.result.ok">
@@ -966,6 +997,9 @@ $current_page = 'seed_transactions';
                 </div>
                 <button class="btn-cancel" @click="p1.state='idle'; p1.confirmed=false; p1.result=null">
                     <i class="fas fa-rotate-left"></i> Run Again
+                </button>
+                <button class="btn-execute" style="margin-left:10px;" @click="tab=2; p2.state='idle'">
+                    <i class="fas fa-chart-line"></i> Add Historical Data Now
                 </button>
             </div>
         </template>
@@ -976,8 +1010,8 @@ $current_page = 'seed_transactions';
         <div class="part-header">
             <div class="part-icon">📈</div>
             <div>
-                <h3>Generate Historical Transaction Data (2021–2026)</h3>
-                <p>Inserts realistic orders, order items, customizations, service orders, and status history distributed across 6 years. Based on your existing products and customers.</p>
+                <h3>Add Historical Transaction Data (2021–2026)</h3>
+                <p>Inserts realistic orders, order items, customizations, service orders, and status history distributed across 6 years. This is the step that increases the Orders Management totals.</p>
             </div>
         </div>
 
@@ -1001,7 +1035,7 @@ $current_page = 'seed_transactions';
                     Using <strong x-text="p2.data.product_count"></strong> active products,
                     <strong x-text="p2.data.customer_count"></strong> customers,
                     <strong x-text="p2.data.branch_count"></strong> branches.
-                    Approx. <strong x-text="(p2.data.grand_total * 2).toLocaleString()"></strong>–<strong x-text="(p2.data.grand_total * 4).toLocaleString()"></strong> order items will be created.
+                    Approx. <strong x-text="p2.data.grand_total.toLocaleString()"></strong>–<strong x-text="(p2.data.grand_total * 2).toLocaleString()"></strong> order items will be created, with displayed order amounts capped around ₱5,100.
                 </div>
 
                 <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:0 0 8px;">
@@ -1154,7 +1188,7 @@ $current_page = 'seed_transactions';
 <script>
 function seedApp() {
     return {
-        tab: 1,
+        tab: 2,
         p1: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         p2: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
 
