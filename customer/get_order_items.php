@@ -99,7 +99,7 @@ $order_result = db_query("
               AND jo.payment_rejection_reason != ''
             ORDER BY jo.payment_verified_at DESC, jo.id DESC
             LIMIT 1) as payment_rejection_reason,
-           (SELECT GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku
+           (SELECT GROUP_CONCAT(DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku
     FROM orders o 
     LEFT JOIN branches b ON o.branch_id = b.id 
     WHERE o.order_id = ? AND o.customer_id = ?

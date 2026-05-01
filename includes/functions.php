@@ -1276,7 +1276,11 @@ function printflow_get_job_inventory_reference(int $job_id): array {
     $row = db_query(
         "SELECT jo.id,
                 jo.order_id,
-                GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') AS order_sku,
+                GROUP_CONCAT(
+                    DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    SEPARATOR '-'
+                ) AS order_sku,
                 cust_map.customization_id
          FROM job_orders jo
          LEFT JOIN order_items oi ON oi.order_id = jo.order_id
@@ -1336,7 +1340,11 @@ function printflow_get_order_inventory_reference(int $order_id): array {
 
     $row = db_query(
         "SELECT o.order_id,
-                GROUP_CONCAT(DISTINCT p.sku ORDER BY p.sku SEPARATOR '-') AS order_sku
+                GROUP_CONCAT(
+                    DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    SEPARATOR '-'
+                ) AS order_sku
          FROM orders o
          LEFT JOIN order_items oi ON oi.order_id = o.order_id
          LEFT JOIN products p ON p.product_id = oi.product_id
