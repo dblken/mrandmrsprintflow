@@ -27,8 +27,7 @@ if ($deepLinkOrderId > 0 && !in_array($deepLinkJobType, ['JOB', 'CUSTOMIZATION']
     $deepLinkOrderType = strtolower(trim((string)($deepLinkOrder[0]['order_type'] ?? '')));
     if ($deepLinkOrderType === 'product') {
         // Check if it's a service (needs customization/production tracking)
-        $preview = printflow_order_notification_preview($deepLinkOrderId);
-        if (strtolower(trim((string)($preview['item_kind'] ?? ''))) !== 'service') {
+        if (!printflow_order_uses_customization_workflow($deepLinkOrderId)) {
             // Strictly a product order with no service components — redirect to orders.php
             redirect((defined('BASE_PATH') ? BASE_PATH : '') . '/staff/orders.php?order_id=' . $deepLinkOrderId);
         }

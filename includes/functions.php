@@ -1997,6 +1997,49 @@ function printflow_notification_customer_status(string $status, string $order_ty
     return $status;
 }
 
+function printflow_order_uses_customization_workflow(int $order_id): bool {
+    static $cache = [];
+
+    $order_id = (int)$order_id;
+    if ($order_id <= 0) {
+        return false;
+    }
+    if (isset($cache[$order_id])) {
+        return $cache[$order_id];
+    }
+
+    $rows = db_query(
+        "SELECT
+                COALESCE(LOWER(TRIM(o.order_type)), '') AS order_type,
+                EXISTS(
+                    SELECT 1
+                    FROM job_orders jo
+                    WHERE jo.order_id = o.order_id
+                    LIMIT 1
+                ) AS has_job_order,
+                EXISTS(
+                    SELECT 1
+                    FROM order_items oi
+                    WHERE oi.order_id = o.order_id
+                      AND oi.customization_data LIKE '%\"service_type\"%'
+                    LIMIT 1
+                ) AS has_service_type
+         FROM orders o
+         WHERE o.order_id = ?
+         LIMIT 1",
+        'i',
+        [$order_id]
+    );
+
+    $row = $rows[0] ?? [];
+    $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
+    $has_job_order = !empty($row['has_job_order']);
+    $has_service_type = !empty($row['has_service_type']);
+
+    $cache[$order_id] = ($order_type === 'custom') || $has_job_order || $has_service_type;
+    return $cache[$order_id];
+}
+
 function printflow_message_is_status_update(string $message): bool {
     $message = strtolower(trim($message));
     if ($message === '') {
@@ -2108,11 +2151,7 @@ function printflow_staff_order_management_url(int $orderId, bool $preferPendingS
     }
 
     if (!$isCustom) {
-        $preview = printflow_order_notification_preview($orderId);
-        $itemKind = strtolower(trim((string)($preview['item_kind'] ?? '')));
-        if ($itemKind === 'service') {
-            $isCustom = true;
-        }
+        $isCustom = printflow_order_uses_customization_workflow($orderId);
     }
 
     if ($isCustom) {
@@ -2257,10 +2296,18 @@ function printflow_order_notification_preview(int $order_id): array {
     $order_type = strtolower(trim((string)($row['order_type'] ?? '')));
     $product_type = strtolower(trim((string)($row['product_type'] ?? '')));
     $service_name = get_service_name_from_customization($custom, '');
-    if ($order_type === 'custom' || $service_name !== '' || ($product_type !== 'fixed' && $product_type !== '')) {
-        $preview['item_kind'] = 'Service';
-    } elseif ($order_type === 'product' || $product_type === 'fixed') {
+    $explicit_service_type = trim((string)($custom['service_type'] ?? ''));
+    $has_product_record = (int)($row['product_id'] ?? 0) > 0;
+    $has_meaningful_service_name = $service_name !== '' && strcasecmp($service_name, 'Custom Service') !== 0;
+
+    if ($order_type === 'product') {
         $preview['item_kind'] = 'Product';
+    } elseif ($order_type === 'custom') {
+        $preview['item_kind'] = 'Service';
+    } elseif ($has_product_record || $product_type !== '') {
+        $preview['item_kind'] = 'Product';
+    } elseif ($explicit_service_type !== '' || $has_meaningful_service_name) {
+        $preview['item_kind'] = 'Service';
     }
     $preview['display_name'] = printflow_resolve_order_item_name(
         $service_name !== '' ? $service_name : (string)($row['product_name'] ?? 'Order Item'),
