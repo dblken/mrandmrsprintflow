@@ -130,6 +130,102 @@ function pf_seed_amount_bounds(): array {
     return [260.00, 5100.00];
 }
 
+/** Exact enum values accepted by job_orders.service_type. */
+function pf_seed_job_service_types(): array {
+    return [
+        'Tarpaulin Printing',
+        'T-shirt Printing',
+        'Decals/Stickers (Print/Cut)',
+        'Glass Stickers / Wall / Frosted Stickers',
+        'Transparent Stickers',
+        'Layouts',
+        'Reflectorized (Subdivision Stickers/Signages)',
+        'Stickers on Sintraboard',
+        'Sintraboard Standees',
+        'Souvenirs',
+    ];
+}
+
+/** Price tier for job-order service names. */
+function pf_seed_job_service_range(string $serviceType): array {
+    if (stripos($serviceType, 'Tarpaulin') !== false) return [800, 2500];
+    if (stripos($serviceType, 'T-shirt') !== false) return [350, 900];
+    if (stripos($serviceType, 'Sticker') !== false) return [260, 800];
+    if (stripos($serviceType, 'Layout') !== false) return [350, 1500];
+    if (stripos($serviceType, 'Sintraboard') !== false) return [900, 2800];
+    if (stripos($serviceType, 'Souvenir') !== false) return [260, 700];
+    return [260, 2500];
+}
+
+/** Build a realistic job-order pricing payload whose estimated_total stays in range. */
+function pf_seed_job_pricing(string $serviceType, int $qty = 1): array {
+    [$floor, $cap] = pf_seed_amount_bounds();
+    [$min, $max] = pf_seed_job_service_range($serviceType);
+    $qty = max(1, min($qty, 8));
+    $unit = pf_seed_unit_price_for_quantity($serviceType, $qty, $cap);
+    $total = max($floor, min($cap, $unit * $qty));
+
+    $width = null;
+    $height = null;
+    $sqft = null;
+    $pricePerSqft = null;
+    $pricePerPiece = $unit;
+
+    if (stripos($serviceType, 'Tarpaulin') !== false || stripos($serviceType, 'Sintraboard') !== false) {
+        $width = mt_rand(2, 5);
+        $height = mt_rand(3, 8);
+        $sqft = $width * $height * $qty;
+        $pricePerSqft = round($total / max(1, $sqft), 2);
+        $pricePerPiece = null;
+    }
+
+    return [
+        'quantity' => $qty,
+        'width_ft' => $width,
+        'height_ft' => $height,
+        'total_sqft' => $sqft,
+        'price_per_sqft' => $pricePerSqft,
+        'price_per_piece' => $pricePerPiece,
+        'estimated_total' => round($total, 2),
+    ];
+}
+
+function pf_seed_job_status_from_order(string $orderStatus): string {
+    return match ($orderStatus) {
+        'Completed' => 'COMPLETED',
+        'Cancelled' => 'CANCELLED',
+        'Processing' => 'IN_PRODUCTION',
+        'Ready for Pickup' => 'TO_RECEIVE',
+        'Pending' => pf_seed_weighted_pick([
+            ['status' => 'PENDING', 'weight' => 55],
+            ['status' => 'APPROVED', 'weight' => 30],
+            ['status' => 'TO_PAY', 'weight' => 15],
+        ]),
+        default => 'PENDING',
+    };
+}
+
+function pf_seed_job_payment_status(string $orderStatus): string {
+    return match ($orderStatus) {
+        'Completed', 'Ready for Pickup' => 'PAID',
+        'Processing' => pf_seed_weighted_pick([
+            ['status' => 'PAID', 'weight' => 55],
+            ['status' => 'PARTIAL', 'weight' => 30],
+            ['status' => 'PENDING_VERIFICATION', 'weight' => 15],
+        ]),
+        'Cancelled' => 'UNPAID',
+        default => pf_seed_weighted_pick([
+            ['status' => 'UNPAID', 'weight' => 70],
+            ['status' => 'PENDING_VERIFICATION', 'weight' => 20],
+            ['status' => 'PARTIAL', 'weight' => 10],
+        ]),
+    };
+}
+
+function pf_seed_customer_name(array $customer): string {
+    return trim((string)($customer['first_name'] ?? '') . ' ' . (string)($customer['last_name'] ?? '')) ?: 'Walk-in Customer';
+}
+
 /** Random datetime within a given year/month, skewing toward weekdays */
 function pf_seed_rand_date(int $year, int $month, ?string $after = null): string {
     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
@@ -165,7 +261,7 @@ function pf_seed_load_refs(): array {
 
     // Active customers
     $customers = db_query(
-        "SELECT customer_id FROM customers WHERE status = 'Active' LIMIT 300"
+        "SELECT customer_id, first_name, last_name, customer_type FROM customers WHERE status = 'Active' LIMIT 300"
     );
     $customer_ids = array_column($customers, 'customer_id');
 
@@ -185,10 +281,12 @@ function pf_seed_load_refs(): array {
 
     return [
         'products'      => $products,
+        'customers'     => $customers,
         'customer_ids'  => $customer_ids,
         'branch_ids'    => $branch_ids,
         'payment_methods' => $pms,
         'service_types' => $service_types,
+        'job_service_types' => pf_seed_job_service_types(),
     ];
 }
 
@@ -240,6 +338,7 @@ function pf_seed_quantity(string $category): int {
 function pf_seed_part1_preview(): array {
     $orders = db_query("SELECT COUNT(*) AS c FROM orders");
     $items  = db_query("SELECT COUNT(*) AS c FROM order_items");
+    $jobs   = db_query("SELECT COUNT(*) AS c FROM job_orders");
 
     // Sample: first 5 orders with their items
     $sample = db_query(
@@ -277,6 +376,7 @@ function pf_seed_part1_preview(): array {
     return [
         'order_count'      => (int)($orders[0]['c'] ?? 0),
         'item_count'       => (int)($items[0]['c'] ?? 0),
+        'job_count'        => (int)($jobs[0]['c'] ?? 0),
         'sample'           => $sample_preview,
     ];
 }
@@ -292,11 +392,6 @@ function pf_seed_part1_execute(): array {
          LEFT JOIN products p ON p.product_id = oi.product_id"
     );
 
-    if (empty($items)) {
-        return ['ok' => true, 'updated_orders' => 0, 'updated_items' => 0,
-                'msg' => 'No order items found to update.'];
-    }
-
     // Group by order
     $order_items_map = [];
     foreach ($items as $item) {
@@ -308,6 +403,7 @@ function pf_seed_part1_execute(): array {
     $conn->begin_transaction();
     $updated_items  = 0;
     $updated_orders = 0;
+    $updated_jobs   = 0;
 
     try {
         foreach ($order_items_map as $order_id => $order_items) {
@@ -350,11 +446,55 @@ function pf_seed_part1_execute(): array {
             $updated_orders++;
         }
 
+        // Reprice job/customization records used by admin/customizations.php.
+        $jobs = db_query("SELECT id, service_type, quantity, payment_status FROM job_orders");
+        foreach ($jobs as $job) {
+            $jobPricing = pf_seed_job_pricing((string)$job['service_type'], (int)($job['quantity'] ?? 1));
+            $estimated = (float)$jobPricing['estimated_total'];
+            $paymentStatus = (string)($job['payment_status'] ?? 'UNPAID');
+            $amountPaid = match ($paymentStatus) {
+                'PAID' => $estimated,
+                'PARTIAL', 'PENDING_VERIFICATION' => round($estimated * 0.5, 2),
+                default => 0.00,
+            };
+            $requiredPayment = match ($paymentStatus) {
+                'PAID' => 0.00,
+                'PARTIAL', 'PENDING_VERIFICATION' => round($estimated * 0.5, 2),
+                default => $estimated,
+            };
+
+            $conn->query(sprintf(
+                "UPDATE job_orders
+                    SET quantity = %d,
+                        width_ft = %s,
+                        height_ft = %s,
+                        total_sqft = %s,
+                        price_per_sqft = %s,
+                        price_per_piece = %s,
+                        estimated_total = %.2f,
+                        amount_paid = %.2f,
+                        required_payment = %.2f
+                  WHERE id = %d",
+                (int)$jobPricing['quantity'],
+                $jobPricing['width_ft'] === null ? 'NULL' : number_format((float)$jobPricing['width_ft'], 2, '.', ''),
+                $jobPricing['height_ft'] === null ? 'NULL' : number_format((float)$jobPricing['height_ft'], 2, '.', ''),
+                $jobPricing['total_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['total_sqft'], 2, '.', ''),
+                $jobPricing['price_per_sqft'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_sqft'], 2, '.', ''),
+                $jobPricing['price_per_piece'] === null ? 'NULL' : number_format((float)$jobPricing['price_per_piece'], 2, '.', ''),
+                $estimated,
+                $amountPaid,
+                $requiredPayment,
+                (int)$job['id']
+            ));
+            $updated_jobs++;
+        }
+
         $conn->commit();
         return [
             'ok'             => true,
             'updated_orders' => $updated_orders,
             'updated_items'  => $updated_items,
+            'updated_jobs'   => $updated_jobs,
         ];
     } catch (\Throwable $e) {
         $conn->rollback();
@@ -406,10 +546,12 @@ function pf_seed_part2_execute(): array {
     $refs      = pf_seed_load_refs();
 
     $products     = $refs['products'];
+    $customers    = $refs['customers'];
     $customer_ids = $refs['customer_ids'];
     $branch_ids   = $refs['branch_ids'];
     $pms          = $refs['payment_methods'];
     $service_types = $refs['service_types'];
+    $job_service_types = $refs['job_service_types'];
 
     if (empty($products) || empty($customer_ids)) {
         return ['ok' => false, 'error' => 'No active products or customers found.'];
@@ -419,6 +561,10 @@ function pf_seed_part2_execute(): array {
     $cust_count  = count($customer_ids);
     $branch_count = count($branch_ids);
     $pm_count    = count($pms);
+    $customer_map = [];
+    foreach ($customers as $customer) {
+        $customer_map[(int)$customer['customer_id']] = $customer;
+    }
 
     $inserted_orders  = 0;
     $inserted_items   = 0;
@@ -430,7 +576,7 @@ function pf_seed_part2_execute(): array {
 
     // Backup tables before generation
     $ts = date('YmdHis');
-    foreach (['orders', 'order_items', 'order_status_history', 'customizations', 'service_orders'] as $t) {
+    foreach (['orders', 'order_items', 'order_status_history', 'customizations', 'service_orders', 'job_orders'] as $t) {
         $exists = db_query("SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", 's', [$t]);
         if (!empty($exists) && (int)$exists[0]['c'] > 0) {
             $cnt = db_query("SELECT COUNT(*) AS c FROM `{$t}`");
