@@ -292,10 +292,6 @@ if (isset($_GET['get_archived'])) {
             $html .= csrf_field();
             $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
             $html .= '<button type="submit" name="restore_service" class="btn-action teal">Restore</button></form>';
-            $html .= '<form method="POST" class="inline service-status-form" data-pf-skip-guard style="display:inline-block;" data-action="Delete Permanently" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
-            $html .= csrf_field();
-            $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
-            $html .= '<button type="submit" name="delete_service" class="btn-action red">Delete</button></form>';
             $html .= '</td></tr>';
         }
     }
@@ -787,7 +783,7 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                     <input type="hidden" id="modal-video-url" name="video_url" value="">
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="service-customer-modal-group">
                     <label for="modal-customer-modal-text">Customer modal message <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
                     <small style="display:block;color:#6b7280;font-size:12px;margin:-2px 0 6px;">Text shown on the customer Services page when they open a service (below the title). Leave blank to use the default wording.</small>
                     <textarea id="modal-customer-modal-text" name="customer_modal_text" rows="4" maxlength="2000" placeholder="<?php echo htmlspecialchars(printflow_default_customer_service_modal_text()); ?>"></textarea>
@@ -1045,6 +1041,7 @@ function openServiceModal(mode, svc) {
     const modeInput = document.getElementById('modal-mode-input');
     const submitBtn = document.getElementById('modal-submit-btn');
     const form = document.getElementById('service-form');
+    const customerModalGroup = document.getElementById('service-customer-modal-group');
     if (!overlay || !title || !modeInput || !submitBtn || !form) {
         console.warn('openServiceModal: service modal markup not in DOM yet.');
         return;
@@ -1052,6 +1049,7 @@ function openServiceModal(mode, svc) {
     form.reset();
     
     if (mode === 'edit' && svc) {
+        if (customerModalGroup) customerModalGroup.style.display = '';
         title.textContent = 'Edit Service';
         modeInput.name = 'update_service';
         submitBtn.textContent = 'Save Changes';
@@ -1079,6 +1077,7 @@ function openServiceModal(mode, svc) {
         document.getElementById('modal-status').value = (effectiveStatus === 'Deactivated') ? 'Deactivated' : 'Activated';
         
     } else {
+        if (customerModalGroup) customerModalGroup.style.display = 'none';
         title.textContent = 'Add Service';
         modeInput.name = 'create_service';
         submitBtn.textContent = 'Save Service';
@@ -1092,7 +1091,7 @@ function openServiceModal(mode, svc) {
         renderPhotoPreviews();
         renderVideoPreview();
         document.getElementById('modal-status').value = 'Activated';
-        document.getElementById('modal-customer-modal-text').value = window.PF_DEFAULT_SERVICE_MODAL_TEXT || '';
+        document.getElementById('modal-customer-modal-text').value = '';
         
     }
     submitBtn.disabled = false;
