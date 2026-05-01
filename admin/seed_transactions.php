@@ -226,6 +226,73 @@ function pf_seed_customer_name(array $customer): string {
     return trim((string)($customer['first_name'] ?? '') . ' ' . (string)($customer['last_name'] ?? '')) ?: 'Walk-in Customer';
 }
 
+function pf_seed_placeholder_where(): string {
+    return "(sku LIKE 'SYS-DELETED-PRODUCT%' OR name LIKE 'SYS-DELETED-PRODUCT%' OR name LIKE '%Deleted Product%')";
+}
+
+function pf_seed_placeholder_products(): array {
+    return db_query(
+        "SELECT product_id, sku, name, category
+         FROM products
+         WHERE " . pf_seed_placeholder_where() . "
+         ORDER BY product_id"
+    ) ?: [];
+}
+
+function pf_seed_active_replacement_products(): array {
+    return db_query(
+        "SELECT product_id, sku, name, category, product_type, price
+         FROM products
+         WHERE status = 'Activated'
+           AND NOT " . pf_seed_placeholder_where() . "
+         ORDER BY product_id"
+    ) ?: [];
+}
+
+function pf_seed_guess_category_from_item(array $item): string {
+    $haystack = strtolower(implode(' ', [
+        (string)($item['sku'] ?? ''),
+        (string)($item['customization_data'] ?? ''),
+        (string)($item['placeholder_sku'] ?? ''),
+        (string)($item['placeholder_name'] ?? ''),
+    ]));
+
+    if (str_contains($haystack, 'tarp')) return 'Tarpaulin';
+    if (str_contains($haystack, 'shirt') || str_contains($haystack, 'apparel')) return 'T-Shirt';
+    if (str_contains($haystack, 'sticker') || str_contains($haystack, 'decal')) return 'Stickers';
+    if (str_contains($haystack, 'sintra')) return 'Sintraboard';
+    if (str_contains($haystack, 'sign')) return 'Signage';
+    if (str_contains($haystack, 'mug') || str_contains($haystack, 'souvenir')) return 'Merchandise';
+
+    return '';
+}
+
+function pf_seed_pick_replacement_product(array $item, array $products): ?array {
+    if (empty($products)) return null;
+
+    $sku = trim((string)($item['sku'] ?? ''));
+    if ($sku !== '') {
+        foreach ($products as $product) {
+            if (strcasecmp((string)$product['sku'], $sku) === 0) {
+                return $product;
+            }
+        }
+    }
+
+    $category = pf_seed_guess_category_from_item($item);
+    if ($category !== '') {
+        $matches = array_values(array_filter($products, function ($product) use ($category) {
+            return stripos((string)$product['category'], $category) !== false
+                || stripos((string)$product['name'], $category) !== false;
+        }));
+        if (!empty($matches)) {
+            return $matches[array_rand($matches)];
+        }
+    }
+
+    return $products[array_rand($products)];
+}
+
 /** Random datetime within a given year/month, skewing toward weekdays */
 function pf_seed_rand_date(int $year, int $month, ?string $after = null): string {
     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
@@ -924,6 +991,137 @@ function pf_seed_part2_execute(): array {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PART 3 — REPAIR SYS-DELETED-PRODUCT REFERENCES
+// ─────────────────────────────────────────────────────────────────────────────
+
+function pf_seed_repair_deleted_preview(): array {
+    $placeholders = pf_seed_placeholder_products();
+    $placeholderIds = array_map('intval', array_column($placeholders, 'product_id'));
+
+    $linkedCount = 0;
+    $samples = [];
+    if (!empty($placeholderIds)) {
+        $idList = implode(',', $placeholderIds);
+        $count = db_query("SELECT COUNT(*) AS c FROM order_items WHERE product_id IN ({$idList})");
+        $linkedCount = (int)($count[0]['c'] ?? 0);
+        $samples = db_query(
+            "SELECT oi.order_item_id, oi.order_id, oi.sku, oi.quantity, p.sku AS placeholder_sku, p.name AS placeholder_name
+             FROM order_items oi
+             JOIN products p ON p.product_id = oi.product_id
+             WHERE oi.product_id IN ({$idList})
+             ORDER BY oi.order_item_id DESC
+             LIMIT 10"
+        ) ?: [];
+    }
+
+    return [
+        'placeholder_count' => count($placeholders),
+        'linked_items' => $linkedCount,
+        'replacement_count' => count(pf_seed_active_replacement_products()),
+        'placeholders' => $placeholders,
+        'samples' => $samples,
+    ];
+}
+
+function pf_seed_repair_deleted_execute(): array {
+    global $conn;
+
+    $placeholders = pf_seed_placeholder_products();
+    $placeholderIds = array_map('intval', array_column($placeholders, 'product_id'));
+    $products = pf_seed_active_replacement_products();
+
+    if (empty($placeholderIds)) {
+        return ['ok' => true, 'repaired' => 0, 'message' => 'No SYS-DELETED-PRODUCT placeholders found.'];
+    }
+    if (empty($products)) {
+        return ['ok' => false, 'error' => 'No active replacement products found.'];
+    }
+
+    $idList = implode(',', $placeholderIds);
+    $items = db_query(
+        "SELECT oi.order_item_id, oi.order_id, oi.product_id, oi.sku, oi.quantity, oi.customization_data,
+                p.sku AS placeholder_sku, p.name AS placeholder_name
+         FROM order_items oi
+         JOIN products p ON p.product_id = oi.product_id
+         WHERE oi.product_id IN ({$idList})"
+    ) ?: [];
+
+    $ts = date('YmdHis');
+    $conn->begin_transaction();
+
+    $repaired = 0;
+    $byProduct = [];
+
+    try {
+        if (!empty($items)) {
+            $conn->query(
+                "CREATE TABLE IF NOT EXISTS `backup_repair_deleted_product_{$ts}_order_items` AS
+                 SELECT * FROM order_items WHERE product_id IN ({$idList})"
+            );
+        }
+
+        foreach ($items as $item) {
+            $replacement = pf_seed_pick_replacement_product($item, $products);
+            if (!$replacement) continue;
+
+            $qty = max(1, (int)$item['quantity']);
+            $unitPrice = pf_seed_unit_price_for_quantity((string)$replacement['category'], $qty, 5100.00);
+            $skuSql = trim((string)$replacement['sku']) !== ''
+                ? "'" . $conn->real_escape_string((string)$replacement['sku']) . "'"
+                : 'NULL';
+
+            $conn->query(sprintf(
+                "UPDATE order_items
+                    SET product_id = %d,
+                        sku = %s,
+                        unit_price = %.2f
+                  WHERE order_item_id = %d",
+                (int)$replacement['product_id'],
+                $skuSql,
+                $unitPrice,
+                (int)$item['order_item_id']
+            ));
+
+            $oid = (int)$item['order_id'];
+            $total = db_query(
+                "SELECT SUM(quantity * unit_price) AS total FROM order_items WHERE order_id = ?",
+                'i',
+                [$oid]
+            );
+            $orderTotal = round((float)($total[0]['total'] ?? 0), 2);
+            $conn->query(sprintf(
+                "UPDATE orders
+                    SET total_amount = %.2f,
+                        downpayment_amount = CASE
+                            WHEN payment_type = '50_percent' THEN %.2f
+                            WHEN payment_type = 'upon_pickup' THEN 0.00
+                            ELSE %.2f
+                        END
+                  WHERE order_id = %d",
+                $orderTotal,
+                round($orderTotal * 0.5, 2),
+                $orderTotal,
+                $oid
+            ));
+
+            $byProduct[$replacement['name']] = ($byProduct[$replacement['name']] ?? 0) + 1;
+            $repaired++;
+        }
+
+        $conn->commit();
+    } catch (\Throwable $e) {
+        $conn->rollback();
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    return [
+        'ok' => true,
+        'repaired' => $repaired,
+        'replacement_summary' => $byProduct,
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -970,6 +1168,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($r['ok'] && function_exists('log_activity')) {
                 log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
                     'Seeded Historical Data', 'Generated historical transaction data 2021–2026.');
+            }
+            echo json_encode($r);
+            break;
+
+        case 'repair_deleted_preview':
+            echo json_encode(['ok' => true, 'data' => pf_seed_repair_deleted_preview()]);
+            break;
+
+        case 'repair_deleted_execute':
+            if (($_POST['confirm'] ?? '') !== '1') {
+                echo json_encode(['ok' => false, 'error' => 'Confirmation required.']);
+                break;
+            }
+            $r = pf_seed_repair_deleted_execute();
+            if ($r['ok'] && function_exists('log_activity')) {
+                log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
+                    'Repaired Deleted Product References', 'Reassigned SYS-DELETED-PRODUCT order items to active products.');
             }
             echo json_encode($r);
             break;
@@ -1131,6 +1346,9 @@ $current_page = 'seed_transactions';
         </button>
         <button class="tab-btn" :class="{ active: tab === 1 }" @click="switchTab(1)">
             <i class="fas fa-tags"></i> Optional — Reprice Existing Orders
+        </button>
+        <button class="tab-btn" :class="{ active: tab === 3 }" @click="switchTab(3)">
+            <i class="fas fa-wrench"></i> Repair Deleted Product Links
         </button>
     </div>
 
@@ -1437,6 +1655,111 @@ $current_page = 'seed_transactions';
         </template>
     </div>
 
+    <!-- ───────────────────────── PART 3 ───────────────────────── -->
+    <div x-show="tab === 3">
+        <div class="part-header">
+            <div class="part-icon">🔧</div>
+            <div>
+                <h3>Repair Deleted Product Links</h3>
+                <p>Finds order items pointing to <strong>SYS-DELETED-PRODUCT</strong> placeholders and safely relinks them to real active products. Existing data is not deleted.</p>
+            </div>
+        </div>
+
+        <template x-if="repair.state === 'idle'">
+            <div>
+                <button class="btn-preview" @click="repairPreview()" :disabled="repair.loading">
+                    <template x-if="repair.loading"><span class="spinner"></span></template>
+                    <template x-if="!repair.loading"><i class="fas fa-eye"></i></template>
+                    <span x-text="repair.loading ? ' Checking…' : ' Preview Deleted Product Links'"></span>
+                </button>
+                <div x-show="repair.error" x-text="repair.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <template x-if="repair.state === 'preview'">
+            <div>
+                <div class="stat-row">
+                    <div class="stat-box">
+                        <div class="val" x-text="repair.data.placeholder_count.toLocaleString()"></div>
+                        <div class="lbl">Placeholders</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" x-text="repair.data.linked_items.toLocaleString()"></div>
+                        <div class="lbl">Linked Items</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" x-text="repair.data.replacement_count.toLocaleString()"></div>
+                        <div class="lbl">Active Products</div>
+                    </div>
+                </div>
+
+                <div class="info-card" x-show="repair.data.linked_items > 0">
+                    <i class="fas fa-circle-info"></i>
+                    The repair first tries exact SKU matching. If no exact product exists, it guesses by item/category keywords, then uses a random active product as a safe fallback.
+                </div>
+                <div class="info-card" x-show="repair.data.linked_items === 0">
+                    <i class="fas fa-check-circle"></i>
+                    No order items are linked to SYS-DELETED-PRODUCT placeholders.
+                </div>
+
+                <table class="preview-table" x-show="repair.data.samples.length > 0">
+                    <thead>
+                        <tr><th>Order Item</th><th>Order</th><th>Stored SKU</th><th>Placeholder</th><th>Qty</th></tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in repair.data.samples" :key="row.order_item_id">
+                            <tr>
+                                <td x-text="'#' + row.order_item_id"></td>
+                                <td x-text="'#' + row.order_id"></td>
+                                <td x-text="row.sku || '—'"></td>
+                                <td x-text="row.placeholder_sku || row.placeholder_name"></td>
+                                <td x-text="row.quantity"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="confirm-box" x-show="repair.data.linked_items > 0">
+                    <label>
+                        <input type="checkbox" x-model="repair.confirmed">
+                        I want to relink these placeholder order items to active products and recalculate order totals.
+                    </label>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                    <button class="btn-cancel" @click="repair.state='idle'">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="btn-execute" @click="repairExecute()"
+                            :disabled="!repair.confirmed || repair.loading || repair.data.linked_items === 0">
+                        <template x-if="repair.loading"><span class="spinner"></span></template>
+                        <template x-if="!repair.loading"><i class="fas fa-wrench"></i></template>
+                        <span x-text="repair.loading ? 'Repairing…' : 'Repair Deleted Product Links'"></span>
+                    </button>
+                </div>
+                <div x-show="repair.error" x-text="repair.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <template x-if="repair.state === 'done'">
+            <div>
+                <div class="success-banner" x-show="repair.result && repair.result.ok">
+                    <h4><i class="fas fa-circle-check"></i> Deleted product links repaired</h4>
+                    <p>
+                        <strong x-text="repair.result ? repair.result.repaired.toLocaleString() : 0"></strong>
+                        order items were relinked to real active products and order totals were recalculated.
+                    </p>
+                </div>
+                <div class="error-banner" x-show="repair.result && !repair.result.ok">
+                    <p x-text="repair.result ? repair.result.error : ''"></p>
+                </div>
+                <button class="btn-cancel" @click="repair.state='idle'; repair.confirmed=false; repair.result=null">
+                    <i class="fas fa-rotate-left"></i> Check Again
+                </button>
+            </div>
+        </template>
+    </div>
+
 </div><!-- /seed-wrap -->
 
 <script>
@@ -1445,6 +1768,7 @@ function seedApp() {
         tab: 2,
         p1: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         p2: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
+        repair: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
 
         switchTab(t) {
             this.tab = t;
@@ -1526,6 +1850,45 @@ function seedApp() {
                 this.p2.state  = 'done';
             } finally {
                 this.p2.loading = false;
+            }
+        },
+
+        async repairPreview() {
+            this.repair.loading = true; this.repair.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'repair_deleted_preview');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (!json.ok) throw new Error(json.error || 'Preview failed.');
+                this.repair.data = json.data;
+                this.repair.state = 'preview';
+            } catch (e) {
+                this.repair.error = e.message;
+            } finally {
+                this.repair.loading = false;
+            }
+        },
+
+        async repairExecute() {
+            if (!this.repair.confirmed) return;
+            this.repair.loading = true; this.repair.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'repair_deleted_execute');
+                fd.append('confirm', '1');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                this.repair.result = json;
+                this.repair.state = 'done';
+            } catch (e) {
+                this.repair.error = e.message;
+                this.repair.result = { ok: false, error: e.message };
+                this.repair.state = 'done';
+            } finally {
+                this.repair.loading = false;
             }
         },
     };
