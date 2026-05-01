@@ -2379,7 +2379,10 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
 
     $current_page = (int)$current_page;
     $script_name = str_replace('\\', '/', (string)($_SERVER['PHP_SELF'] ?? $_SERVER['SCRIPT_NAME'] ?? ''));
-    $is_admin_context = strpos($script_name, '/admin/') !== false || preg_match('#(^|/)admin(?:/|$)#', $script_name);
+    $is_admin_context =
+        strpos($script_name, '/admin/') !== false ||
+        preg_match('#(^|/)admin(?:/|$)#', $script_name) ||
+        (defined('MANAGER_PANEL') && MANAGER_PANEL);
     $window = $is_admin_context ? 2 : 3;
     $pages = [];
     
