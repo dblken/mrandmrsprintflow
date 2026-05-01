@@ -920,7 +920,7 @@ $page_title = 'My Profile - PrintFlow Admin';
                         
                         <div class="form-group" id="group_contact_number">
                             <label>Contact Number *</label>
-                            <input type="text" name="contact_number" id="contact_number" value="<?php echo htmlspecialchars($admin['contact_number'] ?? '09'); ?>" placeholder="e.g. 09171234567" required autocomplete="tel" maxlength="11" oninput="formatPhoneNumber(this)">
+                            <input type="text" name="contact_number" id="contact_number" value="<?php echo htmlspecialchars($admin['contact_number'] ?? '09'); ?>" placeholder="e.g. 09171234567" required autocomplete="tel" maxlength="11" oninput="formatPhoneNumber(this); handleRealtimeContactNumberInput(this);">
                             <div class="error-message" id="error_contact_number">Contact number is required.</div>
                         </div>
                         
@@ -1478,7 +1478,7 @@ $page_title = 'My Profile - PrintFlow Admin';
     var birthdayMax = <?php echo json_encode($maxBirthday); ?>;
     var birthdayMin = <?php echo json_encode($minBirthday); ?>;
     var currentContactNumber = <?php echo json_encode((string)($admin['contact_number'] ?? '')); ?>;
-    var phoneValidationState = { value: currentContactNumber, pending: false, exists: false };
+    var phoneValidationState = { value: currentContactNumber, pending: false, exists: false, message: '' };
     var phoneValidationTimer = null;
     var personalSubmitInProgress = false;
     var personalForm = document.getElementById('personalInfoForm');
@@ -1529,6 +1529,9 @@ $page_title = 'My Profile - PrintFlow Admin';
             if (!/^\d+$/.test(val)) return "Contact number must contain digits only.";
             if (!val.startsWith('09')) return "Contact number must start with 09.";
             if (val.length !== 11) return "Contact number must be exactly 11 digits.";
+            if (val !== currentContactNumber && phoneValidationState.exists && phoneValidationState.value === val) {
+                return phoneValidationState.message || "This contact number is already used in the system.";
+            }
             return null;
         },
         address_province: (val) => !val ? "Province is required." : null,
@@ -1576,24 +1579,20 @@ $page_title = 'My Profile - PrintFlow Admin';
         const value = (input.value || '').trim();
         const syncError = validators.contact_number(value);
         if (syncError) {
-            phoneValidationState = { value: value, pending: false, exists: false };
+            phoneValidationState = { value: value, pending: false, exists: false, message: '' };
             return false;
         }
 
         if (value === currentContactNumber) {
-            phoneValidationState = { value: value, pending: false, exists: false };
+            phoneValidationState = { value: value, pending: false, exists: false, message: '' };
             return true;
         }
 
         if (!force && phoneValidationState.value === value && !phoneValidationState.pending) {
-            if (phoneValidationState.exists) {
-                setValidationError('contact_number', 'This contact number is already used in the system.');
-                return false;
-            }
-            return true;
+            return !phoneValidationState.exists;
         }
 
-        phoneValidationState = { value: value, pending: true, exists: false };
+        phoneValidationState = { value: value, pending: true, exists: false, message: '' };
         checkPersonalInfo();
 
         try {
@@ -1608,16 +1607,15 @@ $page_title = 'My Profile - PrintFlow Admin';
             }
             phoneValidationState.pending = false;
             phoneValidationState.exists = !!(result && result.exists);
-            if (phoneValidationState.exists) {
-                setValidationError('contact_number', result.message || 'This contact number is already used in the system.');
-                checkPersonalInfo();
-                return false;
-            }
-            validateField('contact_number', validators.contact_number);
+            phoneValidationState.message = phoneValidationState.exists
+                ? (result.message || 'This contact number is already used in the system.')
+                : '';
             checkPersonalInfo();
-            return true;
+            return !phoneValidationState.exists;
         } catch (_err) {
             phoneValidationState.pending = false;
+            phoneValidationState.exists = false;
+            phoneValidationState.message = '';
             setValidationError('contact_number', 'Unable to validate contact number right now. Please try again.');
             checkPersonalInfo();
             return false;
@@ -1883,6 +1881,35 @@ $page_title = 'My Profile - PrintFlow Admin';
         input.value = cleaned;
     }
 
+    function handleRealtimeContactNumberInput(input) {
+        if (!input) return;
+        const value = (input.value || '').trim();
+        phoneValidationState = { value: '', pending: false, exists: false, message: '' };
+        if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
+
+        validateField('contact_number', validators.contact_number);
+        checkPersonalInfo();
+
+        if (validators.contact_number(value) || value === currentContactNumber) {
+            return;
+        }
+
+        phoneValidationTimer = setTimeout(function() {
+            validateContactNumberUniqueness(true);
+        }, 180);
+    }
+
+    function handleRealtimeContactNumberBlur(input) {
+        if (!input) return;
+        const value = (input.value || '').trim();
+        if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
+        validateField('contact_number', validators.contact_number);
+        checkPersonalInfo();
+        if (!validators.contact_number(value) && value !== currentContactNumber) {
+            validateContactNumberUniqueness(true);
+        }
+    }
+
     function printflowInitProfilePage() {
         if (!document.getElementById('personalInfoForm')) return;
 
@@ -1911,25 +1938,10 @@ $page_title = 'My Profile - PrintFlow Admin';
                 phoneInput.removeEventListener('blur', phoneInput._pfUniqueBlurHandler);
             }
             phoneInput._pfUniqueInputHandler = function() {
-                const value = (phoneInput.value || '').trim();
-                phoneValidationState = { value: '', pending: false, exists: false };
-                if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
-                if (!validators.contact_number(value) && value !== currentContactNumber) {
-                    phoneValidationTimer = setTimeout(function() {
-                        validateContactNumberUniqueness(true);
-                    }, 350);
-                } else {
-                    checkPersonalInfo();
-                }
+                handleRealtimeContactNumberInput(phoneInput);
             };
             phoneInput._pfUniqueBlurHandler = function() {
-                if (phoneValidationTimer) clearTimeout(phoneValidationTimer);
-                const value = (phoneInput.value || '').trim();
-                if (!validators.contact_number(value) && value !== currentContactNumber) {
-                    validateContactNumberUniqueness(true);
-                } else {
-                    checkPersonalInfo();
-                }
+                handleRealtimeContactNumberBlur(phoneInput);
             };
             phoneInput.addEventListener('input', phoneInput._pfUniqueInputHandler);
             phoneInput.addEventListener('blur', phoneInput._pfUniqueBlurHandler);
