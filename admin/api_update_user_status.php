@@ -34,6 +34,23 @@ function printflow_ensure_user_archived_status_available_api(): void {
     }
 }
 
+function printflow_ensure_user_archive_marker_available_api(): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $columns = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
+        if (!in_array('archived_at', $columns, true)) {
+            db_execute("ALTER TABLE users ADD COLUMN archived_at DATETIME NULL AFTER updated_at");
+        }
+    } catch (Throwable $e) {
+        error_log('printflow_ensure_user_archive_marker_available_api: ' . $e->getMessage());
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { 
     echo json_encode(['success' => false, 'error' => 'Invalid method']); 
     exit; 
@@ -182,14 +199,16 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    $u = db_query("SELECT user_id, status FROM users WHERE user_id = ?", 'i', [$user_id]);
+    printflow_ensure_user_archive_marker_available_api();
+    $u = db_query("SELECT user_id, status, archived_at FROM users WHERE user_id = ?", 'i', [$user_id]);
     if (empty($u)) {
         echo json_encode(['success' => false, 'error' => 'User not found.']);
         exit;
     }
 
     $target_status = trim((string)($u[0]['status'] ?? ''));
-    if ($target_status === 'Archived') {
+    $target_archived_at = trim((string)($u[0]['archived_at'] ?? ''));
+    if ($target_status === 'Archived' || $target_archived_at !== '') {
         echo json_encode(['success' => true, 'message' => 'Account is already archived.']);
         exit;
     }
@@ -200,16 +219,15 @@ if ($action === 'toggle_status') {
     }
 
     printflow_ensure_user_archived_status_available_api();
-    // Do not add status='Deactivated' to the SQL WHERE clause: after restore, ENUM/CHAR/collation
-    // can prevent a match so no row updates while mysqli still reports success. PHP guards above are sufficient.
     $ok = db_execute(
-        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?",
+        "UPDATE users SET status = 'Archived', archived_at = NOW(), updated_at = NOW() WHERE user_id = ?",
         'i',
         [$user_id]
     );
-    $verify = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
+    $verify = db_query("SELECT status, archived_at FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
     $now = trim((string)($verify[0]['status'] ?? ''));
-    if ($ok && $now === 'Archived') {
+    $nowArchivedAt = trim((string)($verify[0]['archived_at'] ?? ''));
+    if ($ok && ($now === 'Archived' || $nowArchivedAt !== '')) {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to archive account. Ensure the account is deactivated and try again.']);
@@ -226,14 +244,16 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    $u = db_query("SELECT user_id, first_name, middle_name, last_name, email, role, status FROM users WHERE user_id = ?", 'i', [$user_id]);
+    printflow_ensure_user_archive_marker_available_api();
+    $u = db_query("SELECT user_id, first_name, middle_name, last_name, email, role, status, archived_at FROM users WHERE user_id = ?", 'i', [$user_id]);
     if (empty($u)) {
         echo json_encode(['success' => false, 'error' => 'User not found.']);
         exit;
     }
 
     $target_status = trim((string)($u[0]['status'] ?? ''));
-    if ($target_status === 'Archived') {
+    $target_archived_at = trim((string)($u[0]['archived_at'] ?? ''));
+    if ($target_status === 'Archived' || $target_archived_at !== '') {
         echo json_encode(['success' => true, 'message' => 'Account is already archived.']);
         exit;
     }
@@ -245,13 +265,14 @@ if ($action === 'toggle_status') {
 
     printflow_ensure_user_archived_status_available_api();
     $ok = db_execute(
-        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?",
+        "UPDATE users SET status = 'Archived', archived_at = NOW(), updated_at = NOW() WHERE user_id = ?",
         'i',
         [$user_id]
     );
-    $verify = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
+    $verify = db_query("SELECT status, archived_at FROM users WHERE user_id = ? LIMIT 1", 'i', [$user_id]);
     $now = trim((string)($verify[0]['status'] ?? ''));
-    if ($ok && $now === 'Archived') {
+    $nowArchivedAt = trim((string)($verify[0]['archived_at'] ?? ''));
+    if ($ok && ($now === 'Archived' || $nowArchivedAt !== '')) {
         echo json_encode(['success' => true, 'message' => 'Account archived successfully.']);
     } else {
         echo json_encode(['success' => false, 'error' => 'Failed to archive account. Ensure the account is deactivated and try again.']);

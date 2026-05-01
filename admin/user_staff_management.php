@@ -23,26 +23,45 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
+function printflow_ensure_user_archive_marker_available(): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $columns = array_column(db_query("SHOW COLUMNS FROM users"), 'Field');
+        if (!in_array('archived_at', $columns, true)) {
+            db_execute("ALTER TABLE users ADD COLUMN archived_at DATETIME NULL AFTER updated_at");
+        }
+    } catch (Throwable $e) {
+        error_log('printflow_ensure_user_archive_marker_available: ' . $e->getMessage());
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
+    printflow_ensure_user_archive_marker_available();
     $restore_user_id = (int)($_POST['user_id'] ?? 0);
     if ($restore_user_id > 0) {
-        $pre = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
+        $pre = db_query("SELECT status, archived_at FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
         if (empty($pre)) {
             $error = 'That account is not archived or could not be found.';
         } else {
             $pre_st = trim((string)($pre[0]['status'] ?? ''));
-            if ($pre_st !== 'Archived') {
+            $pre_archived_at = trim((string)($pre[0]['archived_at'] ?? ''));
+            if ($pre_st !== 'Archived' && $pre_archived_at === '') {
                 $error = 'That account is not archived or could not be found.';
             } else {
-                // Avoid SQL `AND status = 'Archived'` mismatch (ENUM/collation) on repeat archive/restore cycles.
                 $restored = db_execute(
-                    "UPDATE users SET status = 'Deactivated', updated_at = NOW() WHERE user_id = ?",
+                    "UPDATE users SET status = 'Deactivated', archived_at = NULL, updated_at = NOW() WHERE user_id = ?",
                     'i',
                     [$restore_user_id]
                 );
-                $post = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
+                $post = db_query("SELECT status, archived_at FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
                 $now_st = trim((string)($post[0]['status'] ?? ''));
-                if ($restored && $now_st === 'Deactivated') {
+                $now_archived_at = trim((string)($post[0]['archived_at'] ?? ''));
+                if ($restored && $now_st === 'Deactivated' && $now_archived_at === '') {
                     $success = 'Archived account restored successfully.';
                 } else {
                     $error = 'Failed to restore archived account.';
@@ -116,6 +135,7 @@ if (!is_file($__pfUsersSchemaOk)) {
 }
 unset($__pfUsersSchemaOk);
 printflow_ensure_user_archived_status_available();
+printflow_ensure_user_archive_marker_available();
 
 // Handle staff creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_staff']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
@@ -269,7 +289,7 @@ $sort_col_sql = match($sort) {
     default  => 'u.created_at DESC',
 };
 
-$sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE u.status != 'Archived'";
+$sql_base = "FROM users u LEFT JOIN branches b ON u.branch_id = b.id WHERE u.status != 'Archived' AND u.archived_at IS NULL";
 $params = []; $types = '';
 
 if (!empty($search)) {
@@ -309,10 +329,10 @@ $users = db_query("SELECT u.*, b.branch_name $sql_base ORDER BY $sort_col_sql LI
 $branches = db_query("SELECT id, branch_name FROM branches WHERE status != 'Archived' ORDER BY id ASC");
 
 // Summary statistics
-$stat_total    = db_query("SELECT COUNT(*) as c FROM users WHERE status != 'Archived'")[0]['c'];
-$stat_admins   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin' AND status != 'Archived'")[0]['c'];
-$stat_managers = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Manager' AND status != 'Archived'")[0]['c'];
-$stat_staff    = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff' AND status != 'Archived'")[0]['c'];
+$stat_total    = db_query("SELECT COUNT(*) as c FROM users WHERE status != 'Archived' AND archived_at IS NULL")[0]['c'];
+$stat_admins   = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Admin' AND status != 'Archived' AND archived_at IS NULL")[0]['c'];
+$stat_managers = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Manager' AND status != 'Archived' AND archived_at IS NULL")[0]['c'];
+$stat_staff    = db_query("SELECT COUNT(*) as c FROM users WHERE role = 'Staff' AND status != 'Archived' AND archived_at IS NULL")[0]['c'];
 $stat_active   = db_query("SELECT COUNT(*) as c FROM users WHERE status = 'Activated'")[0]['c'];
 
 // Sort helpers
@@ -393,7 +413,7 @@ if (isset($_GET['get_archived'])) {
         "SELECT u.*, b.branch_name
          FROM users u
          LEFT JOIN branches b ON u.branch_id = b.id
-         WHERE u.status = 'Archived'
+         WHERE u.status = 'Archived' OR u.archived_at IS NOT NULL
          ORDER BY COALESCE(u.updated_at, u.created_at) DESC, u.user_id DESC"
     ) ?: [];
 

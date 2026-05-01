@@ -73,10 +73,20 @@ function landing_hero_showcase_src(string $stem, string $base_path): string
     }
 
     $root = dirname(__DIR__);
+    $uploads_dir = $root . '/uploads';
     foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
         $fn = $stem . '.' . $ext;
-        if (is_file($root . '/uploads/' . $fn)) {
-            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn);
+        if (is_file($uploads_dir . '/' . $fn)) {
+            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn) . '&v=' . filemtime($uploads_dir . '/' . $fn);
+        }
+    }
+
+    $matches = glob($uploads_dir . '/' . $stem . '.*') ?: [];
+    foreach ($matches as $path) {
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true) && is_file($path)) {
+            $fn = basename($path);
+            return rtrim($base_path, '/') . '/public/landing-showcase-image.php?f=' . rawurlencode($fn) . '&v=' . filemtime($path);
         }
     }
 
@@ -185,8 +195,7 @@ $featured_products = db_query(
                     content: '';
                     position: absolute;
                     inset: 0;
-                    background: linear-gradient(135deg, rgba(0,35,43,.45) 0%, rgba(50,161,196,.18) 100%);
-                    mix-blend-mode: multiply;
+                    background: linear-gradient(to top, rgba(0,21,27,.55) 0%, rgba(0,21,27,.08) 42%, transparent 72%);
                     z-index: 1;
                     pointer-events: none;
                     border-radius: inherit;
@@ -213,11 +222,11 @@ $featured_products = db_query(
                     width: 100%; height: 100%;
                     object-fit: cover;
                     display: block;
-                    filter: brightness(.78) saturate(.7) hue-rotate(165deg) sepia(.15);
+                    filter: none;
                     transition: filter .4s ease, transform .4s ease;
                 }
                 .lp-sc-card:hover img {
-                    filter: brightness(.88) saturate(.85) hue-rotate(165deg) sepia(.1);
+                    filter: none;
                     transform: scale(1.04);
                 }
                 .lp-sc-label {
