@@ -293,6 +293,30 @@ function pf_seed_pick_replacement_product(array $item, array $products): ?array 
     return $products[array_rand($products)];
 }
 
+function pf_seed_pick_product_for_service(string $serviceType, array $products): ?array {
+    if (empty($products)) return null;
+
+    $needle = strtolower($serviceType);
+    $categoryHints = [];
+    if (str_contains($needle, 'tarp')) $categoryHints[] = 'Tarpaulin';
+    if (str_contains($needle, 'shirt')) $categoryHints[] = 'T-Shirt';
+    if (str_contains($needle, 'sticker') || str_contains($needle, 'decal')) $categoryHints[] = 'Stickers';
+    if (str_contains($needle, 'sintra')) $categoryHints[] = 'Sintraboard';
+    if (str_contains($needle, 'sign') || str_contains($needle, 'reflector')) $categoryHints[] = 'Signage';
+    if (str_contains($needle, 'layout')) $categoryHints[] = 'Design Services';
+    if (str_contains($needle, 'souvenir')) $categoryHints[] = 'Souvenirs';
+
+    foreach ($categoryHints as $hint) {
+        $matches = array_values(array_filter($products, function ($product) use ($hint) {
+            return stripos((string)$product['category'], $hint) !== false
+                || stripos((string)$product['name'], $hint) !== false;
+        }));
+        if (!empty($matches)) return $matches[array_rand($matches)];
+    }
+
+    return $products[array_rand($products)];
+}
+
 function pf_seed_table_exists(string $table): bool {
     $r = db_query(
         "SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
@@ -1359,6 +1383,135 @@ function pf_seed_delete_deleted_transactions_execute(): array {
     ];
 }
 
+function pf_seed_normalize_job_codes_preview(): array {
+    $rows = db_query(
+        "SELECT jo.id, jo.customer_id, jo.branch_id, jo.service_type, jo.estimated_total, jo.status, jo.created_at,
+                jo.customer_name
+         FROM job_orders jo
+         WHERE (jo.order_id IS NULL OR jo.order_id = 0)
+         ORDER BY jo.id DESC
+         LIMIT 10"
+    ) ?: [];
+    $count = db_query("SELECT COUNT(*) AS c FROM job_orders WHERE order_id IS NULL OR order_id = 0");
+
+    return [
+        'job_count' => (int)($count[0]['c'] ?? 0),
+        'active_product_count' => count(pf_seed_active_replacement_products()),
+        'samples' => $rows,
+    ];
+}
+
+function pf_seed_normalize_job_codes_execute(): array {
+    global $conn;
+
+    $jobs = db_query(
+        "SELECT jo.*
+         FROM job_orders jo
+         WHERE jo.order_id IS NULL OR jo.order_id = 0
+         ORDER BY jo.id ASC"
+    ) ?: [];
+    if (empty($jobs)) {
+        return ['ok' => true, 'normalized' => 0, 'message' => 'No standalone job order codes found.'];
+    }
+
+    $products = pf_seed_active_replacement_products();
+    if (empty($products)) {
+        return ['ok' => false, 'error' => 'No active products found for code normalization.'];
+    }
+
+    $ts = date('YmdHis');
+    $conn->begin_transaction();
+    $normalized = 0;
+
+    try {
+        $conn->query("CREATE TABLE IF NOT EXISTS `backup_normalize_job_codes_{$ts}_job_orders` AS SELECT * FROM job_orders WHERE order_id IS NULL OR order_id = 0");
+
+        foreach ($jobs as $job) {
+            $product = pf_seed_pick_product_for_service((string)$job['service_type'], $products);
+            if (!$product) continue;
+
+            $customerId = max(1, (int)($job['customer_id'] ?? 0));
+            $branchId = max(1, (int)($job['branch_id'] ?? 1));
+            $createdAt = (string)($job['created_at'] ?? date('Y-m-d H:i:s'));
+            $updatedAt = (string)($job['updated_at'] ?? $createdAt);
+            $total = (float)($job['estimated_total'] ?? 0);
+            if ($total <= 0) {
+                $total = pf_seed_rand_price(260, 2500);
+            }
+            $total = max(260.00, min(5100.00, $total));
+            $qty = max(1, min(8, (int)($job['quantity'] ?? 1)));
+            $unit = round($total / $qty, 2);
+            $orderStatus = match ((string)($job['status'] ?? 'PENDING')) {
+                'COMPLETED' => 'Completed',
+                'CANCELLED' => 'Cancelled',
+                'IN_PRODUCTION' => 'Processing',
+                'TO_RECEIVE' => 'Ready for Pickup',
+                default => 'Pending',
+            };
+            $paymentStatus = match ((string)($job['payment_status'] ?? 'UNPAID')) {
+                'PAID' => 'Paid',
+                'PENDING_VERIFICATION' => 'Pending Verification',
+                default => 'Unpaid',
+            };
+            $paymentType = $paymentStatus === 'Paid' ? 'full_payment' : '50_percent';
+            $downpayment = $paymentStatus === 'Paid' ? $total : round($total * 0.5, 2);
+
+            $conn->query(sprintf(
+                "INSERT INTO orders
+                    (customer_id, order_date, updated_at, total_amount, downpayment_amount, status, payment_status,
+                     branch_id, design_status, payment_type, order_type, order_source)
+                 VALUES
+                    (%d, '%s', '%s', %.2f, %.2f, '%s', '%s', %d, '%s', '%s', 'custom', 'customer')",
+                $customerId,
+                $conn->real_escape_string($createdAt),
+                $conn->real_escape_string($updatedAt),
+                $total,
+                $downpayment,
+                $conn->real_escape_string($orderStatus),
+                $conn->real_escape_string($paymentStatus),
+                $branchId,
+                $conn->real_escape_string($orderStatus === 'Completed' ? 'Approved' : 'Pending'),
+                $conn->real_escape_string($paymentType)
+            ));
+            $orderId = (int)$conn->insert_id;
+            if ($orderId <= 0) continue;
+
+            $skuSql = trim((string)$product['sku']) !== ''
+                ? "'" . $conn->real_escape_string((string)$product['sku']) . "'"
+                : 'NULL';
+            $conn->query(sprintf(
+                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, sku)
+                 VALUES (%d, %d, %d, %.2f, %s)",
+                $orderId,
+                (int)$product['product_id'],
+                $qty,
+                $unit,
+                $skuSql
+            ));
+            $orderItemId = (int)$conn->insert_id;
+
+            $conn->query(sprintf(
+                "UPDATE job_orders
+                 SET order_id = %d, order_item_id = %d, estimated_total = %.2f, updated_at = NOW()
+                 WHERE id = %d",
+                $orderId,
+                $orderItemId,
+                $total,
+                (int)$job['id']
+            ));
+
+            $normalized++;
+        }
+
+        $conn->commit();
+    } catch (\Throwable $e) {
+        $conn->rollback();
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    return ['ok' => true, 'normalized' => $normalized];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1440,6 +1593,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($r['ok'] && function_exists('log_activity')) {
                 log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
                     'Deleted Transactions With Deleted Products', 'Deleted transactions linked to SYS-DELETED-PRODUCT placeholders.');
+            }
+            echo json_encode($r);
+            break;
+
+        case 'normalize_job_codes_preview':
+            echo json_encode(['ok' => true, 'data' => pf_seed_normalize_job_codes_preview()]);
+            break;
+
+        case 'normalize_job_codes_execute':
+            if (($_POST['confirm'] ?? '') !== '1') {
+                echo json_encode(['ok' => false, 'error' => 'Confirmation required.']);
+                break;
+            }
+            $r = pf_seed_normalize_job_codes_execute();
+            if ($r['ok'] && function_exists('log_activity')) {
+                log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
+                    'Normalized Job Order Codes', 'Linked standalone JO records to generated order codes.');
             }
             echo json_encode($r);
             break;
@@ -2015,6 +2185,89 @@ $current_page = 'seed_transactions';
         </template>
 
         <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;">
+            <div class="part-header">
+                <div class="part-icon">#️⃣</div>
+                <div>
+                    <h3>Normalize Job Order Codes</h3>
+                    <p>Converts standalone <strong>JO-00000</strong> demo records into linked order-code records, so they follow the same SKU/order-code style used by the system.</p>
+                </div>
+            </div>
+
+            <template x-if="codes.state === 'idle'">
+                <div>
+                    <button class="btn-preview" @click="codesPreview()" :disabled="codes.loading">
+                        <template x-if="codes.loading"><span class="spinner"></span></template>
+                        <template x-if="!codes.loading"><i class="fas fa-eye"></i></template>
+                        <span x-text="codes.loading ? ' Checking…' : ' Preview JO Codes To Normalize'"></span>
+                    </button>
+                    <div x-show="codes.error" x-text="codes.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+                </div>
+            </template>
+
+            <template x-if="codes.state === 'preview'">
+                <div>
+                    <div class="stat-row">
+                        <div class="stat-box"><div class="val" x-text="codes.data.job_count.toLocaleString()"></div><div class="lbl">Standalone JO Codes</div></div>
+                        <div class="stat-box"><div class="val" x-text="codes.data.active_product_count.toLocaleString()"></div><div class="lbl">Active Products</div></div>
+                    </div>
+
+                    <table class="preview-table" x-show="codes.data.samples.length > 0">
+                        <thead><tr><th>Current Code</th><th>Customer</th><th>Service</th><th>Status</th><th>Amount</th></tr></thead>
+                        <tbody>
+                            <template x-for="row in codes.data.samples" :key="row.id">
+                                <tr>
+                                    <td x-text="'JO-' + String(row.id).padStart(5, '0')"></td>
+                                    <td x-text="row.customer_name || 'Walk-in Customer'"></td>
+                                    <td x-text="row.service_type"></td>
+                                    <td x-text="row.status"></td>
+                                    <td x-text="'₱' + parseFloat(row.estimated_total || 0).toFixed(2)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+                    <div class="info-card" x-show="codes.data.job_count === 0">
+                        <i class="fas fa-check-circle"></i> No standalone JO codes found.
+                    </div>
+
+                    <div class="confirm-box" x-show="codes.data.job_count > 0">
+                        <label>
+                            <input type="checkbox" x-model="codes.confirmed">
+                            I want to link these standalone job orders to generated order records so their displayed codes match the system order-code style.
+                        </label>
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                        <button class="btn-cancel" @click="codes.state='idle'">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn-execute" @click="codesExecute()" :disabled="!codes.confirmed || codes.loading || codes.data.job_count === 0">
+                            <template x-if="codes.loading"><span class="spinner"></span></template>
+                            <template x-if="!codes.loading"><i class="fas fa-link"></i></template>
+                            <span x-text="codes.loading ? 'Normalizing…' : 'Normalize Job Order Codes'"></span>
+                        </button>
+                    </div>
+                    <div x-show="codes.error" x-text="codes.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+                </div>
+            </template>
+
+            <template x-if="codes.state === 'done'">
+                <div>
+                    <div class="success-banner" x-show="codes.result && codes.result.ok">
+                        <h4><i class="fas fa-circle-check"></i> Job order codes normalized</h4>
+                        <p><strong x-text="codes.result ? codes.result.normalized.toLocaleString() : 0"></strong> standalone job orders were linked to proper order codes.</p>
+                    </div>
+                    <div class="error-banner" x-show="codes.result && !codes.result.ok">
+                        <p x-text="codes.result ? codes.result.error : ''"></p>
+                    </div>
+                    <button class="btn-cancel" @click="codes.state='idle'; codes.confirmed=false; codes.result=null">
+                        <i class="fas fa-rotate-left"></i> Check Again
+                    </button>
+                </div>
+            </template>
+        </div>
+
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;">
             <div class="part-header" style="border-color:#fed7d7;background:#fff5f5;">
                 <div class="part-icon">🗑️</div>
                 <div>
@@ -2116,6 +2369,7 @@ function seedApp() {
         p2: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         repair: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         del: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
+        codes: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
 
         switchTab(t) {
             this.tab = t;
@@ -2275,6 +2529,45 @@ function seedApp() {
                 this.del.state = 'done';
             } finally {
                 this.del.loading = false;
+            }
+        },
+
+        async codesPreview() {
+            this.codes.loading = true; this.codes.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'normalize_job_codes_preview');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (!json.ok) throw new Error(json.error || 'Preview failed.');
+                this.codes.data = json.data;
+                this.codes.state = 'preview';
+            } catch (e) {
+                this.codes.error = e.message;
+            } finally {
+                this.codes.loading = false;
+            }
+        },
+
+        async codesExecute() {
+            if (!this.codes.confirmed) return;
+            this.codes.loading = true; this.codes.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'normalize_job_codes_execute');
+                fd.append('confirm', '1');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                this.codes.result = json;
+                this.codes.state = 'done';
+            } catch (e) {
+                this.codes.error = e.message;
+                this.codes.result = { ok: false, error: e.message };
+                this.codes.state = 'done';
+            } finally {
+                this.codes.loading = false;
             }
         },
     };
