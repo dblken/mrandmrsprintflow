@@ -1277,12 +1277,19 @@ function printflow_get_job_inventory_reference(int $job_id): array {
         "SELECT jo.id,
                 jo.order_id,
                 GROUP_CONCAT(
-                    DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
-                    ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    DISTINCT CASE
+                        WHEN LOWER(COALESCE(ord.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '')
+                        ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    END
+                    ORDER BY CASE
+                        WHEN LOWER(COALESCE(ord.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '')
+                        ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    END
                     SEPARATOR '-'
                 ) AS order_sku,
                 cust_map.customization_id
          FROM job_orders jo
+         LEFT JOIN orders ord ON ord.order_id = jo.order_id
          LEFT JOIN order_items oi ON oi.order_id = jo.order_id
          LEFT JOIN products p ON oi.product_id = p.product_id
          LEFT JOIN (
@@ -1341,8 +1348,14 @@ function printflow_get_order_inventory_reference(int $order_id): array {
     $row = db_query(
         "SELECT o.order_id,
                 GROUP_CONCAT(
-                    DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
-                    ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    DISTINCT CASE
+                        WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '')
+                        ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    END
+                    ORDER BY CASE
+                        WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '')
+                        ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku)
+                    END
                     SEPARATOR '-'
                 ) AS order_sku
          FROM orders o

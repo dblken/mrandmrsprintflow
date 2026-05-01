@@ -8,6 +8,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/dynamic_form_helpers.php';
 
+$orderItemsHasSku = function_exists('db_table_has_column') ? db_table_has_column('order_items', 'sku') : false;
+
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 
@@ -122,6 +124,7 @@ $item_key = $product_id . '_dynamic_' . time();
 // Prepare cart item
 $cart_item = [
     'product_id' => $product_id,
+    'sku' => trim((string)($product['sku'] ?? '')),
     'name' => $product['name'],
     'category' => $product['category'] ?? 'Service',
     'source_page' => 'dynamic_form',
@@ -272,27 +275,46 @@ if ($action === 'buy_now') {
         
         // Insert order item
         $unit_price = 0; // Will be set by staff
+        $item_sku = trim((string)($product['sku'] ?? ''));
         
         if ($design_binary) {
             $stmt = $conn->prepare(
-                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, 
-                                        design_image, design_image_mime, design_image_name, design_file)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                $orderItemsHasSku
+                    ? "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku,
+                                            design_image, design_image_mime, design_image_name, design_file)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                    : "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data,
+                                            design_image, design_image_mime, design_image_name, design_file)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             if ($stmt) {
                 $null = NULL;
-                $stmt->bind_param('iiidsssss', $order_id, $product_id, $quantity, $unit_price, $custom_json, $null, $design_mime, $design_name, $design_file_path);
-                $stmt->send_long_data(5, $design_binary);
+                if ($orderItemsHasSku) {
+                    $stmt->bind_param('iiidssssss', $order_id, $product_id, $quantity, $unit_price, $custom_json, $item_sku, $null, $design_mime, $design_name, $design_file_path);
+                    $stmt->send_long_data(6, $design_binary);
+                } else {
+                    $stmt->bind_param('iiidsssss', $order_id, $product_id, $quantity, $unit_price, $custom_json, $null, $design_mime, $design_name, $design_file_path);
+                    $stmt->send_long_data(5, $design_binary);
+                }
                 $stmt->execute();
                 $stmt->close();
             }
         } else {
-            db_execute(
-                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file) 
-                 VALUES (?, ?, ?, ?, ?, ?)",
-                'iiidss',
-                [$order_id, $product_id, $quantity, $unit_price, $custom_json, $design_file_path]
-            );
+            if ($orderItemsHasSku) {
+                db_execute(
+                    "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku, design_file)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    'iiidsss',
+                    [$order_id, $product_id, $quantity, $unit_price, $custom_json, $item_sku, $design_file_path]
+                );
+            } else {
+                db_execute(
+                    "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file)
+                     VALUES (?, ?, ?, ?, ?, ?)",
+                    'iiidss',
+                    [$order_id, $product_id, $quantity, $unit_price, $custom_json, $design_file_path]
+                );
+            }
         }
         
         // Clear cart item

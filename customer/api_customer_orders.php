@@ -18,7 +18,7 @@ $HIDDEN_PRICE_STATUSES = ['Pending', 'Pending Approval', 'Pending Review', 'For 
 try {
     $orders = db_query(
         "SELECT o.order_id, o.status, o.order_type, o.total_amount, o.order_date, o.updated_at, o.cancelled_at,
-                (SELECT GROUP_CONCAT(DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) SEPARATOR '-')
+                (SELECT GROUP_CONCAT(DISTINCT CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END ORDER BY CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END SEPARATOR '-')
                  FROM order_items oi
                  LEFT JOIN products p ON oi.product_id = p.product_id
                  WHERE oi.order_id = o.order_id) as order_sku,

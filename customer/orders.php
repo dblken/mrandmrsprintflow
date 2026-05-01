@@ -135,7 +135,7 @@ foreach ($tab_status_map as $tab_key => $statuses) {
 
 // Build query
 $sql = "SELECT o.*, 
-        (SELECT GROUP_CONCAT(DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku,
+        (SELECT GROUP_CONCAT(DISTINCT CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END ORDER BY CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as order_sku,
         (SELECT GROUP_CONCAT(COALESCE(p.name, 'Service Order') SEPARATOR ', ') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) as item_names,
         (SELECT COALESCE(p.name, 'Service Order') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_name,
         (SELECT p.product_id FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) as first_product_id,

@@ -11,6 +11,8 @@ require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/order_ui_helper.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 
+$orderItemsHasSku = function_exists('db_table_has_column') ? db_table_has_column('order_items', 'sku') : false;
+
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
@@ -32,7 +34,7 @@ function review_enrich_cart_item(array $item): array {
 
     if ($is_product && $product_id > 0) {
         $product_rows = db_query(
-            "SELECT name, category, photo_path, product_image, product_type FROM products WHERE product_id = ? LIMIT 1",
+            "SELECT name, category, photo_path, product_image, product_type, sku FROM products WHERE product_id = ? LIMIT 1",
             'i',
             [$product_id]
         );
@@ -43,6 +45,9 @@ function review_enrich_cart_item(array $item): array {
             }
             if (empty($item['category']) && !empty($product['category'])) {
                 $item['category'] = $product['category'];
+            }
+            if (empty($item['sku']) && !empty($product['sku'])) {
+                $item['sku'] = $product['sku'];
             }
             $item['catalog_product_type'] = $product['product_type'] ?? 'fixed';
             $catalog_image = review_resolve_catalog_image($product['photo_path'] ?? '')
@@ -511,27 +516,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_order'])) {
                         // For product orders, use the price as-is (it's already per-item unit price)
                         $unit_price = review_item_unit_price($item);
                         $quantity_val = review_item_quantity($item);
+                        $item_sku = trim((string)($item['sku'] ?? ''));
 
                         if ($design_binary) {
                             $stmt = $conn->prepare(
-                                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, 
-                                                        design_image, design_image_mime, design_image_name, design_file, reference_image_file)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                $orderItemsHasSku
+                                    ? "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku,
+                                                            design_image, design_image_mime, design_image_name, design_file, reference_image_file)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                    : "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data,
+                                                            design_image, design_image_mime, design_image_name, design_file, reference_image_file)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                             );
                             if ($stmt) {
                                 $null = NULL;
-                                $stmt->bind_param('iiidssssss', $order_id, $product_id, $quantity_val, $unit_price, $custom_data, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
-                                $stmt->send_long_data(5, $design_binary);
+                                if ($orderItemsHasSku) {
+                                    $stmt->bind_param('iiidsssssss', $order_id, $product_id, $quantity_val, $unit_price, $custom_data, $item_sku, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
+                                    $stmt->send_long_data(6, $design_binary);
+                                } else {
+                                    $stmt->bind_param('iiidssssss', $order_id, $product_id, $quantity_val, $unit_price, $custom_data, $null, $design_mime, $design_name, $design_file_path, $reference_file_path);
+                                    $stmt->send_long_data(5, $design_binary);
+                                }
                                 $stmt->execute();
                                 $stmt->close();
                             }
                         } else {
-                            db_execute(
-                                "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file, reference_image_file) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                'iiidsss',
-                                [$order_id, $product_id, $quantity_val, $unit_price, $custom_data, $design_file_path, $reference_file_path]
-                            );
+                            if ($orderItemsHasSku) {
+                                db_execute(
+                                    "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku, design_file, reference_image_file)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                    'iiidssss',
+                                    [$order_id, $product_id, $quantity_val, $unit_price, $custom_data, $item_sku, $design_file_path, $reference_file_path]
+                                );
+                            } else {
+                                db_execute(
+                                    "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_file, reference_image_file)
+                                     VALUES (?, ?, ?, ?, ?, ?, ?)",
+                                    'iiidsss',
+                                    [$order_id, $product_id, $quantity_val, $unit_price, $custom_data, $design_file_path, $reference_file_path]
+                                );
+                            }
                         }
 
                         if (!empty($item['design_tmp_path']) && file_exists($item['design_tmp_path'])) @unlink($item['design_tmp_path']);

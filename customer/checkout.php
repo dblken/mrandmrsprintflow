@@ -8,6 +8,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/JobOrderService.php';
 
+$orderItemsHasSku = function_exists('db_table_has_column') ? db_table_has_column('order_items', 'sku') : false;
+
 require_role('Customer');
 require_once __DIR__ . '/../includes/require_customer_profile_complete.php';
 require_once __DIR__ . '/../includes/require_id_verified.php';
@@ -192,38 +194,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['place_order'])) {
                     // Likely a total price, convert to unit price
                     $unit_price = round($unit_price / $quantity_val, 2);
                 }
+                $item_sku = trim((string)($item['sku'] ?? ''));
                 
                 if ($design_binary) {
                     // INSERT with BLOB using send_long_data
                     $item_stmt = $conn->prepare(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_image, design_image_mime, design_image_name)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                        $orderItemsHasSku
+                            ? "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku, design_image, design_image_mime, design_image_name)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                            : "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, design_image, design_image_mime, design_image_name)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
                     );
                     if ($item_stmt) {
                         $null = NULL;
-                        $item_stmt->bind_param('iiidsbss',
-                            $order_id,
-                            $item['product_id'],
-                            $item['quantity'],
-                            $unit_price,
-                            $custom_data,
-                            $null,          // placeholder for BLOB
-                            $design_mime,
-                            $design_name
-                        );
-                        $item_stmt->send_long_data(5, $design_binary);
+                        if ($orderItemsHasSku) {
+                            $item_stmt->bind_param('iiidssbss',
+                                $order_id,
+                                $item['product_id'],
+                                $item['quantity'],
+                                $unit_price,
+                                $custom_data,
+                                $item_sku,
+                                $null,
+                                $design_mime,
+                                $design_name
+                            );
+                            $item_stmt->send_long_data(6, $design_binary);
+                        } else {
+                            $item_stmt->bind_param('iiidsbss',
+                                $order_id,
+                                $item['product_id'],
+                                $item['quantity'],
+                                $unit_price,
+                                $custom_data,
+                                $null,
+                                $design_mime,
+                                $design_name
+                            );
+                            $item_stmt->send_long_data(5, $design_binary);
+                        }
                         $item_stmt->execute();
                         $inserted_order_item_ids[$pid] = $conn->insert_id;
                         $item_stmt->close();
                     }
                 } else {
                     // No design uploaded — insert without BLOB
-                    $inserted_order_item_ids[$pid] = db_execute(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data)
-                         VALUES (?, ?, ?, ?, ?)",
-                        'iiids',
-                        [$order_id, $item['product_id'], $item['quantity'], $unit_price, $custom_data]
-                    );
+                    $inserted_order_item_ids[$pid] = $orderItemsHasSku
+                        ? db_execute(
+                            "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data, sku)
+                             VALUES (?, ?, ?, ?, ?, ?)",
+                            'iiidss',
+                            [$order_id, $item['product_id'], $item['quantity'], $unit_price, $custom_data, $item_sku]
+                        )
+                        : db_execute(
+                            "INSERT INTO order_items (order_id, product_id, quantity, unit_price, customization_data)
+                             VALUES (?, ?, ?, ?, ?)",
+                            'iiids',
+                            [$order_id, $item['product_id'], $item['quantity'], $unit_price, $custom_data]
+                        );
                 }
             }
             

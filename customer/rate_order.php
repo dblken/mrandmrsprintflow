@@ -40,7 +40,7 @@ if ($order_id <= 0) {
 
 $order_rows = db_query("
     SELECT o.order_id, o.customer_id, o.status,
-           (SELECT GROUP_CONCAT(DISTINCT COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) ORDER BY COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) AS order_sku,
+           (SELECT GROUP_CONCAT(DISTINCT CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END ORDER BY CASE WHEN LOWER(COALESCE(o.order_type, 'product')) = 'custom' THEN NULLIF(TRIM(oi.sku), '') ELSE COALESCE(NULLIF(TRIM(oi.sku), ''), p.sku) END SEPARATOR '-') FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id) AS order_sku,
            (SELECT oi.customization_data FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS customization_data,
            (SELECT p.name FROM order_items oi LEFT JOIN products p ON oi.product_id = p.product_id WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS product_name,
            (SELECT oi.order_item_id FROM order_items oi WHERE oi.order_id = o.order_id ORDER BY oi.order_item_id ASC LIMIT 1) AS first_item_id
