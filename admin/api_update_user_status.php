@@ -163,7 +163,7 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    $u = db_query("SELECT user_id, email, role, status FROM users WHERE user_id = ?", 'i', [$user_id]);
+    $u = db_query("SELECT user_id, first_name, middle_name, last_name, email, role, status FROM users WHERE user_id = ?", 'i', [$user_id]);
     if (empty($u)) {
         echo json_encode(['success' => false, 'error' => 'User not found.']);
         exit;
@@ -176,19 +176,53 @@ if ($action === 'toggle_status') {
 
     global $conn;
     try {
-        $conn->begin_transaction();
-
         $tableExists = static function (string $table) use ($conn): bool {
             $safe = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
             $res = $conn->query("SHOW TABLES LIKE '" . $conn->real_escape_string($safe) . "'");
             return $res && $res->num_rows > 0;
         };
 
+        $columnExists = static function (string $table, string $column) use ($conn): bool {
+            $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+            $safeColumn = preg_replace('/[^a-zA-Z0-9_]/', '', $column);
+            $res = $conn->query("SHOW COLUMNS FROM `{$safeTable}` LIKE '" . $conn->real_escape_string($safeColumn) . "'");
+            return $res && $res->num_rows > 0;
+        };
+
+        $displayName = trim(
+            implode(' ', array_filter([
+                (string)($u[0]['first_name'] ?? ''),
+                (string)($u[0]['middle_name'] ?? ''),
+                (string)($u[0]['last_name'] ?? ''),
+            ], static fn($part): bool => trim($part) !== ''))
+        );
+        if ($displayName === '') {
+            $displayName = (string)($u[0]['email'] ?? ('Deleted User #' . $user_id));
+        }
+
         if ($tableExists('pos_transactions')) {
-            $pos = db_query("SELECT COUNT(*) AS c FROM pos_transactions WHERE user_id = ?", 'i', [$user_id]);
-            if ((int)($pos[0]['c'] ?? 0) > 0) {
-                throw new RuntimeException('This account has POS transaction history and cannot be hard-deleted. Keep it deactivated instead.');
+            if ($columnExists('pos_transactions', 'cashier_name_snapshot') === false) {
+                db_execute("ALTER TABLE pos_transactions ADD COLUMN cashier_name_snapshot VARCHAR(191) NULL AFTER user_id");
             }
+
+            $posUserColumn = db_query("SHOW COLUMNS FROM pos_transactions LIKE 'user_id'");
+            $posUserAllowsNull = strtoupper((string)($posUserColumn[0]['Null'] ?? 'NO')) === 'YES';
+            if (!$posUserAllowsNull) {
+                db_execute("ALTER TABLE pos_transactions MODIFY user_id INT NULL");
+            }
+        }
+
+        $conn->begin_transaction();
+
+        if ($tableExists('pos_transactions')) {
+            db_execute(
+                "UPDATE pos_transactions
+                 SET cashier_name_snapshot = COALESCE(NULLIF(cashier_name_snapshot, ''), ?)
+                 WHERE user_id = ?",
+                'si',
+                [$displayName, $user_id]
+            );
+            db_execute("UPDATE pos_transactions SET user_id = NULL WHERE user_id = ?", 'i', [$user_id]);
         }
 
         if ($tableExists('notifications')) {
@@ -202,6 +236,12 @@ if ($action === 'toggle_status') {
         }
         if ($tableExists('push_subscriptions')) {
             db_execute("DELETE FROM push_subscriptions WHERE user_id = ? AND user_type IN ('Admin','Manager','Staff')", 'i', [$user_id]);
+        }
+        if ($tableExists('password_resets')) {
+            db_execute("DELETE FROM password_resets WHERE user_id = ? AND user_type = 'User'", 'i', [$user_id]);
+        }
+        if ($tableExists('user_status')) {
+            db_execute("DELETE FROM user_status WHERE user_id = ? AND user_type = 'Staff'", 'i', [$user_id]);
         }
 
         $deleted = db_execute("DELETE FROM users WHERE user_id = ? AND status = 'Deactivated'", 'i', [$user_id]);
