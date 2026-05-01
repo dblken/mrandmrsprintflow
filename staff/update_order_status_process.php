@@ -1,8 +1,7 @@
 <?php
 /**
  * AJAX: Update Order Status (Staff)
- * Handles status changes and routes service-order inventory deduction through
- * the production-status pipeline.
+ * Handles status changes and stock deduction when completed
  */
 
 require_once __DIR__ . '/../includes/auth.php';
@@ -50,19 +49,12 @@ $is_service_order = $order_type === 'custom';
 
 // Service/custom orders must flow through job_orders so material deductions
 // and inventory ledger writes stay consistent for POS and online jobs.
-$serviceStatusMap = [
-    'In Production'    => 'IN_PRODUCTION',
-    'Processing'       => 'IN_PRODUCTION',
-    'Ready for Pickup' => 'TO_RECEIVE',
-    'Completed'        => 'COMPLETED',
-];
-$mappedOldServiceStatus = $serviceStatusMap[$old_status] ?? $old_status;
-if ($is_service_order && isset($serviceStatusMap[$new_status]) && $serviceStatusMap[$new_status] !== $mappedOldServiceStatus) {
+if ($is_service_order && $new_status === 'Completed' && $old_status !== 'Completed') {
     try {
-        $updatedJobs = JobOrderService::syncStoreOrderToStatus($order_id, $serviceStatusMap[$new_status]);
+        $updatedJobs = JobOrderService::syncStoreOrderToStatus($order_id, 'COMPLETED');
         echo json_encode([
             'success' => true,
-            'message' => 'Service order status updated',
+            'message' => 'Service order marked as Completed',
             'job_ids' => $updatedJobs
         ]);
         exit;

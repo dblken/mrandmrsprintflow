@@ -86,9 +86,9 @@ function pos_migrate_pending_assignments_to_order(int $sourceOrderId, int $targe
 }
 
 /**
- * Re-link pending POS assignments onto the final sale order, then push the
- * linked production jobs through the same status pipeline used by online
- * service orders so deduction happens as soon as the job enters production.
+ * Copy pending POS material assignments to the final sale order and move the
+ * linked production jobs into the live POS status without deducting inventory
+ * yet. Final deduction must happen only when the POS order is marked Completed.
  */
 function pos_finalize_inventory_after_checkout(int $finalOrderId, string $targetStatus, int $pendingOrderId = 0): void {
     if ($finalOrderId <= 0 || $targetStatus === '') {
@@ -99,14 +99,38 @@ function pos_finalize_inventory_after_checkout(int $finalOrderId, string $target
         pos_migrate_pending_assignments_to_order($pendingOrderId, $finalOrderId);
     }
 
-    $updatedJobIds = JobOrderService::syncStoreOrderToStatus($finalOrderId, $targetStatus, null, '', true);
-    if (empty($updatedJobIds)) {
+    JobOrderService::ensureJobsForStoreOrder($finalOrderId);
+    $jobRows = db_query(
+        "SELECT id
+         FROM job_orders
+         WHERE order_id = ?
+           AND status NOT IN ('COMPLETED', 'CANCELLED')
+         ORDER BY id ASC",
+        'i',
+        [$finalOrderId]
+    ) ?: [];
+    if (empty($jobRows)) {
         throw new Exception('No linked production job was available for POS inventory processing.');
     }
 
+    $jobIds = array_values(array_filter(array_map(static function (array $row): int {
+        return (int)($row['id'] ?? 0);
+    }, $jobRows)));
+
+    if (!empty($jobIds)) {
+        $placeholders = implode(',', array_fill(0, count($jobIds), '?'));
+        db_execute(
+            "UPDATE job_orders
+             SET status = ?, updated_at = NOW()
+             WHERE id IN ($placeholders)",
+            's' . str_repeat('i', count($jobIds)),
+            array_merge([$targetStatus], $jobIds)
+        );
+    }
+
     error_log(sprintf(
-        'PrintFlow POS finalization: linked %d active jobs to order %d with status %s via shared production pipeline',
-        count($updatedJobIds),
+        'PrintFlow POS finalization: linked %d active jobs to order %d with status %s; inventory deduction deferred until completion',
+        count($jobIds),
         $finalOrderId,
         $targetStatus
     ));
@@ -525,8 +549,7 @@ try {
             }
         }
 
-        // Inventory deduction is handled by the shared job-status pipeline when
-        // the linked service job enters production.
+        // Deduct stock is removed here as per user request to deduct only when status is COMPLETED
     }
 
     $conn->commit();
