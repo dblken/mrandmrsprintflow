@@ -450,32 +450,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $error = 'Only administrators can archive products.';
     } else {
     $product_id = (int)$_POST['product_id'];
-    db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
-    $success = 'Product archived successfully!';
+    $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+    $status = $current[0]['status'] ?? '';
+
+    if ($status === '') {
+        $error = 'Product not found.';
+    } elseif ($status === 'Archived') {
+        $success = 'Product is already archived.';
+    } elseif ($status !== 'Deactivated') {
+        $error = 'Only deactivated products can be archived.';
+    } else {
+        $archived = db_execute("UPDATE products SET status = 'Archived', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+        if ($archived) {
+            $success = 'Product archived successfully!';
+        } else {
+            global $conn;
+            $error = 'Failed to archive product.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+        }
+    }
     }
 } elseif (isset($_POST['restore_product'])) {
     if ($is_manager) {
         $error = 'Only administrators can restore products.';
     } else {
     $product_id = (int)$_POST['product_id'];
-    db_execute("UPDATE products SET status = 'Activated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
-    $success = 'Product restored successfully!';
+    $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+    $status = $current[0]['status'] ?? '';
+
+    if ($status === '') {
+        $error = 'Product not found.';
+    } elseif ($status !== 'Archived') {
+        $success = 'Product is already restored.';
+    } else {
+        $restored = db_execute("UPDATE products SET status = 'Activated', updated_at = NOW() WHERE product_id = ?", 'i', [$product_id]);
+        if ($restored) {
+            $success = 'Product restored successfully!';
+        } else {
+            global $conn;
+            $error = 'Failed to restore product.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+        }
+    }
     }
 } elseif (isset($_POST['delete_product'])) {
     if ($is_manager) {
         $error = 'Only administrators can change product status or delete products.';
     } else {
     $product_id = (int)$_POST['product_id'];
-    $current = db_query("SELECT status FROM products WHERE product_id = ?", 'i', [$product_id]);
+    $current = db_query("SELECT status, name FROM products WHERE product_id = ?", 'i', [$product_id]);
     $status = $current[0]['status'] ?? '';
     
-    if ($status === 'Archived') {
-        db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
-        $success = 'Product deleted permanently!';
+    if ($status === '') {
+        $error = 'Product not found.';
+    } elseif ($status === 'Archived') {
+        $orderRefCountRows = db_query("SELECT COUNT(*) AS total FROM order_items WHERE product_id = ?", 'i', [$product_id]);
+        $orderRefCount = (int)($orderRefCountRows[0]['total'] ?? 0);
+        if ($orderRefCount > 0) {
+            $error = 'This archived product cannot be deleted because it is linked to existing orders. Keep it archived for record integrity.';
+        } else {
+            $deleted = db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
+            if ($deleted) {
+                $stillExists = db_query("SELECT product_id FROM products WHERE product_id = ? LIMIT 1", 'i', [$product_id]);
+                if (empty($stillExists)) {
+                    $success = 'Product deleted permanently!';
+                } else {
+                    $error = 'Delete did not complete. Please try again.';
+                }
+            } else {
+                global $conn;
+                $error = 'Failed to delete product.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+            }
+        }
     } else {
         $new_status = ($status === 'Activated') ? 'Deactivated' : 'Activated';
-        db_execute("UPDATE products SET status = ?, updated_at = NOW() WHERE product_id = ?", 'si', [$new_status, $product_id]);
-        $success = 'Product ' . strtolower($new_status) . ' successfully!';
+        $updated = db_execute("UPDATE products SET status = ?, updated_at = NOW() WHERE product_id = ?", 'si', [$new_status, $product_id]);
+        if ($updated) {
+            $success = 'Product ' . strtolower($new_status) . ' successfully!';
+        } else {
+            global $conn;
+            $error = 'Failed to update product status.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+        }
     }
     }
 }

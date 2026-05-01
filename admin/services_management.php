@@ -144,7 +144,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $hero_image = admin_service_media_url(sanitize(trim((string) ($_POST['hero_image'] ?? ''))));
         $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : admin_service_media_list_url(sanitize(trim((string) ($_POST['display_image'] ?? ''))));
         $video_url = $uploaded_video ?: admin_service_media_url(sanitize(trim((string) ($_POST['video_url'] ?? ''))));
-        $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($name === '') {
             $error = 'Service name is required.';
@@ -154,8 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Please select a category.';
         } elseif (strlen($description) > 2000) {
             $error = 'Description must not exceed 2000 characters.';
-        } elseif (strlen($customer_modal_text) > 2000) {
-            $error = 'Customer modal message must not exceed 2000 characters.';
         } elseif ($display_image === '') {
             $error = 'Please provide at least one service photo.';
         } elseif (service_name_exists($name, 0)) {
@@ -164,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $result = db_execute(
                 'INSERT INTO services (name, category, description, price, duration, status, visible_to_customer, hero_image, display_image, video_url, customer_modal_text, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, 1, ?, ?, ?, ?, NOW(), NOW())',
                 'sssdsssss',
-                [$name, $category, $description, $price, $status, $hero_image, $display_image, $video_url, $customer_modal_text]
+                [$name, $category, $description, $price, $status, $hero_image, $display_image, $video_url, '']
             );
             if ($result) {
                 global $conn;
@@ -200,7 +197,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
         $hero_image = admin_service_media_url(sanitize(trim((string) ($_POST['hero_image'] ?? ''))));
         $display_image = !empty($uploaded_images) ? implode(',', $uploaded_images) : admin_service_media_list_url(sanitize(trim((string) ($_POST['display_image'] ?? ''))));
         $video_url = $uploaded_video ?: admin_service_media_url(sanitize(trim((string) ($_POST['video_url'] ?? ''))));
-        $customer_modal_text = trim(sanitize((string) ($_POST['customer_modal_text'] ?? '')));
 
         if ($service_id < 1) {
             $error = 'Invalid service.';
@@ -212,17 +208,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             $error = 'Please select a category.';
         } elseif (strlen($description) > 2000) {
             $error = 'Description must not exceed 2000 characters.';
-        } elseif (strlen($customer_modal_text) > 2000) {
-            $error = 'Customer modal message must not exceed 2000 characters.';
         } elseif ($display_image === '') {
             $error = 'Please provide at least one service photo.';
         } elseif (service_name_exists($name, $service_id)) {
             $error = 'A service with this name already exists.';
         } else {
             $result = db_execute(
-                'UPDATE services SET name = ?, category = ?, description = ?, price = ?, duration = NULL, status = ?, hero_image = ?, display_image = ?, video_url = ?, customer_modal_text = ?, updated_at = NOW() WHERE service_id = ?',
-                'sssdsssssi',
-                [$name, $category, $description, $price, $status, $hero_image, $display_image, $video_url, $customer_modal_text, $service_id]
+                'UPDATE services SET name = ?, category = ?, description = ?, price = ?, duration = NULL, status = ?, hero_image = ?, display_image = ?, video_url = ?, updated_at = NOW() WHERE service_id = ?',
+                'sssdssssi',
+                [$name, $category, $description, $price, $status, $hero_image, $display_image, $video_url, $service_id]
             );
             if ($result) {
                 $msg = 'Service updated successfully';
@@ -783,13 +777,6 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                     <input type="hidden" id="modal-video-url" name="video_url" value="">
                 </div>
 
-                <div class="form-group" id="service-customer-modal-group">
-                    <label for="modal-customer-modal-text">Customer modal message <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
-                    <small style="display:block;color:#6b7280;font-size:12px;margin:-2px 0 6px;">Text shown on the customer Services page when they open a service (below the title). Leave blank to use the default wording.</small>
-                    <textarea id="modal-customer-modal-text" name="customer_modal_text" rows="4" maxlength="2000" placeholder="<?php echo htmlspecialchars(printflow_default_customer_service_modal_text()); ?>"></textarea>
-                    <span id="err-customer-modal-text" class="field-error"></span>
-                </div>
-
                 <div class="form-group">
                     <label for="modal-status">Status <span style="color:red">*</span></label>
                     <select id="modal-status" name="status" required>
@@ -825,7 +812,6 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                     <div><span class="view-label">Status</span><div id="view-status" class="view-value-box">—</div></div>
                 </div>
                 <div><span class="view-label">Description</span><div id="view-description" class="view-value-box" style="white-space:pre-wrap;min-height:60px;">—</div></div>
-                <div><span class="view-label">Customer modal message</span><div id="view-customer-modal-text" class="view-value-box" style="white-space:pre-wrap;min-height:48px;">—</div></div>
             </div>
             <div style="padding:16px 0 0;margin-top:24px;border-top:1px solid #f3f4f6;display:flex;justify-content:flex-end;">
                 <button type="button" class="btn-secondary" onclick="closeViewModal()">Close</button>
@@ -853,7 +839,6 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
 </div>
 
 <script>
-window.PF_DEFAULT_SERVICE_MODAL_TEXT = <?php echo json_encode(printflow_default_customer_service_modal_text(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 window.PF_BASE_PATH = <?php echo json_encode($base_path); ?>;
 /* var: Turbo re-runs inline scripts; let/const would throw "already been declared". */
 var activeSort = '<?php echo htmlspecialchars($sort_by); ?>';
@@ -1041,7 +1026,6 @@ function openServiceModal(mode, svc) {
     const modeInput = document.getElementById('modal-mode-input');
     const submitBtn = document.getElementById('modal-submit-btn');
     const form = document.getElementById('service-form');
-    const customerModalGroup = document.getElementById('service-customer-modal-group');
     if (!overlay || !title || !modeInput || !submitBtn || !form) {
         console.warn('openServiceModal: service modal markup not in DOM yet.');
         return;
@@ -1049,7 +1033,6 @@ function openServiceModal(mode, svc) {
     form.reset();
     
     if (mode === 'edit' && svc) {
-        if (customerModalGroup) customerModalGroup.style.display = '';
         title.textContent = 'Edit Service';
         modeInput.name = 'update_service';
         submitBtn.textContent = 'Save Changes';
@@ -1071,13 +1054,10 @@ function openServiceModal(mode, svc) {
         // Display existing media previews
         renderExistingPhotoPreviews(existingImages);
         renderExistingVideoPreview(existingVideo);
-        const cm = svc.customer_modal_text;
-        document.getElementById('modal-customer-modal-text').value = (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '');
         const effectiveStatus = svc.effective_status || svc.status || 'Activated';
         document.getElementById('modal-status').value = (effectiveStatus === 'Deactivated') ? 'Deactivated' : 'Activated';
         
     } else {
-        if (customerModalGroup) customerModalGroup.style.display = 'none';
         title.textContent = 'Add Service';
         modeInput.name = 'create_service';
         submitBtn.textContent = 'Save Service';
@@ -1091,7 +1071,6 @@ function openServiceModal(mode, svc) {
         renderPhotoPreviews();
         renderVideoPreview();
         document.getElementById('modal-status').value = 'Activated';
-        document.getElementById('modal-customer-modal-text').value = '';
         
     }
     submitBtn.disabled = false;
@@ -1123,9 +1102,6 @@ function openViewModal(svc) {
     const st = svc.effective_status || svc.status || '';
     document.getElementById('view-status').textContent = st === 'Activated' ? 'Active' : (st === 'Deactivated' ? 'Inactive' : st);
     document.getElementById('view-description').textContent = svc.description || '—';
-    const cm = svc.customer_modal_text;
-    document.getElementById('view-customer-modal-text').textContent =
-        (cm !== undefined && cm !== null && String(cm).trim() !== '') ? String(cm) : (window.PF_DEFAULT_SERVICE_MODAL_TEXT || '—');
     
     // Display existing media if available
     const existingImages = (svc.display_image || '').split(',').map(img => serviceMediaUrl(img)).filter(Boolean);
