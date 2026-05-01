@@ -460,6 +460,25 @@ $rev_donut_total = 0.0;
 foreach ($rev_donut as $rd) {
     $rev_donut_total += round((float)($rd['revenue'] ?? 0), 2);
 }
+$category_dashboard_rows = [];
+$category_dashboard_meta = [
+    'total_revenue' => 0.0,
+    'total_units' => 0,
+    'total_categories' => 0,
+    'store_revenue' => 0.0,
+    'store_units' => 0,
+    'job_revenue' => 0.0,
+    'job_units' => 0,
+    'mapped_job_rows' => 0,
+    'unmapped_job_rows' => 0,
+    'mapped_job_units' => 0,
+    'unmapped_job_units' => 0,
+];
+try {
+    $category_dashboard = pf_reports_category_breakdown_merged($salesTrendFrom, $salesTrendToEnd, $salesTrendBranchId);
+    $category_dashboard_rows = $category_dashboard['rows'] ?? [];
+    $category_dashboard_meta = array_merge($category_dashboard_meta, $category_dashboard['meta'] ?? []);
+} catch (Throwable $e) {}
 
 // ── 8. Order status ───────────────────────────────────────────────────────────
 $status_data = [];
@@ -1928,6 +1947,33 @@ $dashData = [
             'revenue' => round((float)$p['revenue'], 2)
         ];
     }, $rev_donut),
+    'categoryDashboard' => [
+        'rows' => array_map(function($row) {
+            return [
+                'category' => (string)($row['category'] ?? ''),
+                'qty' => (int)($row['qty'] ?? 0),
+                'revenue' => round((float)($row['revenue'] ?? 0), 2),
+                'store_qty' => (int)($row['store_qty'] ?? 0),
+                'store_revenue' => round((float)($row['store_revenue'] ?? 0), 2),
+                'job_qty' => (int)($row['job_qty'] ?? 0),
+                'job_revenue' => round((float)($row['job_revenue'] ?? 0), 2),
+                'share_pct' => round((float)($row['share_pct'] ?? 0), 1),
+            ];
+        }, $category_dashboard_rows),
+        'meta' => [
+            'total_revenue' => round((float)($category_dashboard_meta['total_revenue'] ?? 0), 2),
+            'total_units' => (int)($category_dashboard_meta['total_units'] ?? 0),
+            'total_categories' => (int)($category_dashboard_meta['total_categories'] ?? 0),
+            'store_revenue' => round((float)($category_dashboard_meta['store_revenue'] ?? 0), 2),
+            'store_units' => (int)($category_dashboard_meta['store_units'] ?? 0),
+            'job_revenue' => round((float)($category_dashboard_meta['job_revenue'] ?? 0), 2),
+            'job_units' => (int)($category_dashboard_meta['job_units'] ?? 0),
+            'mapped_job_rows' => (int)($category_dashboard_meta['mapped_job_rows'] ?? 0),
+            'unmapped_job_rows' => (int)($category_dashboard_meta['unmapped_job_rows'] ?? 0),
+            'mapped_job_units' => (int)($category_dashboard_meta['mapped_job_units'] ?? 0),
+            'unmapped_job_units' => (int)($category_dashboard_meta['unmapped_job_units'] ?? 0),
+        ],
+    ],
     'orderStatus' => array_map(function($s) {
         return [
             'status' => $s['status'],
@@ -2269,6 +2315,111 @@ $dashData = [
             </div>
 
             <!-- ══ SEASONAL HEATMAP ══════════════════════════════════════════ -->
+            <?php
+            $category_palette = ['#00232b', '#0F4C5C', '#3A86A8', '#2B6CB0', '#276749', '#2C5282', '#234E52', '#1A365D', '#F39C12', '#6B7C85'];
+            $category_top = $category_dashboard_rows[0] ?? null;
+            $category_total_revenue = (float)($category_dashboard_meta['total_revenue'] ?? 0);
+            $category_store_share = $category_total_revenue > 0
+                ? (int)round(((float)($category_dashboard_meta['store_revenue'] ?? 0) / $category_total_revenue) * 100)
+                : 0;
+            $category_job_share = $category_total_revenue > 0 ? max(0, 100 - $category_store_share) : 0;
+            ?>
+            <div class="ana-card print-hide" id="pf-category-dashboard-card">
+                <div class="ana-hd" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
+                    <div style="min-width:0;">
+                        <h3 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                            <span>Category Dashboard</span>
+                            <span style="margin-left:8px;padding:3px 8px;background:#EBF8FF;color:#2C5282;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Filter Applied</span>
+                        </h3>
+                        <div style="font-size:11px;color:#6b7280;margin-top:8px;max-width:900px;">
+                            Based on paid store orders plus paid/completed job orders for the selected report period.
+                            <?php if ((int)($category_dashboard_meta['unmapped_job_rows'] ?? 0) > 0): ?>
+                            <span style="color:#b45309;font-weight:700;">
+                                <?php echo number_format((int)$category_dashboard_meta['unmapped_job_rows']); ?> job records could not be matched to a configured service category and are grouped under Unmapped Services.
+                            </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto;" class="no-print">
+                        <?php if (!empty($category_top)): ?>
+                        <span class="top-location-pill">Top Category: <?php echo htmlspecialchars((string)$category_top['category']); ?></span>
+                        <?php endif; ?>
+                        <span style="font-size:11px;color:#6b7280;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:6px 10px;">
+                            <?php echo number_format((int)($category_dashboard_meta['total_categories'] ?? 0)); ?> categories • <?php echo number_format((int)($category_dashboard_meta['total_units'] ?? 0)); ?> units
+                        </span>
+                        <?php if ($category_total_revenue > 0): ?>
+                        <span style="font-size:11px;color:#6b7280;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:6px 10px;">
+                            Store <?php echo $category_store_share; ?>% • Custom <?php echo $category_job_share; ?>%
+                        </span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="ana-bd">
+                    <?php if (!empty($category_dashboard_rows)): ?>
+                    <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:stretch;">
+                        <div style="flex:1 1 460px;min-width:0;">
+                            <div class="ch-box" style="min-height:340px;"><div id="ch-category-dashboard"></div></div>
+                        </div>
+                        <div style="flex:1 1 320px;min-width:280px;display:flex;flex-direction:column;gap:10px;">
+                            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+                                <div style="border:1px solid #e6edf4;border-radius:14px;padding:12px 14px;background:#f8fafc;">
+                                    <div style="font-size:10px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#64748b;">Category Revenue</div>
+                                    <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:6px;">₱<?php echo number_format($category_total_revenue, 0); ?></div>
+                                    <div style="font-size:11px;color:#64748b;margin-top:4px;">Tracked in current filter</div>
+                                </div>
+                                <div style="border:1px solid #e6edf4;border-radius:14px;padding:12px 14px;background:#f8fafc;">
+                                    <div style="font-size:10px;font-weight:800;letter-spacing:0.05em;text-transform:uppercase;color:#64748b;">Resolved Job Rows</div>
+                                    <div style="font-size:20px;font-weight:800;color:#0f172a;margin-top:6px;"><?php echo number_format((int)($category_dashboard_meta['mapped_job_rows'] ?? 0)); ?></div>
+                                    <div style="font-size:11px;color:#64748b;margin-top:4px;"><?php echo number_format((int)($category_dashboard_meta['unmapped_job_rows'] ?? 0)); ?> unmapped</div>
+                                </div>
+                            </div>
+                            <div style="border:1px solid #eef2f7;border-radius:16px;overflow:hidden;background:#fff;">
+                                <div style="padding:12px 14px;border-bottom:1px solid #eef2f7;font-size:12px;font-weight:800;color:#0f172a;letter-spacing:0.02em;">Category Mix</div>
+                                <div style="padding:8px 12px;display:grid;gap:10px;">
+                                    <?php foreach (array_slice($category_dashboard_rows, 0, 6) as $idx => $row): ?>
+                                    <?php
+                                    $row_color = $row['category'] === 'Unmapped Services'
+                                        ? '#F39C12'
+                                        : ($category_palette[$idx % count($category_palette)] ?? '#94a3b8');
+                                    $row_revenue = (float)($row['revenue'] ?? 0);
+                                    $row_qty = (int)($row['qty'] ?? 0);
+                                    $store_split = 0;
+                                    $job_split = 0;
+                                    if ($row_revenue > 0) {
+                                        $store_split = (int)round(((float)($row['store_revenue'] ?? 0) / $row_revenue) * 100);
+                                        $job_split = max(0, 100 - $store_split);
+                                    } elseif ($row_qty > 0) {
+                                        $store_split = (int)round(((int)($row['store_qty'] ?? 0) / $row_qty) * 100);
+                                        $job_split = max(0, 100 - $store_split);
+                                    }
+                                    ?>
+                                    <div style="padding:10px 2px;">
+                                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                            <div style="min-width:0;">
+                                                <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars((string)$row['category']); ?></div>
+                                                <div style="font-size:11px;color:#64748b;margin-top:4px;"><?php echo number_format((int)($row['qty'] ?? 0)); ?> units • Store <?php echo $store_split; ?>% • Custom <?php echo $job_split; ?>%</div>
+                                            </div>
+                                            <div style="font-size:13px;font-weight:800;color:#059669;white-space:nowrap;">₱<?php echo number_format((float)($row['revenue'] ?? 0), 0); ?></div>
+                                        </div>
+                                        <div style="margin-top:8px;height:7px;background:#edf2f7;border-radius:999px;overflow:hidden;">
+                                            <div style="height:100%;width:<?php echo max(4, min(100, (float)($row['share_pct'] ?? 0))); ?>%;background:<?php echo htmlspecialchars($row_color, ENT_QUOTES, 'UTF-8'); ?>;"></div>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="ch-empty">
+                        <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                        No category sales data for this period
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <?php $hm_box_h = !empty($heatmap_products) ? max(200, count($heatmap_products) * 44 + 56) : 200; ?>
             <div class="ana-card print-hide">
                 <div class="ana-hd heatmap-card-hd">

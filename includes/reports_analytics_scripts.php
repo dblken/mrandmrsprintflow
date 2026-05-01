@@ -10,7 +10,7 @@ if (!isset($branch_empty)) {
 <script>
 window.__pfReportsApexCharts = window.__pfReportsApexCharts || [];
 window.__pfReportsData = <?php echo json_encode($dashData); ?>;
-var __pfReportsChartRootIds = ['salesChart','ch-forecast','ch-products','ch-donut','ch-custom','ch-status'];
+var __pfReportsChartRootIds = ['salesChart','ch-forecast','ch-products','ch-donut','ch-category-dashboard','ch-custom','ch-status'];
 window.printflowDisconnectReportsChartLayoutHooks = function () {
     if (window.__pfReportsRevealIO) {
         try { window.__pfReportsRevealIO.disconnect(); } catch (e) {}
@@ -1493,6 +1493,103 @@ window.printflowInitReportsCharts = function () {
     })();
 
     // ── ORDER STATUS BREAKDOWN (Independent - All-Time) ──
+    // -- CATEGORY DASHBOARD (Filter-aware) ------------------------------------
+    (function initCategoryDashboardChart(){
+        try {
+            const rData = window.__pfReportsData || {};
+            const catDash = rData.categoryDashboard || {};
+            const rows = Array.isArray(catDash.rows) ? catDash.rows.slice(0, 8) : [];
+            const meta = catDash.meta || {};
+            const mount = document.getElementById('ch-category-dashboard');
+            if (!mount) return;
+
+            if (rows.length === 0) {
+                const card = mount.closest('.ana-card');
+                if (card) card.classList.add('hidden');
+                return;
+            }
+
+            const labels = rows.map(r => String(r.category || 'Uncategorized'));
+            const shortLabels = labels.map(function(label) {
+                const clean = String(label || '').trim();
+                return clean.length > 28 ? (clean.slice(0, 28) + '...') : clean;
+            });
+            const values = rows.map(r => Number(r.revenue || 0));
+            const totalRevenue = Number(meta.total_revenue || 0) || values.reduce((a, b) => a + b, 0);
+            const chartHeight = Math.max(320, rows.length * 46 + 72);
+            const xMax = Math.max(1, Math.ceil(Math.max.apply(null, values.concat([1])) * 1.12));
+            const colors = rows.map((row, idx) => row.category === 'Unmapped Services' ? '#F39C12' : PF_PAL[idx % PF_PAL.length]);
+
+            const fmtCompactPeso = function(value) {
+                const amt = Number(value || 0);
+                if (amt >= 1000000) return '\u20b1' + (amt / 1000000).toFixed(amt >= 10000000 ? 0 : 1) + 'M';
+                if (amt >= 1000) return '\u20b1' + (amt / 1000).toFixed(amt >= 100000 ? 0 : 1) + 'k';
+                return '\u20b1' + Math.round(amt).toLocaleString();
+            };
+
+            pfPushApexChart(mount, {
+                chart:{ ...PF_OPT, id:'pf-ch-category-dashboard', redrawOnParentResize:true, type:'bar', height:chartHeight },
+                plotOptions:{ bar:{ horizontal:true, borderRadius:6, barHeight:'68%', distributed:true } },
+                series:[{
+                    name:'Revenue',
+                    data: values.map((value, idx) => ({ x: shortLabels[idx], y: value, fillColor: colors[idx] }))
+                }],
+                colors: colors,
+                legend:{ show:false },
+                xaxis:{
+                    min:0,
+                    max:xMax,
+                    tickAmount:5,
+                    labels:{
+                        style:{ fontSize:'11px', fontWeight:600, colors:'#64748b' },
+                        formatter:v => fmtCompactPeso(v)
+                    },
+                    axisBorder:{ show:true, color:'#e5e7eb' },
+                    axisTicks:{ show:true, color:'#e5e7eb' }
+                },
+                yaxis:{
+                    labels:{
+                        style:{ fontSize:'11px', fontWeight:700, colors:['#0f172a'] },
+                        maxWidth:210
+                    }
+                },
+                dataLabels:{ enabled:false },
+                tooltip:{
+                    theme:'dark',
+                    custom:function(ctx) {
+                        const i = ctx.dataPointIndex;
+                        if (i < 0 || !rows[i]) return '';
+                        const row = rows[i];
+                        const revenue = Number(row.revenue || 0);
+                        const storeRevenue = Number(row.store_revenue || 0);
+                        const jobRevenue = Number(row.job_revenue || 0);
+                        const qty = Number(row.qty || 0);
+                        const storeQty = Number(row.store_qty || 0);
+                        const jobQty = Number(row.job_qty || 0);
+                        const share = totalRevenue > 0 ? ((revenue / totalRevenue) * 100).toFixed(1) : '0.0';
+                        let h = '<div style="padding:12px;min-width:240px;">';
+                        h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">';
+                        h += '<span style="width:10px;height:10px;border-radius:999px;background:' + colors[i] + ';display:inline-block;"></span>';
+                        h += '<span style="font-weight:700;color:#f8fafc;font-size:13px;">' + pfEscHtml(labels[i]) + '</span>';
+                        h += '</div>';
+                        h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">';
+                        h += '<div style="background:rgba(16,185,129,0.12);padding:6px;border-radius:6px;"><div style="font-size:9px;color:#94a3b8;">Revenue</div><div style="font-size:15px;font-weight:800;color:#10b981;">\u20b1' + revenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</div></div>';
+                        h += '<div style="background:rgba(83,197,224,0.12);padding:6px;border-radius:6px;"><div style="font-size:9px;color:#94a3b8;">Units</div><div style="font-size:15px;font-weight:800;color:#53C5E0;">' + qty.toLocaleString() + '</div></div>';
+                        h += '</div>';
+                        h += '<div style="font-size:11px;color:#cbd5e1;display:grid;gap:4px;">';
+                        h += '<div>Share: <strong style="color:#f8fafc;">' + share + '%</strong></div>';
+                        h += '<div>Store: <strong style="color:#f8fafc;">\u20b1' + storeRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</strong> • ' + storeQty.toLocaleString() + ' units</div>';
+                        h += '<div>Custom: <strong style="color:#f8fafc;">\u20b1' + jobRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) + '</strong> • ' + jobQty.toLocaleString() + ' units</div>';
+                        h += '</div>';
+                        h += '</div>';
+                        return h;
+                    }
+                },
+                grid:{ borderColor:'#f1f5f9', strokeDashArray:3, xaxis:{ lines:{ show:true } }, yaxis:{ lines:{ show:false } } }
+            });
+        } catch(e) { console.error('CategoryDashboard error:', e); }
+    })();
+
     (function initOrderStatusChart(){
         try {
             const rData = window.__pfReportsData || {};

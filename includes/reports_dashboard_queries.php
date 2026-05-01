@@ -54,6 +54,176 @@ function pf_reports_branch_has_activity($branchId): bool {
     }
 }
 
+function pf_reports_lookup_key(string $value): string {
+    $value = trim((string) $value);
+    if ($value === '') {
+        return '';
+    }
+    $value = preg_replace('/\s+/u', ' ', $value);
+    return function_exists('mb_strtolower') ? mb_strtolower($value) : strtolower($value);
+}
+
+function pf_reports_clean_category_label(?string $value, string $fallback = 'Uncategorized'): string {
+    $label = trim(preg_replace('/\s+/u', ' ', (string) $value));
+    return $label !== '' ? $label : $fallback;
+}
+
+/**
+ * @return list<string>
+ */
+function pf_reports_service_lookup_aliases(string $name): array {
+    $aliases = [];
+    $raw = trim((string) $name);
+    if ($raw === '') {
+        return [];
+    }
+
+    $aliases[] = $raw;
+
+    if (function_exists('normalize_service_name')) {
+        $aliases[] = normalize_service_name($raw, $raw);
+    }
+    if (function_exists('printflow_precise_service_name_aliases')) {
+        $aliases = array_merge($aliases, printflow_precise_service_name_aliases($raw));
+    }
+    if (function_exists('printflow_service_name_aliases')) {
+        $aliases = array_merge($aliases, printflow_service_name_aliases($raw));
+    }
+
+    $out = [];
+    $seen = [];
+    foreach ($aliases as $alias) {
+        $alias = trim((string) $alias);
+        if ($alias === '') {
+            continue;
+        }
+        $key = pf_reports_lookup_key($alias);
+        if ($key === '' || isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $out[] = $alias;
+    }
+    return $out;
+}
+
+/**
+ * @return array{lookup: array<string, string>, categories: array<string, string>}
+ */
+function pf_reports_service_category_registry(): array {
+    static $registry = null;
+    if ($registry !== null) {
+        return $registry;
+    }
+
+    if (!function_exists('printflow_default_customer_service_catalog')) {
+        $catalogPath = __DIR__ . '/customer_service_catalog.php';
+        if (file_exists($catalogPath)) {
+            require_once $catalogPath;
+        }
+    }
+
+    $lookup = [];
+    $categories = [];
+
+    $register = static function (string $serviceName, string $category) use (&$lookup, &$categories): void {
+        $category = pf_reports_clean_category_label($category, 'Uncategorized');
+        $catKey = pf_reports_lookup_key($category);
+        if ($catKey === '') {
+            return;
+        }
+        $categories[$catKey] = $category;
+        foreach (pf_reports_service_lookup_aliases($serviceName) as $alias) {
+            $aliasKey = pf_reports_lookup_key($alias);
+            if ($aliasKey === '') {
+                continue;
+            }
+            $lookup[$aliasKey] = $category;
+        }
+    };
+
+    if (function_exists('printflow_default_customer_service_catalog')) {
+        foreach (printflow_default_customer_service_catalog() as $row) {
+            $serviceName = trim((string) ($row['name'] ?? ''));
+            $category = trim((string) ($row['category'] ?? ''));
+            if ($serviceName === '' || $category === '') {
+                continue;
+            }
+            $register($serviceName, $category);
+        }
+    }
+
+    try {
+        $rows = db_query(
+            "SELECT name, category
+             FROM services
+             WHERE name IS NOT NULL AND TRIM(name) != ''
+               AND category IS NOT NULL AND TRIM(category) != ''"
+        ) ?: [];
+        foreach ($rows as $row) {
+            $serviceName = trim((string) ($row['name'] ?? ''));
+            $category = trim((string) ($row['category'] ?? ''));
+            if ($serviceName === '' || $category === '') {
+                continue;
+            }
+            $register($serviceName, $category);
+        }
+    } catch (Throwable $e) {
+    }
+
+    $registry = ['lookup' => $lookup, 'categories' => $categories];
+    return $registry;
+}
+
+/**
+ * @param array<string, string> $lookup
+ * @param array<string, string> $categories
+ * @return array{category: string, mapped: bool}
+ */
+function pf_reports_resolve_service_category(string $serviceName, array $lookup, array $categories): array {
+    foreach (pf_reports_service_lookup_aliases($serviceName) as $alias) {
+        $key = pf_reports_lookup_key($alias);
+        if ($key !== '' && isset($lookup[$key])) {
+            return ['category' => $lookup[$key], 'mapped' => true];
+        }
+        if ($key !== '' && isset($categories[$key])) {
+            return ['category' => $categories[$key], 'mapped' => true];
+        }
+    }
+    return ['category' => 'Unmapped Services', 'mapped' => false];
+}
+
+/**
+ * @param array<string, string> $lookup
+ * @param array<string, string> $categories
+ * @return array{category: string, mapped: bool}
+ */
+function pf_reports_resolve_product_category(string $productName, string $rawCategory, array $lookup, array $categories): array {
+    $rawCategory = trim((string) $rawCategory);
+    if ($rawCategory !== '') {
+        $rawKey = pf_reports_lookup_key($rawCategory);
+        if ($rawKey !== '' && isset($categories[$rawKey])) {
+            return ['category' => $categories[$rawKey], 'mapped' => true];
+        }
+        $fromCategory = pf_reports_resolve_service_category($rawCategory, $lookup, $categories);
+        if ($fromCategory['mapped']) {
+            return $fromCategory;
+        }
+    }
+
+    $combined = trim($rawCategory . ' ' . $productName);
+    $fromProductName = pf_reports_resolve_service_category($combined !== '' ? $combined : $productName, $lookup, $categories);
+    if ($fromProductName['mapped']) {
+        return $fromProductName;
+    }
+
+    if ($rawCategory !== '') {
+        return ['category' => pf_reports_clean_category_label($rawCategory), 'mapped' => false];
+    }
+
+    return ['category' => 'Uncategorized Products', 'mapped' => false];
+}
+
 /**
  * Calendar years (≤ current year) that have at least one paid order line or job order.
  *
@@ -318,6 +488,225 @@ function pf_reports_top_products_merged(string $from, string $toEnd, $branchId, 
     $list = array_values($agg);
     usort($list, static fn ($a, $b) => $b['qty_sold'] <=> $a['qty_sold']);
     return array_slice($list, 0, $limit);
+}
+
+/**
+ * Category dashboard:
+ * - store products use products.category, normalized through the same service-name aliases
+ * - job orders resolve through configured service categories
+ *
+ * @return array{
+ *   rows: list<array{
+ *     category:string,
+ *     qty:int,
+ *     revenue:float,
+ *     store_qty:int,
+ *     store_revenue:float,
+ *     job_qty:int,
+ *     job_revenue:float,
+ *     share_pct:float
+ *   }>,
+ *   meta: array{
+ *     total_revenue:float,
+ *     total_units:int,
+ *     total_categories:int,
+ *     store_revenue:float,
+ *     store_units:int,
+ *     job_revenue:float,
+ *     job_units:int,
+ *     mapped_job_rows:int,
+ *     unmapped_job_rows:int,
+ *     mapped_job_units:int,
+ *     unmapped_job_units:int
+ *   }
+ * }
+ */
+function pf_reports_category_breakdown_merged(string $from, string $toEnd, $branchId): array {
+    $registry = pf_reports_service_category_registry();
+    $lookup = $registry['lookup'];
+    $categories = $registry['categories'];
+    $agg = [];
+    $meta = [
+        'total_revenue' => 0.0,
+        'total_units' => 0,
+        'total_categories' => 0,
+        'store_revenue' => 0.0,
+        'store_units' => 0,
+        'job_revenue' => 0.0,
+        'job_units' => 0,
+        'mapped_job_rows' => 0,
+        'unmapped_job_rows' => 0,
+        'mapped_job_units' => 0,
+        'unmapped_job_units' => 0,
+    ];
+
+    $accumulate = static function (string $category, string $source, int $qty, float $revenue) use (&$agg): void {
+        $category = pf_reports_clean_category_label($category);
+        $key = pf_reports_lookup_key($category);
+        if ($key === '') {
+            $key = pf_reports_lookup_key('Uncategorized');
+            $category = 'Uncategorized';
+        }
+        if (!isset($agg[$key])) {
+            $agg[$key] = [
+                'category' => $category,
+                'qty' => 0,
+                'revenue' => 0.0,
+                'store_qty' => 0,
+                'store_revenue' => 0.0,
+                'job_qty' => 0,
+                'job_revenue' => 0.0,
+                'share_pct' => 0.0,
+            ];
+        }
+        $agg[$key]['qty'] += $qty;
+        $agg[$key]['revenue'] += $revenue;
+        if ($source === 'store') {
+            $agg[$key]['store_qty'] += $qty;
+            $agg[$key]['store_revenue'] += $revenue;
+        } else {
+            $agg[$key]['job_qty'] += $qty;
+            $agg[$key]['job_revenue'] += $revenue;
+        }
+    };
+
+    try {
+        [$b, $bt, $bp] = branch_where_parts('o', $branchId);
+        $datePart = '';
+        $params = [];
+        $types = '';
+        if ($from !== '' && $toEnd !== '') {
+            $datePart = ' AND o.order_date BETWEEN ? AND ?';
+            $params = [$from, $toEnd];
+            $types = 'ss';
+        } elseif ($from !== '') {
+            $datePart = ' AND o.order_date >= ?';
+            $params = [$from];
+            $types = 's';
+        } elseif ($toEnd !== '') {
+            $datePart = ' AND o.order_date <= ?';
+            $params = [$toEnd];
+            $types = 's';
+        }
+
+        $rows = db_query(
+            "SELECT p.product_id,
+                    p.name AS product_name,
+                    COALESCE(NULLIF(TRIM(p.category), ''), '') AS raw_category,
+                    SUM(oi.quantity) AS qty_sold,
+                    SUM(oi.quantity * oi.unit_price) AS revenue
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.product_id
+             JOIN orders o ON oi.order_id = o.order_id
+             WHERE o.payment_status = 'Paid' {$datePart} {$b}
+             GROUP BY p.product_id, p.name, p.category",
+            $types . $bt,
+            array_merge($params, $bp)
+        ) ?: [];
+
+        foreach ($rows as $row) {
+            $qty = (int) ($row['qty_sold'] ?? 0);
+            $revenue = (float) ($row['revenue'] ?? 0);
+            if ($qty <= 0 && $revenue <= 0) {
+                continue;
+            }
+            $resolved = pf_reports_resolve_product_category(
+                (string) ($row['product_name'] ?? ''),
+                (string) ($row['raw_category'] ?? ''),
+                $lookup,
+                $categories
+            );
+            $accumulate($resolved['category'], 'store', $qty, $revenue);
+            $meta['store_units'] += $qty;
+            $meta['store_revenue'] += $revenue;
+        }
+    } catch (Throwable $e) {
+    }
+
+    try {
+        [$bj, $btj, $bpj] = branch_where_parts('jo', $branchId);
+        $jDatePart = '';
+        $jParams = [];
+        $jTypes = '';
+        if ($from !== '' && $toEnd !== '') {
+            $jDatePart = ' AND jo.created_at BETWEEN ? AND ?';
+            $jParams = [$from, $toEnd];
+            $jTypes = 'ss';
+        } elseif ($from !== '') {
+            $jDatePart = ' AND jo.created_at >= ?';
+            $jParams = [$from];
+            $jTypes = 's';
+        } elseif ($toEnd !== '') {
+            $jDatePart = ' AND jo.created_at <= ?';
+            $jParams = [$toEnd];
+            $jTypes = 's';
+        }
+
+        $jrows = db_query(
+            "SELECT COALESCE(NULLIF(TRIM(jo.service_type), ''), 'Customization') AS service_type,
+                    COUNT(*) AS job_rows,
+                    SUM(COALESCE(NULLIF(jo.quantity, 0), 1)) AS qty_sold,
+                    SUM(COALESCE(NULLIF(jo.amount_paid, 0), jo.estimated_total, 0)) AS revenue
+             FROM job_orders jo
+             WHERE (jo.payment_status = 'PAID' OR jo.status = 'COMPLETED') {$jDatePart} {$bj}
+             GROUP BY COALESCE(NULLIF(TRIM(jo.service_type), ''), 'Customization')",
+            $jTypes . $btj,
+            array_merge($jParams, $bpj)
+        ) ?: [];
+
+        foreach ($jrows as $row) {
+            $serviceType = (string) ($row['service_type'] ?? 'Customization');
+            $jobRows = (int) ($row['job_rows'] ?? 0);
+            $qty = (int) ($row['qty_sold'] ?? 0);
+            $revenue = (float) ($row['revenue'] ?? 0);
+            if ($jobRows <= 0 && $qty <= 0 && $revenue <= 0) {
+                continue;
+            }
+
+            $resolved = pf_reports_resolve_service_category($serviceType, $lookup, $categories);
+            $accumulate($resolved['category'], 'job', $qty, $revenue);
+            $meta['job_units'] += $qty;
+            $meta['job_revenue'] += $revenue;
+            if ($resolved['mapped']) {
+                $meta['mapped_job_rows'] += $jobRows;
+                $meta['mapped_job_units'] += $qty;
+            } else {
+                $meta['unmapped_job_rows'] += $jobRows;
+                $meta['unmapped_job_units'] += $qty;
+            }
+        }
+    } catch (Throwable $e) {
+    }
+
+    $rows = array_values($agg);
+    $meta['total_revenue'] = round($meta['store_revenue'] + $meta['job_revenue'], 2);
+    $meta['total_units'] = (int) ($meta['store_units'] + $meta['job_units']);
+
+    usort($rows, static function (array $a, array $b): int {
+        $byRevenue = ($b['revenue'] <=> $a['revenue']);
+        if ($byRevenue !== 0) {
+            return $byRevenue;
+        }
+        $byQty = ($b['qty'] <=> $a['qty']);
+        if ($byQty !== 0) {
+            return $byQty;
+        }
+        return strcmp((string) $a['category'], (string) $b['category']);
+    });
+
+    foreach ($rows as &$row) {
+        $row['revenue'] = round((float) $row['revenue'], 2);
+        $row['store_revenue'] = round((float) $row['store_revenue'], 2);
+        $row['job_revenue'] = round((float) $row['job_revenue'], 2);
+        $row['share_pct'] = $meta['total_revenue'] > 0
+            ? round(((float) $row['revenue'] / $meta['total_revenue']) * 100, 1)
+            : 0.0;
+    }
+    unset($row);
+
+    $meta['total_categories'] = count($rows);
+
+    return ['rows' => $rows, 'meta' => $meta];
 }
 
 /**
