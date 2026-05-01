@@ -51,7 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user
             $pre_st = trim((string)($pre[0]['status'] ?? ''));
             $pre_archived_at = trim((string)($pre[0]['archived_at'] ?? ''));
             if ($pre_st !== 'Archived' && $pre_archived_at === '') {
-                $error = 'That account is not archived or could not be found.';
+                // Idempotent restore: if already Deactivated, treat as already restored
+                // to avoid blocking repeated archive/restore cycles on stale modal rows.
+                if ($pre_st === 'Deactivated') {
+                    $success = 'Account is already restored.';
+                } else {
+                    $error = 'That account is not archived or could not be found.';
+                }
             } else {
                 $restored = db_execute(
                     "UPDATE users SET status = 'Deactivated', archived_at = NULL, updated_at = NOW() WHERE user_id = ?",
