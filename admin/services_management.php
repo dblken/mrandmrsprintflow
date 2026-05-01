@@ -455,7 +455,7 @@ if (isset($_GET['ajax'])) {
     exit;
 }
 
-$category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees', 'Apparel', 'Signage', 'Merchandise', 'Print', 'Service', 'Consulting', 'Design'];
+$category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees', 'Signage'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1038,7 +1038,20 @@ function openServiceModal(mode, svc) {
         submitBtn.textContent = 'Save Changes';
         document.getElementById('modal-service-id').value = svc.service_id || '';
         document.getElementById('modal-name').value = svc.name || '';
-        document.getElementById('modal-category').value = svc.category || '';
+        const categorySelect = document.getElementById('modal-category');
+        if (categorySelect) {
+            const staleCategoryOpt = categorySelect.querySelector('option[data-legacy-category="1"]');
+            if (staleCategoryOpt) staleCategoryOpt.remove();
+            const currentCategory = String(svc.category || '').trim();
+            if (currentCategory && !Array.from(categorySelect.options).some(opt => opt.value === currentCategory)) {
+                const legacyOpt = document.createElement('option');
+                legacyOpt.value = currentCategory;
+                legacyOpt.textContent = currentCategory + ' (Legacy)';
+                legacyOpt.setAttribute('data-legacy-category', '1');
+                categorySelect.appendChild(legacyOpt);
+            }
+            categorySelect.value = currentCategory;
+        }
         document.getElementById('modal-description').value = svc.description || '';
         
         // Load existing media files
@@ -1062,6 +1075,12 @@ function openServiceModal(mode, svc) {
         modeInput.name = 'create_service';
         submitBtn.textContent = 'Save Service';
         document.getElementById('modal-service-id').value = '';
+        const categorySelect = document.getElementById('modal-category');
+        if (categorySelect) {
+            const staleCategoryOpt = categorySelect.querySelector('option[data-legacy-category="1"]');
+            if (staleCategoryOpt) staleCategoryOpt.remove();
+            categorySelect.value = '';
+        }
         document.getElementById('modal-display-image').value = '';
         document.getElementById('modal-video-url').value = '';
         document.getElementById('modal-photo-files').value = '';

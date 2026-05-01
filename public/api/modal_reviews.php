@@ -17,7 +17,7 @@ if (empty($service_rows)) {
 }
 
 $service_name = (string)$service_rows[0]['name'];
-$rows = printflow_get_service_reviews($service_name, 5);
+$rows = printflow_get_service_reviews($service_name, 5, 0, $service_id);
 $rows = array_map(static function ($row) {
     return [
         'rating' => $row['rating'] ?? 0,
@@ -28,7 +28,7 @@ $rows = array_map(static function ($row) {
     ];
 }, $rows);
 
-$stats = printflow_get_service_review_stats($service_name);
+$stats = printflow_get_service_review_stats($service_name, $service_id);
 
 echo json_encode([
     'reviews' => $rows,

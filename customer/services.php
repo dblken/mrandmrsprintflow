@@ -99,7 +99,7 @@ foreach ($visible_rows as $row) {
 }
 
 foreach ($core_services as &$service_row) {
-    $review_stats = printflow_get_service_review_stats($service_row['name']);
+    $review_stats = printflow_get_service_review_stats((string)$service_row['name'], (int)$service_row['id']);
     $service_row['avg_rating'] = (float)($review_stats['avg_rating'] ?? 0);
     $service_row['review_count'] = (int)($review_stats['review_count'] ?? 0);
 }

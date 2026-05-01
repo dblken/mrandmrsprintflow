@@ -585,6 +585,9 @@ $display_video_poster = !empty($service['hero_image'])
     : (!empty($display_images) && $display_images[0]['type'] === 'image' ? $display_images[0]['src'] : $default_service_img);
 
 $stats = service_order_get_page_stats($service['customer_link'] ?? '');
+$exact_review_stats = printflow_get_service_review_stats((string)$service['name'], (int)$service_id);
+$stats['avg_rating'] = (float)($exact_review_stats['avg_rating'] ?? 0);
+$stats['review_count'] = (int)($exact_review_stats['review_count'] ?? 0);
 $avg_rating = number_format((float)($stats['avg_rating'] ?? 0), 1);
 $review_count = (int)($stats['review_count'] ?? 0);
 $sold_count = (int)($stats['sold_count'] ?? 0);
@@ -861,7 +864,7 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         <!-- Product Ratings Section -->
         <?php
         $review_schema = printflow_review_schema();
-        $review_aliases = printflow_service_name_aliases((string)$service['name']);
+        $review_name_candidates = printflow_precise_service_name_aliases((string)$service['name']);
         $current_user_id = (int)get_user_id();
         $current_user_type = (string)($_SESSION['user_type'] ?? '');
         $current_customer_id = $current_user_type === 'Customer' ? $current_user_id : 0;
@@ -903,38 +906,29 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         $review_voted_sql = $review_user_voted_sql . ' as user_voted';
 
         $reviews = [];
-        if (!empty($review_aliases)) {
-            $review_where_parts = [];
-            $review_types = '';
-            $review_params = [];
+        $review_where_parts = [];
+        $review_types = '';
+        $review_params = [];
 
-            if (!empty($review_schema['service_col'])) {
-                $service_placeholders = implode(',', array_fill(0, count($review_aliases), '?'));
-                $review_where_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci IN ($service_placeholders)";
-                $review_types .= str_repeat('s', count($review_aliases));
-                array_push($review_params, ...$review_aliases);
-            }
-
-            $order_match_parts = [];
-            $order_name_placeholders = implode(',', array_fill(0, count($review_aliases), '?'));
-            $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_name_placeholders)";
-            $review_types .= str_repeat('s', count($review_aliases));
-            array_push($review_params, ...$review_aliases);
-
-            foreach ($review_aliases as $alias) {
-                $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
-                $review_types .= 's';
-                $review_params[] = '%' . $alias . '%';
-            }
-
+        if ((int)$service_id > 0) {
             $review_where_parts[] = "EXISTS (
                 SELECT 1
                 FROM order_items oi
-                LEFT JOIN products p ON p.product_id = oi.product_id
                 WHERE oi.order_id = r.order_id
-                  AND (" . implode(' OR ', $order_match_parts) . ")
+                  AND oi.product_id = ?
             )";
+            $review_types .= 'i';
+            $review_params[] = (int)$service_id;
+        }
 
+        if (!empty($review_schema['service_col']) && !empty($review_name_candidates)) {
+            $service_placeholders = implode(',', array_fill(0, count($review_name_candidates), '?'));
+            $review_where_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci IN ($service_placeholders)";
+            $review_types .= str_repeat('s', count($review_name_candidates));
+            array_push($review_params, ...$review_name_candidates);
+        }
+
+        if (!empty($review_where_parts)) {
             $review_sql = "SELECT DISTINCT
                  r.id,
                  {$review_user_expr} AS user_id,

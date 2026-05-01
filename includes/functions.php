@@ -2692,11 +2692,21 @@ function printflow_service_name_aliases(string $name): array
     return $aliases;
 }
 
-function printflow_get_service_review_stats(string $service_name): array
+function printflow_precise_service_name_aliases(string $name): array
+{
+    $raw = trim(preg_replace('/\s+/', ' ', $name));
+    if ($raw === '') {
+        return [];
+    }
+    $normalized = normalize_service_name($raw, $raw);
+    return array_values(array_unique(array_filter([$raw, $normalized], static fn($value) => trim((string)$value) !== '')));
+}
+
+function printflow_get_service_review_stats(string $service_name, int $service_id = 0): array
 {
     $schema = printflow_review_schema();
-    $aliases = printflow_service_name_aliases($service_name);
-    if (empty($aliases)) {
+    $aliases = printflow_precise_service_name_aliases($service_name);
+    if ($service_id <= 0 && empty($aliases)) {
         return ['avg_rating' => 0.0, 'review_count' => 0];
     }
 
@@ -2704,32 +2714,49 @@ function printflow_get_service_review_stats(string $service_name): array
     $types = '';
     $params = [];
 
-    if ($schema['service_col'] !== '') {
+    if ($service_id > 0) {
+        $where_parts[] = "EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = r.order_id
+              AND oi.product_id = ?
+        )";
+        $types .= 'i';
+        $params[] = $service_id;
+    }
+
+    if ($schema['service_col'] !== '' && !empty($aliases)) {
         $placeholders = implode(',', array_fill(0, count($aliases), '?'));
         $where_parts[] = "r.{$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)";
         $types .= str_repeat('s', count($aliases));
         array_push($params, ...$aliases);
     }
 
-    $order_match_parts = [];
-    $order_placeholders = implode(',', array_fill(0, count($aliases), '?'));
-    $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_placeholders)";
-    $types .= str_repeat('s', count($aliases));
-    array_push($params, ...$aliases);
+    if (empty($where_parts)) {
+        $fallback_aliases = printflow_service_name_aliases($service_name);
+        if (empty($fallback_aliases)) {
+            return ['avg_rating' => 0.0, 'review_count' => 0];
+        }
+        $order_match_parts = [];
+        $order_placeholders = implode(',', array_fill(0, count($fallback_aliases), '?'));
+        $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_placeholders)";
+        $types .= str_repeat('s', count($fallback_aliases));
+        array_push($params, ...$fallback_aliases);
 
-    foreach ($aliases as $alias) {
-        $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
-        $types .= 's';
-        $params[] = '%' . $alias . '%';
+        foreach ($fallback_aliases as $alias) {
+            $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
+            $types .= 's';
+            $params[] = '%' . $alias . '%';
+        }
+
+        $where_parts[] = "EXISTS (
+            SELECT 1
+            FROM order_items oi
+            LEFT JOIN products p ON p.product_id = oi.product_id
+            WHERE oi.order_id = r.order_id
+              AND (" . implode(' OR ', $order_match_parts) . ")
+        )";
     }
-
-    $where_parts[] = "EXISTS (
-        SELECT 1
-        FROM order_items oi
-        LEFT JOIN products p ON p.product_id = oi.product_id
-        WHERE oi.order_id = r.order_id
-          AND (" . implode(' OR ', $order_match_parts) . ")
-    )";
 
     $rows = db_query(
         "SELECT AVG(r.rating) AS avg_rating, COUNT(DISTINCT r.id) AS review_count
@@ -2745,13 +2772,13 @@ function printflow_get_service_review_stats(string $service_name): array
     ];
 }
 
-function printflow_get_service_reviews(string $service_name, ?int $limit = null, int $viewer_user_id = 0): array
+function printflow_get_service_reviews(string $service_name, ?int $limit = null, int $viewer_user_id = 0, int $service_id = 0): array
 {
     $schema = printflow_review_schema();
     $review_cols = array_flip(array_column(db_query("SHOW COLUMNS FROM reviews") ?: [], 'Field'));
     $tables = array_flip(array_column(db_query("SHOW TABLES") ?: [], 0));
-    $aliases = printflow_service_name_aliases($service_name);
-    if (empty($aliases)) {
+    $aliases = printflow_precise_service_name_aliases($service_name);
+    if ($service_id <= 0 && empty($aliases)) {
         return [];
     }
 
@@ -2759,32 +2786,49 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
     $types = '';
     $params = [];
 
-    if ($schema['service_col'] !== '') {
+    if ($service_id > 0) {
+        $where_parts[] = "EXISTS (
+            SELECT 1
+            FROM order_items oi
+            WHERE oi.order_id = r.order_id
+              AND oi.product_id = ?
+        )";
+        $types .= 'i';
+        $params[] = $service_id;
+    }
+
+    if ($schema['service_col'] !== '' && !empty($aliases)) {
         $placeholders = implode(',', array_fill(0, count($aliases), '?'));
         $where_parts[] = "r.{$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)";
         $types .= str_repeat('s', count($aliases));
         array_push($params, ...$aliases);
     }
 
-    $order_match_parts = [];
-    $order_placeholders = implode(',', array_fill(0, count($aliases), '?'));
-    $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_placeholders)";
-    $types .= str_repeat('s', count($aliases));
-    array_push($params, ...$aliases);
+    if (empty($where_parts)) {
+        $fallback_aliases = printflow_service_name_aliases($service_name);
+        if (empty($fallback_aliases)) {
+            return [];
+        }
+        $order_match_parts = [];
+        $order_placeholders = implode(',', array_fill(0, count($fallback_aliases), '?'));
+        $order_match_parts[] = "p.name COLLATE utf8mb4_unicode_ci IN ($order_placeholders)";
+        $types .= str_repeat('s', count($fallback_aliases));
+        array_push($params, ...$fallback_aliases);
 
-    foreach ($aliases as $alias) {
-        $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
-        $types .= 's';
-        $params[] = '%' . $alias . '%';
+        foreach ($fallback_aliases as $alias) {
+            $order_match_parts[] = "oi.customization_data COLLATE utf8mb4_unicode_ci LIKE ?";
+            $types .= 's';
+            $params[] = '%' . $alias . '%';
+        }
+
+        $where_parts[] = "EXISTS (
+            SELECT 1
+            FROM order_items oi
+            LEFT JOIN products p ON p.product_id = oi.product_id
+            WHERE oi.order_id = r.order_id
+              AND (" . implode(' OR ', $order_match_parts) . ")
+        )";
     }
-
-    $where_parts[] = "EXISTS (
-        SELECT 1
-        FROM order_items oi
-        LEFT JOIN products p ON p.product_id = oi.product_id
-        WHERE oi.order_id = r.order_id
-          AND (" . implode(' OR ', $order_match_parts) . ")
-    )";
 
     $message_col = $schema['message_col'];
     $user_col = $schema['user_col'];

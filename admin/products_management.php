@@ -1862,14 +1862,10 @@ if (isset($_GET['ajax'])) {
                         <label for="modal-category">Category <span style="color:red">*</span></label>
                         <select id="modal-category" name="category">
                             <option value="">-- Select Category --</option>
-                            <option value="Tarpaulin">Tarpaulin</option>
                             <option value="T-Shirt">T-Shirt</option>
                             <option value="Stickers">Stickers</option>
                             <option value="Sintraboard">Sintraboard</option>
-                            <option value="Apparel">Apparel</option>
                             <option value="Signage">Signage</option>
-                            <option value="Merchandise">Merchandise</option>
-                            <option value="Print">Print</option>
                         </select>
                         <span id="err-category" class="field-error"></span>
                     </div>
@@ -2303,7 +2299,19 @@ window.openProductModal = function openProductModal(mode, product) {
             var skuEl = document.getElementById('modal-sku');
             if (skuEl) skuEl.value = product.sku || '';
             var catEl = document.getElementById('modal-category');
-            if (catEl) catEl.value = product.category || '';
+            if (catEl) {
+                var staleCategoryOpt = catEl.querySelector('option[data-legacy-category="1"]');
+                if (staleCategoryOpt) staleCategoryOpt.remove();
+                var currentCategory = String(product.category || '').trim();
+                if (currentCategory && !Array.from(catEl.options).some(function(opt) { return opt.value === currentCategory; })) {
+                    var legacyOpt = document.createElement('option');
+                    legacyOpt.value = currentCategory;
+                    legacyOpt.textContent = currentCategory + ' (Legacy)';
+                    legacyOpt.setAttribute('data-legacy-category', '1');
+                    catEl.appendChild(legacyOpt);
+                }
+                catEl.value = currentCategory;
+            }
             var priceEl = document.getElementById('modal-price');
             if (priceEl) priceEl.value = product.price != null ? String(product.price) : '';
             var descEl = document.getElementById('modal-description');
@@ -2336,6 +2344,12 @@ window.openProductModal = function openProductModal(mode, product) {
         pfManagerModalSetActive(false);
         var pidEl2 = document.getElementById('modal-product-id');
         if (pidEl2) pidEl2.value = '';
+        var catCreateEl = document.getElementById('modal-category');
+        if (catCreateEl) {
+            var staleCreateCategoryOpt = catCreateEl.querySelector('option[data-legacy-category="1"]');
+            if (staleCreateCategoryOpt) staleCreateCategoryOpt.remove();
+            catCreateEl.value = '';
+        }
         if (photoInput) photoInput.value = '';
         if (previewImg) { previewImg.removeAttribute('src'); previewImg.style.display = 'none'; }
         if (previewText) previewText.style.display = 'block';
