@@ -1,0 +1,1249 @@
+<?php
+/**
+ * Admin: Seed / Reprice Transactions
+ *
+ * Part 1 — Update pricing on existing orders to realistic values.
+ * Part 2 — Generate historical transaction records 2021–2026.
+ *
+ * Admin-only · CSRF-protected · transaction-wrapped · preview before execute.
+ */
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+require_role(['Admin']);
+set_time_limit(300);
+ini_set('memory_limit', '256M');
+
+$base_path    = pf_app_base_path();
+$current_user = get_logged_in_user();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIGURATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Price range per product/service category.
+ * Each entry: [min_unit_price, max_unit_price].
+ */
+function pf_seed_price_range(string $category): array {
+    $tiers = [
+        'Tarpaulin'            => [800,  2500],
+        'T-Shirt'              => [350,  800],
+        'Stickers'             => [260,  600],
+        'Signage'              => [800,  2500],
+        'Sintraboard'          => [800,  2500],
+        'Sintraboard Standees' => [900,  2800],
+        'Merchandise'          => [260,  700],
+        'Apparel'              => [350,  900],
+        'Design Services'      => [350,  1500],
+        'Souvenirs'            => [260,  700],
+        'Print'                => [350,  1200],
+    ];
+    foreach ($tiers as $key => $range) {
+        if (stripos($category, $key) !== false) return $range;
+    }
+    return [260, 2500]; // default
+}
+
+/**
+ * Monthly order volume targets (year => [month => count]).
+ * Gradual growth from 2021 → 2026.
+ */
+function pf_seed_schedule(): array {
+    return [
+        2021 => [1=>4, 2=>4, 3=>5, 4=>4, 5=>5, 6=>5, 7=>5, 8=>6, 9=>5, 10=>6, 11=>6, 12=>7],          // 62
+        2022 => [1=>7, 2=>8, 3=>8, 4=>9, 5=>9, 6=>10, 7=>10, 8=>11, 9=>10, 10=>11, 11=>12, 12=>13],    // 118
+        2023 => [1=>13, 2=>14, 3=>15, 4=>15, 5=>16, 6=>17, 7=>17, 8=>18, 9=>18, 10=>20, 11=>20, 12=>22], // 195
+        2024 => [1=>22, 2=>23, 3=>25, 4=>24, 5=>27, 6=>28, 7=>28, 8=>30, 9=>29, 10=>32, 11=>31, 12=>34], // 333
+        2025 => [1=>34, 2=>36, 3=>38, 4=>39, 5=>42, 6=>43, 7=>44, 8=>46, 9=>47, 10=>50, 11=>49, 12=>52], // 520
+        2026 => [1=>53, 2=>55, 3=>57, 4=>54, 5=>28],                                                     // 247
+    ];
+}
+
+/**
+ * Status distribution for orders.
+ * Recent orders (< 6 months ago) get a mix; older ones lean Completed.
+ */
+function pf_seed_order_status(int $year, int $month): array {
+    $now     = new \DateTime();
+    $orderDt = new \DateTime("{$year}-{$month}-01");
+    $diffM   = ($now->format('Y') - $year) * 12 + ($now->format('n') - $month);
+
+    if ($diffM <= 2) {
+        // Very recent: mixed active statuses
+        return [
+            ['status' => 'Pending',          'weight' => 15],
+            ['status' => 'Processing',        'weight' => 25],
+            ['status' => 'Ready for Pickup',  'weight' => 20],
+            ['status' => 'Completed',         'weight' => 30],
+            ['status' => 'Cancelled',         'weight' => 10],
+        ];
+    }
+    if ($diffM <= 6) {
+        return [
+            ['status' => 'Processing',        'weight' => 5],
+            ['status' => 'Ready for Pickup',  'weight' => 5],
+            ['status' => 'Completed',         'weight' => 78],
+            ['status' => 'Cancelled',         'weight' => 12],
+        ];
+    }
+    // Older: mostly completed
+    return [
+        ['status' => 'Completed',  'weight' => 85],
+        ['status' => 'Cancelled',  'weight' => 15],
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Weighted random pick from array of ['status'=>..., 'weight'=>...] */
+function pf_seed_weighted_pick(array $items): string {
+    $total = array_sum(array_column($items, 'weight'));
+    $r     = mt_rand(1, $total);
+    $cum   = 0;
+    foreach ($items as $item) {
+        $cum += $item['weight'];
+        if ($r <= $cum) return $item['status'];
+    }
+    return $items[0]['status'];
+}
+
+/** Random int in range */
+function pf_seed_rand(int $min, int $max): int {
+    return mt_rand($min, $max);
+}
+
+/** Random float price rounded to 2 decimal places */
+function pf_seed_rand_price(int $min, int $max): float {
+    // Use increments of 50 for realism
+    $steps = (int)(($max - $min) / 50);
+    return (float)($min + mt_rand(0, $steps) * 50);
+}
+
+/** Random datetime within a given year/month, skewing toward weekdays */
+function pf_seed_rand_date(int $year, int $month, ?string $after = null): string {
+    $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+    // Cap at today for 2026
+    $maxDay = $daysInMonth;
+    if ($year === 2026 && $month === (int)date('n') && $year === (int)date('Y')) {
+        $maxDay = (int)date('j');
+    }
+    if ($maxDay < 1) $maxDay = 1;
+
+    $attempts = 0;
+    do {
+        $day  = mt_rand(1, $maxDay);
+        $h    = mt_rand(7, 19);
+        $m    = mt_rand(0, 59);
+        $s    = mt_rand(0, 59);
+        $dt   = sprintf('%04d-%02d-%02d %02d:%02d:%02d', $year, $month, $day, $h, $m, $s);
+        $attempts++;
+    } while ($after !== null && $dt <= $after && $attempts < 20);
+
+    return $dt;
+}
+
+/** Load reference data from DB */
+function pf_seed_load_refs(): array {
+    // Active products
+    $products = db_query(
+        "SELECT product_id, sku, name, category, product_type, price FROM products
+         WHERE status = 'Activated' AND product_id NOT IN (
+            SELECT product_id FROM products WHERE name LIKE 'SYS-%'
+         ) ORDER BY product_id"
+    );
+
+    // Active customers
+    $customers = db_query(
+        "SELECT customer_id FROM customers WHERE status = 'Active' LIMIT 300"
+    );
+    $customer_ids = array_column($customers, 'customer_id');
+
+    // Active branches
+    $branches = db_query("SELECT id FROM branches WHERE status = 'Active'");
+    $branch_ids = array_column($branches, 'id');
+    if (empty($branch_ids)) $branch_ids = [1];
+
+    // Payment methods
+    $pms = db_query("SELECT payment_method_id, name FROM payment_methods WHERE status = 'Activated'");
+    if (empty($pms)) $pms = [['payment_method_id' => 1, 'name' => 'Cash']];
+
+    // Service types for customizations
+    $service_types = ['Tarpaulin Printing', 'T-Shirt Printing', 'Sticker Printing',
+                      'Sintraboard Standee', 'Layout Design', 'Reflectorized Sticker',
+                      'Souvenir Printing', 'Glass/Wall Sticker'];
+
+    return [
+        'products'      => $products,
+        'customer_ids'  => $customer_ids,
+        'branch_ids'    => $branch_ids,
+        'payment_methods' => $pms,
+        'service_types' => $service_types,
+    ];
+}
+
+/**
+ * Pick a random unit price for a product's category,
+ * adjusted by a realism multiplier (product's original price as anchor).
+ */
+function pf_seed_unit_price(array $product): float {
+    [$min, $max] = pf_seed_price_range($product['category']);
+    // Anchor slightly around the product's original price
+    $anchor   = (float)($product['price'] ?? 500);
+    $adj_min  = max($min, (int)($anchor * 0.7));
+    $adj_max  = min($max, (int)($anchor * 3.0));
+    if ($adj_min >= $adj_max) { $adj_min = $min; $adj_max = $max; }
+    return pf_seed_rand_price($adj_min, $adj_max);
+}
+
+/** Random order quantity appropriate for product category */
+function pf_seed_quantity(string $category): int {
+    // Stickers/merch can have bulk qty; large items are 1–3
+    $bulky = ['Tarpaulin', 'Signage', 'Sintraboard', 'Sintraboard Standees'];
+    foreach ($bulky as $b) {
+        if (stripos($category, $b) !== false) return mt_rand(1, 5);
+    }
+    if (stripos($category, 'Sticker') !== false) return mt_rand(1, 30);
+    if (stripos($category, 'Merchandise') !== false || stripos($category, 'Souvenir') !== false) {
+        return mt_rand(1, 20);
+    }
+    return mt_rand(1, 10);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 1 — PRICING UPDATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function pf_seed_part1_preview(): array {
+    $orders = db_query("SELECT COUNT(*) AS c FROM orders");
+    $items  = db_query("SELECT COUNT(*) AS c FROM order_items");
+
+    // Sample: first 5 orders with their items
+    $sample = db_query(
+        "SELECT o.order_id, o.total_amount, o.status,
+                oi.order_item_id, oi.unit_price, oi.quantity,
+                p.name AS product_name, p.category
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.order_id
+         LEFT JOIN products p ON p.product_id = oi.product_id
+         ORDER BY o.order_id
+         LIMIT 10"
+    );
+
+    // Calculate what the new prices would look like
+    $sample_preview = [];
+    foreach ($sample as $row) {
+        [$min, $max] = pf_seed_price_range((string)($row['category'] ?? 'default'));
+        $new_unit = pf_seed_rand_price($min, $max);
+        $new_total_item = round($new_unit * (int)$row['quantity'], 2);
+        $sample_preview[] = [
+            'order_id'     => $row['order_id'],
+            'product'      => $row['product_name'] ?? 'Unknown',
+            'category'     => $row['category'] ?? '—',
+            'old_unit'     => number_format((float)$row['unit_price'], 2),
+            'new_unit'     => number_format($new_unit, 2),
+            'qty'          => $row['quantity'],
+            'old_total'    => number_format((float)$row['unit_price'] * (int)$row['quantity'], 2),
+            'new_total'    => number_format($new_total_item, 2),
+        ];
+    }
+
+    return [
+        'order_count'      => (int)($orders[0]['c'] ?? 0),
+        'item_count'       => (int)($items[0]['c'] ?? 0),
+        'sample'           => $sample_preview,
+    ];
+}
+
+function pf_seed_part1_execute(): array {
+    global $conn;
+
+    // Build a map: order_id → [item_id → {product, category}]
+    $items = db_query(
+        "SELECT oi.order_item_id, oi.order_id, oi.quantity,
+                p.category
+         FROM order_items oi
+         LEFT JOIN products p ON p.product_id = oi.product_id"
+    );
+
+    if (empty($items)) {
+        return ['ok' => true, 'updated_orders' => 0, 'updated_items' => 0,
+                'msg' => 'No order items found to update.'];
+    }
+
+    // Group by order
+    $order_items_map = [];
+    foreach ($items as $item) {
+        $oid = (int)$item['order_id'];
+        $order_items_map[$oid][] = $item;
+    }
+
+    // Execute in a transaction
+    $conn->begin_transaction();
+    $updated_items  = 0;
+    $updated_orders = 0;
+
+    try {
+        foreach ($order_items_map as $order_id => $order_items) {
+            $order_total = 0.0;
+            foreach ($order_items as $item) {
+                $cat      = (string)($item['category'] ?? 'default');
+                [$mn, $mx] = pf_seed_price_range($cat);
+                $new_price = pf_seed_rand_price($mn, $mx);
+                $qty       = (int)$item['quantity'];
+                $order_total += $new_price * $qty;
+
+                $conn->query(sprintf(
+                    "UPDATE order_items SET unit_price = %.2f WHERE order_item_id = %d",
+                    $new_price,
+                    (int)$item['order_item_id']
+                ));
+                $updated_items++;
+            }
+
+            // Determine payment type and downpayment for this order
+            $pt = pf_seed_weighted_pick([
+                ['status' => 'full_payment',  'weight' => 60],
+                ['status' => '50_percent',    'weight' => 30],
+                ['status' => 'upon_pickup',   'weight' => 10],
+            ]);
+            $dp = match ($pt) {
+                '50_percent'  => round($order_total * 0.5, 2),
+                'upon_pickup' => 0.00,
+                default       => round($order_total, 2),
+            };
+
+            $conn->query(sprintf(
+                "UPDATE orders SET total_amount = %.2f, downpayment_amount = %.2f, payment_type = '%s' WHERE order_id = %d",
+                round($order_total, 2), $dp, $pt, $order_id
+            ));
+            $updated_orders++;
+        }
+
+        $conn->commit();
+        return [
+            'ok'             => true,
+            'updated_orders' => $updated_orders,
+            'updated_items'  => $updated_items,
+        ];
+    } catch (\Throwable $e) {
+        $conn->rollback();
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PART 2 — HISTORICAL DATA GENERATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+function pf_seed_part2_preview(): array {
+    $schedule = pf_seed_schedule();
+    $year_totals = [];
+    $grand_total = 0;
+    foreach ($schedule as $year => $months) {
+        $t = array_sum($months);
+        $year_totals[$year] = $t;
+        $grand_total += $t;
+    }
+
+    $refs = pf_seed_load_refs();
+    $prod_sample = array_slice($refs['products'], 0, 5);
+    $sample_items = [];
+    foreach ($prod_sample as $p) {
+        [$mn, $mx] = pf_seed_price_range($p['category']);
+        $sample_items[] = [
+            'name'      => $p['name'],
+            'category'  => $p['category'],
+            'price_min' => $mn,
+            'price_max' => $mx,
+        ];
+    }
+
+    return [
+        'year_totals'  => $year_totals,
+        'grand_total'  => $grand_total,
+        'product_count'=> count($refs['products']),
+        'customer_count'=> count($refs['customer_ids']),
+        'branch_count' => count($refs['branch_ids']),
+        'sample_items' => $sample_items,
+    ];
+}
+
+function pf_seed_part2_execute(): array {
+    global $conn;
+
+    $schedule  = pf_seed_schedule();
+    $refs      = pf_seed_load_refs();
+
+    $products     = $refs['products'];
+    $customer_ids = $refs['customer_ids'];
+    $branch_ids   = $refs['branch_ids'];
+    $pms          = $refs['payment_methods'];
+    $service_types = $refs['service_types'];
+
+    if (empty($products) || empty($customer_ids)) {
+        return ['ok' => false, 'error' => 'No active products or customers found.'];
+    }
+
+    $prod_count  = count($products);
+    $cust_count  = count($customer_ids);
+    $branch_count = count($branch_ids);
+    $pm_count    = count($pms);
+
+    $inserted_orders  = 0;
+    $inserted_items   = 0;
+    $inserted_hist    = 0;
+    $inserted_custom  = 0;
+    $inserted_svc     = 0;
+    $year_counts      = [];
+    $errors           = [];
+
+    // Backup tables before generation
+    $ts = date('YmdHis');
+    foreach (['orders', 'order_items', 'order_status_history', 'customizations', 'service_orders'] as $t) {
+        $exists = db_query("SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?", 's', [$t]);
+        if (!empty($exists) && (int)$exists[0]['c'] > 0) {
+            $cnt = db_query("SELECT COUNT(*) AS c FROM `{$t}`");
+            if ((int)$cnt[0]['c'] > 0) {
+                @$conn->query("CREATE TABLE IF NOT EXISTS `backup_seed_{$ts}_{$t}` SELECT * FROM `{$t}`");
+            }
+        }
+    }
+
+    $conn->begin_transaction();
+
+    try {
+        foreach ($schedule as $year => $months) {
+            $year_counts[$year] = 0;
+
+            foreach ($months as $month => $count) {
+                for ($i = 0; $i < $count; $i++) {
+                    // ── Pick random params ──
+                    $cust_id  = $customer_ids[mt_rand(0, $cust_count - 1)];
+                    $branch_i = $branch_ids[mt_rand(0, $branch_count - 1)];
+                    $pm       = $pms[mt_rand(0, $pm_count - 1)];
+                    $order_dt = pf_seed_rand_date($year, $month);
+                    $status   = pf_seed_weighted_pick(pf_seed_order_status($year, $month));
+                    $is_svc   = (mt_rand(1, 10) <= 3); // 30% service orders
+
+                    // ── Service order (separate table) ──
+                    if ($is_svc) {
+                        $svc_name  = $service_types[mt_rand(0, count($service_types) - 1)];
+                        $svc_price = pf_seed_rand_price(260, 2500);
+                        $svc_status = $status;
+                        $conn->query(sprintf(
+                            "INSERT INTO service_orders (service_name, customer_id, branch_id, status, total_price, created_at, updated_at)
+                             VALUES ('%s', %d, %d, '%s', %.2f, '%s', '%s')",
+                            $conn->real_escape_string($svc_name),
+                            $cust_id, $branch_i,
+                            $conn->real_escape_string($svc_status),
+                            $svc_price, $order_dt, $order_dt
+                        ));
+                        $inserted_svc++;
+                        // Don't also create a product order for this iteration
+                        $year_counts[$year]++;
+                        continue;
+                    }
+
+                    // ── Product order ──
+                    $order_type = (mt_rand(1, 10) <= 6) ? 'product' : 'custom';
+                    $order_src  = pf_seed_weighted_pick([
+                        ['status' => 'customer',  'weight' => 60],
+                        ['status' => 'pos',       'weight' => 25],
+                        ['status' => 'walk-in',   'weight' => 15],
+                    ]);
+
+                    // Payment
+                    $pay_type = pf_seed_weighted_pick([
+                        ['status' => 'full_payment', 'weight' => 60],
+                        ['status' => '50_percent',   'weight' => 30],
+                        ['status' => 'upon_pickup',  'weight' => 10],
+                    ]);
+                    $pay_status = match (true) {
+                        $status === 'Completed'                  => 'Paid',
+                        $status === 'Cancelled'                  => (mt_rand(1,3) === 1 ? 'Refunded' : 'Unpaid'),
+                        $status === 'Processing'                 => (mt_rand(1,3) === 1 ? 'Pending Verification' : 'Paid'),
+                        $status === 'Ready for Pickup'           => 'Paid',
+                        default                                   => 'Unpaid',
+                    };
+
+                    // Design status
+                    $design_status = match ($status) {
+                        'Completed'       => 'Approved',
+                        'Cancelled'       => 'Cancelled',
+                        'Processing'      => (mt_rand(0,1) ? 'Approved' : 'Pending'),
+                        'Ready for Pickup'=> 'Approved',
+                        default           => 'Pending',
+                    };
+
+                    // PM name
+                    $pm_name = $pm['name'];
+
+                    // ── Insert order (no total yet) ──
+                    $conn->query(sprintf(
+                        "INSERT INTO orders (customer_id, order_date, updated_at, total_amount, downpayment_amount,
+                             status, payment_status, payment_method_id, payment_method,
+                             branch_id, design_status, payment_type, order_type, order_source)
+                         VALUES (%d, '%s', '%s', 0.00, 0.00, '%s', '%s', %d, '%s', %d, '%s', '%s', '%s', '%s')",
+                        $cust_id, $order_dt, $order_dt,
+                        $conn->real_escape_string($status),
+                        $conn->real_escape_string($pay_status),
+                        (int)$pm['payment_method_id'],
+                        $conn->real_escape_string($pm_name),
+                        $branch_i,
+                        $conn->real_escape_string($design_status),
+                        $conn->real_escape_string($pay_type),
+                        $conn->real_escape_string($order_type),
+                        $conn->real_escape_string($order_src)
+                    ));
+                    $order_id = (int)$conn->insert_id;
+                    if ($order_id <= 0) continue;
+                    $inserted_orders++;
+
+                    // ── Insert 1–3 order items ──
+                    $num_items   = mt_rand(1, 3);
+                    $order_total = 0.0;
+                    $picked_prods = [];
+
+                    for ($j = 0; $j < $num_items; $j++) {
+                        // Avoid duplicate product in same order
+                        $attempts = 0;
+                        do {
+                            $prod = $products[mt_rand(0, $prod_count - 1)];
+                            $attempts++;
+                        } while (in_array($prod['product_id'], $picked_prods) && $attempts < 10);
+                        $picked_prods[] = $prod['product_id'];
+
+                        $qty        = pf_seed_quantity($prod['category']);
+                        $unit_price = pf_seed_unit_price($prod);
+                        $order_total += $unit_price * $qty;
+
+                        // Shifted item date (slightly after order date)
+                        $item_dt = pf_seed_rand_date($year, $month, $order_dt);
+
+                        $conn->query(sprintf(
+                            "INSERT INTO order_items (order_id, product_id, quantity, unit_price, sku)
+                             VALUES (%d, %d, %d, %.2f, %s)",
+                            $order_id,
+                            (int)$prod['product_id'],
+                            $qty,
+                            $unit_price,
+                            $prod['sku'] ? ("'" . $conn->real_escape_string($prod['sku'] ?? '') . "'") : 'NULL'
+                        ));
+                        $item_id = (int)$conn->insert_id;
+                        $inserted_items++;
+
+                        // ── Customization for 'custom' type orders ──
+                        if ($order_type === 'custom' && $item_id > 0) {
+                            $svc_type = $service_types[mt_rand(0, count($service_types) - 1)];
+                            $details  = json_encode([
+                                'size'    => pf_seed_weighted_pick([
+                                    ['status' => '2x3 ft',  'weight' => 20],
+                                    ['status' => '3x4 ft',  'weight' => 25],
+                                    ['status' => '4x6 ft',  'weight' => 20],
+                                    ['status' => '5x8 ft',  'weight' => 15],
+                                    ['status' => '8x10 ft', 'weight' => 10],
+                                    ['status' => 'custom',  'weight' => 10],
+                                ]),
+                                'material' => pf_seed_weighted_pick([
+                                    ['status' => 'Tarpaulin 8oz',   'weight' => 30],
+                                    ['status' => 'Tarpaulin 10oz',  'weight' => 25],
+                                    ['status' => 'Vinyl',           'weight' => 20],
+                                    ['status' => 'Sintraboard 3mm', 'weight' => 15],
+                                    ['status' => 'Cotton',          'weight' => 10],
+                                ]),
+                                'quantity' => $qty,
+                                'notes'    => '',
+                            ]);
+                            $cust_status = match ($status) {
+                                'Completed'       => 'Completed',
+                                'Cancelled'       => 'Cancelled',
+                                'Processing'      => 'Approved',
+                                'Ready for Pickup'=> 'Completed',
+                                default           => 'Pending Review',
+                            };
+
+                            $conn->query(sprintf(
+                                "INSERT INTO customizations (order_id, order_item_id, customer_id, service_type, customization_details, status, created_at, updated_at)
+                                 VALUES (%d, %d, %d, '%s', '%s', '%s', '%s', '%s')",
+                                $order_id, $item_id, $cust_id,
+                                $conn->real_escape_string($svc_type),
+                                $conn->real_escape_string($details),
+                                $conn->real_escape_string($cust_status),
+                                $order_dt, $order_dt
+                            ));
+                            $inserted_custom++;
+                        }
+                    }
+
+                    // ── Update order total ──
+                    $dp = match ($pay_type) {
+                        '50_percent'  => round($order_total * 0.5, 2),
+                        'upon_pickup' => 0.00,
+                        default       => round($order_total, 2),
+                    };
+                    $conn->query(sprintf(
+                        "UPDATE orders SET total_amount = %.2f, downpayment_amount = %.2f WHERE order_id = %d",
+                        round($order_total, 2), $dp, $order_id
+                    ));
+
+                    // ── Status history ──
+                    $hist_steps = match ($status) {
+                        'Completed'      => ['Pending', 'Processing', 'Ready for Pickup', 'Completed'],
+                        'Cancelled'      => ['Pending', 'Cancelled'],
+                        'Processing'     => ['Pending', 'Processing'],
+                        'Ready for Pickup' => ['Pending', 'Processing', 'Ready for Pickup'],
+                        default          => ['Pending'],
+                    };
+
+                    $prev_dt = $order_dt;
+                    for ($h = 0; $h < count($hist_steps); $h++) {
+                        $old = ($h === 0) ? 'Pending' : $hist_steps[$h - 1];
+                        $new = $hist_steps[$h];
+                        if ($h > 0 && $old === $new) continue;
+                        $by  = pf_seed_weighted_pick([
+                            ['status' => 'Staff', 'weight' => 60],
+                            ['status' => 'Admin', 'weight' => 30],
+                            ['status' => 'Customer', 'weight' => 10],
+                        ]);
+                        $hist_dt = pf_seed_rand_date($year, $month, $prev_dt);
+                        $conn->query(sprintf(
+                            "INSERT INTO order_status_history (order_id, old_status, new_status, changed_by, changed_at)
+                             VALUES (%d, '%s', '%s', '%s', '%s')",
+                            $order_id,
+                            $conn->real_escape_string($old),
+                            $conn->real_escape_string($new),
+                            $conn->real_escape_string($by),
+                            $hist_dt
+                        ));
+                        $inserted_hist++;
+                        $prev_dt = $hist_dt;
+                    }
+
+                    $year_counts[$year]++;
+                } // end for $count
+            } // end foreach months
+        } // end foreach schedule
+
+        $conn->commit();
+
+    } catch (\Throwable $e) {
+        $conn->rollback();
+        return ['ok' => false, 'error' => $e->getMessage(), 'year_counts' => $year_counts];
+    }
+
+    return [
+        'ok'              => true,
+        'year_counts'     => $year_counts,
+        'inserted_orders' => $inserted_orders,
+        'inserted_items'  => $inserted_items,
+        'inserted_hist'   => $inserted_hist,
+        'inserted_custom' => $inserted_custom,
+        'inserted_svc'    => $inserted_svc,
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST HANDLER
+// ─────────────────────────────────────────────────────────────────────────────
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrf = trim($_POST['csrf_token'] ?? '');
+    if (!verify_csrf_token($csrf)) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'CSRF mismatch.']);
+        exit;
+    }
+
+    header('Content-Type: application/json');
+    $action = trim($_POST['action'] ?? '');
+
+    switch ($action) {
+        case 'part1_preview':
+            echo json_encode(['ok' => true, 'data' => pf_seed_part1_preview()]);
+            break;
+
+        case 'part1_execute':
+            if (($_POST['confirm'] ?? '') !== '1') {
+                echo json_encode(['ok' => false, 'error' => 'Confirmation required.']);
+                break;
+            }
+            $r = pf_seed_part1_execute();
+            if ($r['ok'] && function_exists('log_activity')) {
+                log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
+                    'Repriced Orders', 'Updated pricing on existing orders to realistic values.');
+            }
+            echo json_encode($r);
+            break;
+
+        case 'part2_preview':
+            echo json_encode(['ok' => true, 'data' => pf_seed_part2_preview()]);
+            break;
+
+        case 'part2_execute':
+            if (($_POST['confirm'] ?? '') !== '1') {
+                echo json_encode(['ok' => false, 'error' => 'Confirmation required.']);
+                break;
+            }
+            $r = pf_seed_part2_execute();
+            if ($r['ok'] && function_exists('log_activity')) {
+                log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
+                    'Seeded Historical Data', 'Generated historical transaction data 2021–2026.');
+            }
+            echo json_encode($r);
+            break;
+
+        default:
+            echo json_encode(['ok' => false, 'error' => 'Unknown action.']);
+    }
+    exit;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET — Render page
+// ─────────────────────────────────────────────────────────────────────────────
+
+$csrf_token   = generate_csrf_token();
+$current_page = 'seed_transactions';
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seed Transactions — PrintFlow Admin</title>
+    <link rel="stylesheet" href="<?= htmlspecialchars($base_path) ?>/admin/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        .seed-wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; }
+
+        .part-tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 2px solid #e2e8f0; }
+        .tab-btn {
+            padding: 10px 22px;
+            border: none; background: none; cursor: pointer;
+            font-size: .93rem; font-weight: 600; color: #718096;
+            border-bottom: 3px solid transparent; margin-bottom: -2px;
+            transition: color .15s, border-color .15s;
+        }
+        .tab-btn.active { color: #4299e1; border-bottom-color: #4299e1; }
+        .tab-btn:hover:not(.active) { color: #4a5568; }
+
+        .part-header {
+            display: flex; align-items: flex-start; gap: 16px;
+            background: #fff; border: 1.5px solid #e2e8f0;
+            border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;
+        }
+        .part-icon { font-size: 2rem; }
+        .part-header h3 { margin: 0 0 4px; font-size: 1.1rem; color: #2d3748; }
+        .part-header p  { margin: 0; color: #718096; font-size: .88rem; }
+
+        .info-card {
+            background: #ebf8ff; border: 1.5px solid #4299e1;
+            border-radius: 10px; padding: 14px 18px; margin-bottom: 16px;
+            font-size: .88rem; color: #2b6cb0;
+        }
+
+        .preview-table { width: 100%; border-collapse: collapse; font-size: .85rem; margin: 12px 0; }
+        .preview-table th {
+            background: #f7fafc; color: #4a5568; font-weight: 700;
+            padding: 8px 10px; text-align: left; border-bottom: 2px solid #e2e8f0;
+        }
+        .preview-table td { padding: 7px 10px; border-bottom: 1px solid #edf2f7; }
+        .preview-table tr:hover td { background: #f7fafc; }
+
+        .year-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px; margin: 16px 0;
+        }
+        .year-card {
+            background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px;
+            padding: 14px; text-align: center;
+        }
+        .year-card .yr { font-size: .78rem; color: #a0aec0; font-weight: 700; text-transform: uppercase; }
+        .year-card .cnt { font-size: 1.8rem; font-weight: 800; color: #4299e1; }
+        .year-card .sub { font-size: .75rem; color: #718096; }
+
+        .btn-preview {
+            background: #4299e1; color: #fff; border: none;
+            padding: 10px 24px; border-radius: 8px; font-size: .95rem;
+            font-weight: 600; cursor: pointer; transition: background .15s;
+        }
+        .btn-preview:hover:not(:disabled) { background: #3182ce; }
+        .btn-preview:disabled { opacity: .5; cursor: default; }
+
+        .btn-execute {
+            background: #38a169; color: #fff; border: none;
+            padding: 11px 28px; border-radius: 8px; font-size: .95rem;
+            font-weight: 700; cursor: pointer; transition: background .15s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-execute:hover:not(:disabled) { background: #2f855a; }
+        .btn-execute:disabled { opacity: .5; cursor: default; }
+
+        .btn-cancel {
+            background: transparent; border: 1.5px solid #cbd5e0;
+            color: #4a5568; padding: 10px 20px; border-radius: 8px;
+            font-size: .9rem; cursor: pointer;
+        }
+        .btn-cancel:hover { background: #f7fafc; }
+
+        .confirm-box {
+            background: #fffbeb; border: 2px solid #d69e2e;
+            border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+        }
+        .confirm-box label {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 600; color: #744210; cursor: pointer; font-size: .9rem;
+        }
+        .confirm-box input[type=checkbox] { width: 16px; height: 16px; }
+
+        .success-banner {
+            background: #f0fff4; border: 2px solid #48bb78;
+            border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+        }
+        .success-banner h4 { color: #276749; margin: 0 0 4px; }
+        .success-banner p  { color: #2f855a; margin: 0; font-size: .88rem; }
+
+        .error-banner {
+            background: #fff5f5; border: 2px solid #e53e3e;
+            border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+        }
+        .error-banner p { color: #c53030; margin: 0; font-weight: 600; }
+
+        .stat-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+        .stat-box {
+            flex: 1; min-width: 130px;
+            background: #f7fafc; border: 1.5px solid #e2e8f0;
+            border-radius: 10px; padding: 14px 16px; text-align: center;
+        }
+        .stat-box .val { font-size: 1.6rem; font-weight: 800; color: #4299e1; }
+        .stat-box .lbl { font-size: .75rem; color: #718096; font-weight: 600; text-transform: uppercase; }
+
+        .old-price { color: #a0aec0; text-decoration: line-through; }
+        .new-price { color: #38a169; font-weight: 600; }
+
+        .spinner { display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+            border-radius: 50%; animation: spin .6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        [v-cloak] { display: none; }
+    </style>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body>
+<?php if (file_exists(__DIR__ . '/admin_header.php')) require_once __DIR__ . '/admin_header.php'; ?>
+
+<div class="seed-wrap" x-data="seedApp()" x-cloak>
+
+    <h2 style="margin:0 0 4px;font-size:1.35rem;color:#2d3748;">
+        <i class="fas fa-database" style="color:#4299e1;"></i> Seed & Reprice Transactions
+    </h2>
+    <p style="margin:0 0 24px;color:#718096;font-size:.9rem;">
+        Part 1 updates existing order pricing. Part 2 generates historical data from 2021 to 2026.
+    </p>
+
+    <!-- Tabs -->
+    <div class="part-tabs">
+        <button class="tab-btn" :class="{ active: tab === 1 }" @click="switchTab(1)">
+            <i class="fas fa-tags"></i> Part 1 — Reprice Orders
+        </button>
+        <button class="tab-btn" :class="{ active: tab === 2 }" @click="switchTab(2)">
+            <i class="fas fa-chart-line"></i> Part 2 — Generate History
+        </button>
+    </div>
+
+    <!-- ───────────────────────── PART 1 ───────────────────────── -->
+    <div x-show="tab === 1">
+        <div class="part-header">
+            <div class="part-icon">💰</div>
+            <div>
+                <h3>Update Pricing on Existing Orders</h3>
+                <p>Assigns realistic unit prices (₱260–₱5,100) to all existing order items based on product category. Recalculates all order totals automatically.</p>
+            </div>
+        </div>
+
+        <!-- Idle -->
+        <template x-if="p1.state === 'idle'">
+            <div>
+                <button class="btn-preview" @click="part1Preview()" :disabled="p1.loading">
+                    <template x-if="p1.loading"><span class="spinner"></span></template>
+                    <template x-if="!p1.loading"><i class="fas fa-eye"></i></template>
+                    <span x-text="p1.loading ? ' Loading preview…' : ' Preview Changes'"></span>
+                </button>
+                <div x-show="p1.error" x-text="p1.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <!-- Preview shown -->
+        <template x-if="p1.state === 'preview'">
+            <div>
+                <div class="stat-row">
+                    <div class="stat-box">
+                        <div class="val" x-text="p1.data.order_count.toLocaleString()"></div>
+                        <div class="lbl">Orders</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="val" x-text="p1.data.item_count.toLocaleString()"></div>
+                        <div class="lbl">Order Items</div>
+                    </div>
+                </div>
+
+                <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:16px 0 6px;">
+                    Sample — Before / After (randomized per execution)
+                </div>
+                <table class="preview-table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Qty</th>
+                            <th>Old Unit</th>
+                            <th>New Unit</th>
+                            <th>New Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="row in p1.data.sample" :key="row.order_id + '-' + row.product">
+                            <tr>
+                                <td x-text="'#' + row.order_id"></td>
+                                <td x-text="row.product"></td>
+                                <td x-text="row.category"></td>
+                                <td x-text="row.qty"></td>
+                                <td><span class="old-price" x-text="'₱' + row.old_unit"></span></td>
+                                <td><span class="new-price" x-text="'₱' + row.new_unit"></span></td>
+                                <td><strong x-text="'₱' + row.new_total"></strong></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div x-show="p1.data.order_count === 0" class="info-card" style="margin-top:8px;">
+                    <i class="fas fa-circle-info"></i> No orders exist yet. Generate historical data first (Part 2), then run the repricer.
+                </div>
+
+                <div class="confirm-box" x-show="p1.data.order_count > 0">
+                    <label>
+                        <input type="checkbox" x-model="p1.confirmed">
+                        I understand this will overwrite all existing order prices. This cannot be undone without a DB backup.
+                    </label>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                    <button class="btn-cancel" @click="p1.state='idle'">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="btn-preview" @click="part1Preview()">
+                        <i class="fas fa-rotate"></i> Regenerate Preview
+                    </button>
+                    <button class="btn-execute" @click="part1Execute()"
+                            :disabled="!p1.confirmed || p1.loading || p1.data.order_count === 0">
+                        <template x-if="p1.loading"><span class="spinner"></span></template>
+                        <template x-if="!p1.loading"><i class="fas fa-check"></i></template>
+                        <span x-text="p1.loading ? 'Updating prices…' : 'Apply Pricing Update'"></span>
+                    </button>
+                </div>
+                <div x-show="p1.error" x-text="p1.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <!-- Done -->
+        <template x-if="p1.state === 'done'">
+            <div>
+                <div class="success-banner" x-show="p1.result && p1.result.ok">
+                    <h4><i class="fas fa-circle-check"></i> Pricing updated successfully</h4>
+                    <p>
+                        <strong x-text="p1.result ? p1.result.updated_orders : 0"></strong> orders and
+                        <strong x-text="p1.result ? p1.result.updated_items : 0"></strong> line items repriced with realistic values.
+                    </p>
+                </div>
+                <div class="error-banner" x-show="p1.result && !p1.result.ok">
+                    <p x-text="p1.result ? p1.result.error : ''"></p>
+                </div>
+                <button class="btn-cancel" @click="p1.state='idle'; p1.confirmed=false; p1.result=null">
+                    <i class="fas fa-rotate-left"></i> Run Again
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <!-- ───────────────────────── PART 2 ───────────────────────── -->
+    <div x-show="tab === 2">
+        <div class="part-header">
+            <div class="part-icon">📈</div>
+            <div>
+                <h3>Generate Historical Transaction Data (2021–2026)</h3>
+                <p>Inserts realistic orders, order items, customizations, service orders, and status history distributed across 6 years. Based on your existing products and customers.</p>
+            </div>
+        </div>
+
+        <!-- Idle -->
+        <template x-if="p2.state === 'idle'">
+            <div>
+                <button class="btn-preview" @click="part2Preview()" :disabled="p2.loading">
+                    <template x-if="p2.loading"><span class="spinner"></span></template>
+                    <template x-if="!p2.loading"><i class="fas fa-eye"></i></template>
+                    <span x-text="p2.loading ? ' Loading preview…' : ' Preview Generation Plan'"></span>
+                </button>
+                <div x-show="p2.error" x-text="p2.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <!-- Preview -->
+        <template x-if="p2.state === 'preview'">
+            <div>
+                <div class="info-card">
+                    <i class="fas fa-circle-info"></i>
+                    Using <strong x-text="p2.data.product_count"></strong> active products,
+                    <strong x-text="p2.data.customer_count"></strong> customers,
+                    <strong x-text="p2.data.branch_count"></strong> branches.
+                    Approx. <strong x-text="(p2.data.grand_total * 2).toLocaleString()"></strong>–<strong x-text="(p2.data.grand_total * 4).toLocaleString()"></strong> order items will be created.
+                </div>
+
+                <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:0 0 8px;">
+                    Orders per year
+                </div>
+                <div class="year-grid">
+                    <template x-for="(count, year) in p2.data.year_totals" :key="year">
+                        <div class="year-card">
+                            <div class="yr" x-text="year"></div>
+                            <div class="cnt" x-text="count"></div>
+                            <div class="sub">orders</div>
+                        </div>
+                    </template>
+                    <div class="year-card" style="border-color:#4299e1;background:#ebf8ff;">
+                        <div class="yr" style="color:#4299e1;">Total</div>
+                        <div class="cnt" x-text="p2.data.grand_total.toLocaleString()"></div>
+                        <div class="sub">orders</div>
+                    </div>
+                </div>
+
+                <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:16px 0 6px;">
+                    Sample products &amp; price ranges
+                </div>
+                <table class="preview-table">
+                    <thead>
+                        <tr><th>Product</th><th>Category</th><th>Price Range</th></tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in p2.data.sample_items" :key="item.name">
+                            <tr>
+                                <td x-text="item.name"></td>
+                                <td x-text="item.category"></td>
+                                <td><span class="new-price" x-text="'₱' + item.price_min.toLocaleString() + ' – ₱' + item.price_max.toLocaleString()"></span></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="confirm-box">
+                    <label>
+                        <input type="checkbox" x-model="p2.confirmed">
+                        I want to insert <strong x-text="p2.data.grand_total.toLocaleString()"></strong> historical orders into this database. Existing data is NOT deleted.
+                    </label>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                    <button class="btn-cancel" @click="p2.state='idle'">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                    <button class="btn-execute" @click="part2Execute()"
+                            :disabled="!p2.confirmed || p2.loading">
+                        <template x-if="p2.loading"><span class="spinner"></span></template>
+                        <template x-if="!p2.loading"><i class="fas fa-database"></i></template>
+                        <span x-text="p2.loading ? 'Generating… (may take 30–60s)' : 'Generate Historical Data'"></span>
+                    </button>
+                </div>
+                <div x-show="p2.error" x-text="p2.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+            </div>
+        </template>
+
+        <!-- Executing (waiting) -->
+        <template x-if="p2.state === 'executing'">
+            <div style="text-align:center;padding:60px 0;">
+                <div style="font-size:3rem;"><i class="fas fa-gear fa-spin" style="color:#4299e1;"></i></div>
+                <div style="font-size:1.1rem;color:#4a5568;font-weight:600;margin-top:16px;">Generating historical data…</div>
+                <div style="color:#a0aec0;font-size:.85rem;margin-top:8px;">This may take 30–90 seconds. Do not close this page.</div>
+            </div>
+        </template>
+
+        <!-- Done -->
+        <template x-if="p2.state === 'done'">
+            <div>
+                <div class="success-banner" x-show="p2.result && p2.result.ok">
+                    <h4><i class="fas fa-circle-check"></i> Historical data generated successfully!</h4>
+                    <p>
+                        <strong x-text="p2.result ? p2.result.inserted_orders.toLocaleString() : 0"></strong> orders ·
+                        <strong x-text="p2.result ? p2.result.inserted_items.toLocaleString() : 0"></strong> order items ·
+                        <strong x-text="p2.result ? p2.result.inserted_hist.toLocaleString() : 0"></strong> status history entries ·
+                        <strong x-text="p2.result ? p2.result.inserted_custom.toLocaleString() : 0"></strong> customizations ·
+                        <strong x-text="p2.result ? p2.result.inserted_svc.toLocaleString() : 0"></strong> service orders
+                    </p>
+                </div>
+                <div class="error-banner" x-show="p2.result && !p2.result.ok">
+                    <p x-text="'Error: ' + (p2.result ? p2.result.error : 'Unknown error')"></p>
+                </div>
+
+                <!-- Year breakdown -->
+                <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin:16px 0 8px;" x-show="p2.result && p2.result.ok">
+                    Orders inserted per year
+                </div>
+                <div class="year-grid" x-show="p2.result && p2.result.ok">
+                    <template x-for="(count, year) in (p2.result ? p2.result.year_counts : {})" :key="year">
+                        <div class="year-card" style="border-color:#48bb78;">
+                            <div class="yr" x-text="year"></div>
+                            <div class="cnt" style="color:#38a169;" x-text="count"></div>
+                            <div class="sub">inserted</div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Verification checklist -->
+                <div style="margin-top:20px;" x-show="p2.result && p2.result.ok">
+                    <div style="font-size:.8rem;font-weight:700;text-transform:uppercase;color:#718096;margin-bottom:8px;">
+                        <i class="fas fa-clipboard-check"></i> Verification Checklist
+                    </div>
+                    <ul style="list-style:none;padding:0;margin:0;">
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> Orders distributed across 2021–2026 (gradual growth)
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> All order_items link to valid product IDs
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> All orders link to existing customers and branches
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> Customizations linked to valid order_id + order_item_id
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> Status history follows valid progression (Pending → ... → Completed)
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> Price totals = unit_price × quantity (no mismatched values)
+                        </li>
+                        <li style="padding:7px 12px;border-radius:8px;background:#f0fff4;color:#276749;margin-bottom:4px;font-size:.88rem;">
+                            <i class="fas fa-check-circle"></i> No users, products, services, or settings were modified
+                        </li>
+                    </ul>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+                    <a href="<?= htmlspecialchars($base_path) ?>/admin/orders_management.php"
+                       style="text-decoration:none;" class="btn-preview">
+                        <i class="fas fa-box"></i> View Orders
+                    </a>
+                    <a href="<?= htmlspecialchars($base_path) ?>/admin/customizations.php"
+                       style="text-decoration:none;" class="btn-preview" >
+                        <i class="fas fa-palette"></i> View Customizations
+                    </a>
+                    <button class="btn-cancel" @click="p2.state='idle'; p2.confirmed=false; p2.result=null; tab=1">
+                        Run Part 1 (Reprice)
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+</div><!-- /seed-wrap -->
+
+<script>
+function seedApp() {
+    return {
+        tab: 1,
+        p1: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
+        p2: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
+
+        switchTab(t) {
+            this.tab = t;
+        },
+
+        async part1Preview() {
+            this.p1.loading = true; this.p1.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'part1_preview');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (!json.ok) throw new Error(json.error || 'Preview failed.');
+                this.p1.data  = json.data;
+                this.p1.state = 'preview';
+            } catch (e) {
+                this.p1.error = e.message;
+            } finally {
+                this.p1.loading = false;
+            }
+        },
+
+        async part1Execute() {
+            if (!this.p1.confirmed) return;
+            this.p1.loading = true; this.p1.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'part1_execute');
+                fd.append('confirm', '1');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                this.p1.result = json;
+                this.p1.state  = 'done';
+            } catch (e) {
+                this.p1.error = e.message;
+            } finally {
+                this.p1.loading = false;
+            }
+        },
+
+        async part2Preview() {
+            this.p2.loading = true; this.p2.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'part2_preview');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (!json.ok) throw new Error(json.error || 'Preview failed.');
+                this.p2.data  = json.data;
+                this.p2.state = 'preview';
+            } catch (e) {
+                this.p2.error = e.message;
+            } finally {
+                this.p2.loading = false;
+            }
+        },
+
+        async part2Execute() {
+            if (!this.p2.confirmed) return;
+            this.p2.loading = true; this.p2.error = '';
+            this.p2.state   = 'executing';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'part2_execute');
+                fd.append('confirm', '1');
+                const res  = await fetch(location.href, {
+                    method: 'POST', body: fd,
+                });
+                const json = await res.json();
+                this.p2.result = json;
+                this.p2.state  = 'done';
+            } catch (e) {
+                this.p2.error  = e.message;
+                this.p2.result = { ok: false, error: e.message };
+                this.p2.state  = 'done';
+            } finally {
+                this.p2.loading = false;
+            }
+        },
+    };
+}
+</script>
+
+<?php if (file_exists(__DIR__ . '/admin_footer.php')) require_once __DIR__ . '/admin_footer.php'; ?>
+</body>
+</html>
