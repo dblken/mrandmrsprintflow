@@ -200,8 +200,10 @@ if ($action === 'toggle_status') {
     }
 
     printflow_ensure_user_archived_status_available_api();
+    // Do not add status='Deactivated' to the SQL WHERE clause: after restore, ENUM/CHAR/collation
+    // can prevent a match so no row updates while mysqli still reports success. PHP guards above are sufficient.
     $ok = db_execute(
-        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'",
+        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?",
         'i',
         [$user_id]
     );
@@ -243,7 +245,7 @@ if ($action === 'toggle_status') {
 
     printflow_ensure_user_archived_status_available_api();
     $ok = db_execute(
-        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ? AND status = 'Deactivated'",
+        "UPDATE users SET status = 'Archived', updated_at = NOW() WHERE user_id = ?",
         'i',
         [$user_id]
     );

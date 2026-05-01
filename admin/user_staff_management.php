@@ -27,21 +27,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user
     $restore_user_id = (int)($_POST['user_id'] ?? 0);
     if ($restore_user_id > 0) {
         $pre = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
-        $pre_st = trim((string)($pre[0]['status'] ?? ''));
-        if (empty($pre) || $pre_st !== 'Archived') {
+        if (empty($pre)) {
             $error = 'That account is not archived or could not be found.';
         } else {
-            $restored = db_execute(
-                "UPDATE users SET status = 'Deactivated', updated_at = NOW() WHERE user_id = ? AND status = 'Archived'",
-                'i',
-                [$restore_user_id]
-            );
-            $post = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
-            $now_st = trim((string)($post[0]['status'] ?? ''));
-            if ($restored && $now_st === 'Deactivated') {
-                $success = 'Archived account restored successfully.';
+            $pre_st = trim((string)($pre[0]['status'] ?? ''));
+            if ($pre_st !== 'Archived') {
+                $error = 'That account is not archived or could not be found.';
             } else {
-                $error = 'Failed to restore archived account.';
+                // Avoid SQL `AND status = 'Archived'` mismatch (ENUM/collation) on repeat archive/restore cycles.
+                $restored = db_execute(
+                    "UPDATE users SET status = 'Deactivated', updated_at = NOW() WHERE user_id = ?",
+                    'i',
+                    [$restore_user_id]
+                );
+                $post = db_query("SELECT status FROM users WHERE user_id = ? LIMIT 1", 'i', [$restore_user_id]);
+                $now_st = trim((string)($post[0]['status'] ?? ''));
+                if ($restored && $now_st === 'Deactivated') {
+                    $success = 'Archived account restored successfully.';
+                } else {
+                    $error = 'Failed to restore archived account.';
+                }
             }
         }
     } else {
