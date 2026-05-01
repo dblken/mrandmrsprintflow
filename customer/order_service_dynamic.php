@@ -864,7 +864,6 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
         <!-- Product Ratings Section -->
         <?php
         $review_schema = printflow_review_schema();
-        $review_name_candidates = printflow_precise_service_name_aliases((string)$service['name']);
         $current_user_id = (int)get_user_id();
         $current_user_type = (string)($_SESSION['user_type'] ?? '');
         $current_customer_id = $current_user_type === 'Customer' ? $current_user_id : 0;
@@ -919,13 +918,6 @@ $sold_display = $sold_count >= 1000 ? number_format($sold_count / 1000, 1) . 'k'
             )";
             $review_types .= 'i';
             $review_params[] = (int)$service_id;
-        }
-
-        if (!empty($review_schema['service_col']) && !empty($review_name_candidates)) {
-            $service_placeholders = implode(',', array_fill(0, count($review_name_candidates), '?'));
-            $review_where_parts[] = "{$review_service_expr} COLLATE utf8mb4_unicode_ci IN ($service_placeholders)";
-            $review_types .= str_repeat('s', count($review_name_candidates));
-            array_push($review_params, ...$review_name_candidates);
         }
 
         if (!empty($review_where_parts)) {

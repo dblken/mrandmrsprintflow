@@ -2725,7 +2725,7 @@ function printflow_get_service_review_stats(string $service_name, int $service_i
         $params[] = $service_id;
     }
 
-    if ($schema['service_col'] !== '' && !empty($aliases)) {
+    if ($service_id <= 0 && $schema['service_col'] !== '' && !empty($aliases)) {
         $placeholders = implode(',', array_fill(0, count($aliases), '?'));
         $where_parts[] = "r.{$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)";
         $types .= str_repeat('s', count($aliases));
@@ -2797,7 +2797,7 @@ function printflow_get_service_reviews(string $service_name, ?int $limit = null,
         $params[] = $service_id;
     }
 
-    if ($schema['service_col'] !== '' && !empty($aliases)) {
+    if ($service_id <= 0 && $schema['service_col'] !== '' && !empty($aliases)) {
         $placeholders = implode(',', array_fill(0, count($aliases), '?'));
         $where_parts[] = "r.{$schema['service_col']} COLLATE utf8mb4_unicode_ci IN ($placeholders)";
         $types .= str_repeat('s', count($aliases));
