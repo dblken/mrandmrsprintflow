@@ -221,7 +221,8 @@ window.collectNestedFieldConfigurations = function() {
             type: window.fieldConfigurations[key]?.type || 'text',
             visible: true,
             required: isDefault ? (key === 'notes' ? false : true) : (requiredToggle ? requiredToggle.checked : false),
-            order: index
+            order: index,
+            allow_others: !!(window.fieldConfigurations[key] && window.fieldConfigurations[key].allow_others)
         };
         
         // Handle radio fields with nested fields

@@ -213,11 +213,6 @@ if ($action === 'toggle_status') {
         exit;
     }
 
-    if ($target_status !== 'Deactivated') {
-        echo json_encode(['success' => false, 'error' => 'Deactivate this account before archiving.']);
-        exit;
-    }
-
     printflow_ensure_user_archived_status_available_api();
     $ok = db_execute(
         "UPDATE users SET status = 'Archived', archived_at = NOW(), updated_at = NOW() WHERE user_id = ?",
@@ -255,11 +250,6 @@ if ($action === 'toggle_status') {
     $target_archived_at = trim((string)($u[0]['archived_at'] ?? ''));
     if ($target_status === 'Archived' || $target_archived_at !== '') {
         echo json_encode(['success' => true, 'message' => 'Account is already archived.']);
-        exit;
-    }
-
-    if ($target_status !== 'Deactivated') {
-        echo json_encode(['success' => false, 'error' => 'Deactivate this account before archiving.']);
         exit;
     }
 

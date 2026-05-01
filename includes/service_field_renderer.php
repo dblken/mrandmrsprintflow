@@ -146,7 +146,20 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 }
                 $html .= '</select>';
             } else {
-                $html .= '<select name="' . htmlspecialchars($field_key) . '" class="shopee-opt-btn pricing-field" ' . $required_attr . ' style="width: 175px; cursor: pointer;">';
+                $allowOthers = !empty($config['allow_others']);
+                $optionValues = [];
+                foreach ($config['options'] ?? [] as $option) {
+                    $optionValue = is_array($option) ? (string)($option['value'] ?? '') : (string)$option;
+                    $optionValue = trim($optionValue);
+                    if ($optionValue !== '') {
+                        $optionValues[] = $optionValue;
+                    }
+                }
+                $savedIsCustom = $allowOthers && $saved_value !== '' && !in_array($saved_value, $optionValues, true);
+                $savedSelectValue = $savedIsCustom ? 'Others' : (string)$saved_value;
+                $savedOtherValue = $savedIsCustom ? (string)$saved_value : '';
+
+                $html .= '<select name="' . htmlspecialchars($field_key) . '" class="shopee-opt-btn pricing-field" ' . $required_attr . ' style="width: 175px; cursor: pointer;" onchange="window.pfToggleSelectOthers && window.pfToggleSelectOthers(this)">';
                 $html .= '<option value="">Select ' . $label . '</option>';
                 foreach ($config['options'] ?? [] as $option) {
                     $optionValue = is_array($option) ? ($option['value'] ?? '') : $option;
@@ -158,13 +171,39 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                     
                     $value = htmlspecialchars($optionValue);
                     $displayValue = htmlspecialchars(pf_service_option_label($optionValue));
-                    $html .= '<option value="' . $value . '" data-price="' . htmlspecialchars((string)$optionPrice) . '">' . $displayValue . '</option>';
+                    $selected = ($savedSelectValue === $optionValue) ? ' selected' : '';
+                    $html .= '<option value="' . $value . '" data-price="' . htmlspecialchars((string)$optionPrice) . '"' . $selected . '>' . $displayValue . '</option>';
+                }
+                if ($allowOthers && !in_array('Others', $optionValues, true)) {
+                    $selected = ($savedSelectValue === 'Others') ? ' selected' : '';
+                    $html .= '<option value="Others"' . $selected . '>Others</option>';
                 }
                 $html .= '</select>';
+
+                if ($allowOthers) {
+                    $othersDisplay = ($savedSelectValue === 'Others') ? 'block' : 'none';
+                    $othersRequired = ($savedSelectValue === 'Others' && $config['required']) ? 'required' : '';
+                    $html .= '<div class="shopee-form-row-others" data-other-wrap="' . htmlspecialchars($field_key) . '" style="display:' . $othersDisplay . ';margin-top:10px;">';
+                    $html .= '<input type="text" name="' . htmlspecialchars($field_key) . '_other" id="' . htmlspecialchars($field_key) . '_other_input" class="input-field" maxlength="100" placeholder="Please specify" value="' . htmlspecialchars($savedOtherValue) . '" ' . $othersRequired . ' style="max-width:400px;">';
+                    $html .= '</div>';
+                }
             }
             break;
             
         case 'radio':
+            $allowOthers = !empty($config['allow_others']);
+            $radioOptionValues = [];
+            foreach ($config['options'] ?? [] as $option) {
+                $optionValue = is_array($option) ? (string)($option['value'] ?? '') : (string)$option;
+                $optionValue = trim($optionValue);
+                if ($optionValue !== '') {
+                    $radioOptionValues[] = $optionValue;
+                }
+            }
+            $savedIsCustom = $allowOthers && $saved_value !== '' && !in_array($saved_value, $radioOptionValues, true);
+            $savedRadioValue = $savedIsCustom ? 'Others' : (string)$saved_value;
+            $savedOtherValue = $savedIsCustom ? (string)$saved_value : '';
+
             $html .= '<div class="shopee-opt-group">';
             foreach ($config['options'] ?? [] as $idx => $option) {
                 $optionValue = is_array($option) ? ($option['value'] ?? '') : $option;
@@ -175,14 +214,29 @@ function render_service_field($field_key, $config, $branches = [], $existing_dat
                 
                 $value = htmlspecialchars($optionValue);
                 $displayValue = htmlspecialchars(pf_service_option_label($optionValue));
-                $is_checked = ($saved_value == $optionValue) ? ' checked' : '';
+                $is_checked = ($savedRadioValue == $optionValue) ? ' checked' : '';
                 $optionPrice = is_array($option) ? ($option['price'] ?? 0) : 0;
                 $html .= '<label class="shopee-opt-btn' . ($is_checked ? ' active' : '') . '">';
                 $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="' . $value . '"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="' . htmlspecialchars((string)$optionPrice) . '" ' . $required_attr . ' onchange="updateOptVisual(this); handleNestedFields(this, \'' . htmlspecialchars($field_key) . '\', ' . $idx . ')">';
                 $html .= '<span>' . $displayValue . '</span>';
                 $html .= '</label>';
             }
+            if ($allowOthers && !in_array('Others', $radioOptionValues, true)) {
+                $is_checked = ($savedRadioValue === 'Others') ? ' checked' : '';
+                $html .= '<label class="shopee-opt-btn' . ($is_checked ? ' active' : '') . '">';
+                $html .= '<input type="radio" name="' . htmlspecialchars($field_key) . '" value="Others"' . $is_checked . ' style="display:none;" class="pricing-field" data-price="0" ' . $required_attr . ' onchange="updateOptVisual(this)">';
+                $html .= '<span>Others</span>';
+                $html .= '</label>';
+            }
             $html .= '</div>';
+
+            if ($allowOthers) {
+                $othersDisplay = ($savedRadioValue === 'Others') ? 'block' : 'none';
+                $othersRequired = ($savedRadioValue === 'Others' && $config['required']) ? 'required' : '';
+                $html .= '<div class="shopee-form-row-others" data-other-wrap="' . htmlspecialchars($field_key) . '" style="display:' . $othersDisplay . ';margin-top:10px;">';
+                $html .= '<input type="text" name="' . htmlspecialchars($field_key) . '_other" id="' . htmlspecialchars($field_key) . '_other_input" class="input-field" maxlength="100" placeholder="Please specify" value="' . htmlspecialchars($savedOtherValue) . '" ' . $othersRequired . ' style="max-width:400px;">';
+                $html .= '</div>';
+            }
             
             // Render nested fields containers (initially hidden)
             foreach ($config['options'] ?? [] as $idx => $option) {
@@ -496,12 +550,45 @@ function get_service_field_scripts() {
 <script>
 var dimensionMode = window.__pfServiceDimensionMode || 'preset';
 
+function toggleOtherInputByFieldName(fieldName) {
+    if (!fieldName) return;
+    const row = document.querySelector('.shopee-form-row[data-field-key="' + fieldName + '"]');
+    const wrap = (row || document).querySelector('[data-other-wrap="' + fieldName + '"]');
+    if (!wrap) return;
+
+    const input = wrap.querySelector('input[name="' + fieldName + '_other"]');
+    if (!input) return;
+
+    let show = false;
+    const checkedRadio = document.querySelector('input[name="' + fieldName + '"]:checked');
+    if (checkedRadio) {
+        show = checkedRadio.value === 'Others';
+    } else {
+        const select = document.querySelector('select[name="' + fieldName + '"]');
+        if (select) show = select.value === 'Others';
+    }
+
+    wrap.style.display = show ? 'block' : 'none';
+    if (show) {
+        input.required = true;
+    } else {
+        input.required = false;
+        input.value = '';
+    }
+}
+
+function pfToggleSelectOthers(select) {
+    if (!select || !select.name) return;
+    toggleOtherInputByFieldName(select.name);
+}
+
 function updateOptVisual(input) {
     const name = input.name;
     document.querySelectorAll('input[name="' + name + '"]').forEach(r => {
         const wrap = r.closest('.shopee-opt-btn');
         if (wrap) wrap.classList.toggle('active', r.checked);
     });
+    toggleOtherInputByFieldName(name);
 }
 
 function handleNestedFields(radio, fieldKey, optionIndex) {
@@ -764,6 +851,7 @@ window.decreaseQty = decreaseQty;
 window.validateQuantity = validateQuantity;
 window.pfChangeQty = pfChangeQty;
 window.updateConditionalFields = updateConditionalFields;
+window.pfToggleSelectOthers = pfToggleSelectOthers;
 
 if (!window.__pfServiceFieldDelegatesBound) {
     window.__pfServiceFieldDelegatesBound = true;
@@ -944,7 +1032,10 @@ function initServiceFieldRenderer() {
     document.querySelectorAll('select').forEach(select => {
         if (select.dataset.pfServiceFieldBound === '1') return;
         select.dataset.pfServiceFieldBound = '1';
-        select.addEventListener('change', updateConditionalFields);
+        select.addEventListener('change', function() {
+            updateConditionalFields();
+            pfToggleSelectOthers(select);
+        });
     });
     
     document.querySelectorAll('.custom-dim-width, .custom-dim-height').forEach(input => {
@@ -958,6 +1049,10 @@ function initServiceFieldRenderer() {
     
     // Run once on load to show initial state
     updateConditionalFields();
+    document.querySelectorAll('.shopee-form-row[data-field-key]').forEach(row => {
+        const key = row.getAttribute('data-field-key') || '';
+        if (key) toggleOtherInputByFieldName(key);
+    });
 }
 
 if (document.readyState === 'loading') {

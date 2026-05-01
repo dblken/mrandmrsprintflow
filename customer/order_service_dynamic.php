@@ -352,8 +352,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     break;
                 }
                 
-                // If "Others" is selected, check specify input
-                if (($_POST[$key] ?? '') === 'Others' && empty(trim($_POST[$key . '_other'] ?? ''))) {
+                // If "Others" is selected and custom input is enabled, require user input
+                if (!empty($config['allow_others']) && ($_POST[$key] ?? '') === 'Others' && empty(trim($_POST[$key . '_other'] ?? ''))) {
                     $error = 'Please specify ' . strtolower($config['label']) . '.';
                     break;
                 }
@@ -445,7 +445,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                 } else {
                     if (isset($_POST[$key]) && $_POST[$key] !== '') {
                         $val = $_POST[$key];
-                        if ($val === 'Others' && !empty($_POST[$key . '_other'])) {
+                        if (!empty($config['allow_others']) && $val === 'Others' && !empty($_POST[$key . '_other'])) {
                             $val = $_POST[$key . '_other'];
                             $customization[$config['label'] . ' (Other)'] = $_POST[$key . '_other'];
                         }
@@ -481,7 +481,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
                     }
                 }
                 
-                if (empty($selected_value) || $selected_value === 'Others') continue;
+                if (empty($selected_value) || (!empty($config['allow_others']) && $selected_value === 'Others')) continue;
                 
                 if (!empty($config['options']) && is_array($config['options'])) {
                     foreach ($config['options'] as $option) {

@@ -1271,7 +1271,8 @@ document.getElementById('configForm')?.addEventListener('submit', function(e) {
                 type: window.fieldConfigurations[key]?.type || 'text',
                 visible: true,
                 required: isDefault ? (key === 'notes' ? false : true) : (requiredToggle ? requiredToggle.checked : false),
-                order: index
+                order: index,
+                allow_others: !!(window.fieldConfigurations[key] && window.fieldConfigurations[key].allow_others)
             };
             
             const optionList = card.querySelector('.option-list:not(.dimension-options)');
