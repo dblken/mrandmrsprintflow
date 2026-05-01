@@ -480,6 +480,102 @@ try {
     $category_dashboard_meta = array_merge($category_dashboard_meta, $category_dashboard['meta'] ?? []);
 } catch (Throwable $e) {}
 
+$category_products_rows = [];
+$category_products_meta = [
+    'total_revenue' => (float)($category_dashboard_meta['store_revenue'] ?? 0),
+    'total_units' => (int)($category_dashboard_meta['store_units'] ?? 0),
+    'total_categories' => 0,
+];
+$category_custom_rows = [];
+$category_custom_meta = [
+    'total_revenue' => (float)($category_dashboard_meta['job_revenue'] ?? 0),
+    'total_units' => (int)($category_dashboard_meta['job_units'] ?? 0),
+    'total_categories' => 0,
+    'mapped_job_rows' => (int)($category_dashboard_meta['mapped_job_rows'] ?? 0),
+    'unmapped_job_rows' => (int)($category_dashboard_meta['unmapped_job_rows'] ?? 0),
+    'mapped_job_units' => (int)($category_dashboard_meta['mapped_job_units'] ?? 0),
+    'unmapped_job_units' => (int)($category_dashboard_meta['unmapped_job_units'] ?? 0),
+];
+
+$build_category_split_rows = static function(array $rows, string $sourceKey, float $totalRevenue): array {
+    $qtyKey = $sourceKey . '_qty';
+    $revenueKey = $sourceKey . '_revenue';
+    $out = [];
+    foreach ($rows as $row) {
+        $qty = (int)($row[$qtyKey] ?? 0);
+        $revenue = round((float)($row[$revenueKey] ?? 0), 2);
+        if ($qty <= 0 && $revenue <= 0) {
+            continue;
+        }
+        $out[] = [
+            'category' => (string)($row['category'] ?? ''),
+            'qty' => $qty,
+            'revenue' => $revenue,
+            'store_qty' => $sourceKey === 'store' ? $qty : 0,
+            'store_revenue' => $sourceKey === 'store' ? $revenue : 0.0,
+            'job_qty' => $sourceKey === 'job' ? $qty : 0,
+            'job_revenue' => $sourceKey === 'job' ? $revenue : 0.0,
+            'share_pct' => $totalRevenue > 0 ? round(($revenue / $totalRevenue) * 100, 1) : 0.0,
+        ];
+    }
+    usort($out, static function(array $a, array $b): int {
+        $byRevenue = ($b['revenue'] <=> $a['revenue']);
+        if ($byRevenue !== 0) {
+            return $byRevenue;
+        }
+        $byQty = ($b['qty'] <=> $a['qty']);
+        if ($byQty !== 0) {
+            return $byQty;
+        }
+        return strcmp((string)$a['category'], (string)$b['category']);
+    });
+    return $out;
+};
+
+$category_products_rows = $build_category_split_rows(
+    $category_dashboard_rows,
+    'store',
+    (float)($category_products_meta['total_revenue'] ?? 0)
+);
+$category_products_meta['total_categories'] = count($category_products_rows);
+
+$category_custom_rows = $build_category_split_rows(
+    $category_dashboard_rows,
+    'job',
+    (float)($category_custom_meta['total_revenue'] ?? 0)
+);
+$category_custom_meta['total_categories'] = count($category_custom_rows);
+
+$encode_category_dataset = static function(array $rows, array $meta): array {
+    return [
+        'rows' => array_map(function($row) {
+            return [
+                'category' => (string)($row['category'] ?? ''),
+                'qty' => (int)($row['qty'] ?? 0),
+                'revenue' => round((float)($row['revenue'] ?? 0), 2),
+                'store_qty' => (int)($row['store_qty'] ?? 0),
+                'store_revenue' => round((float)($row['store_revenue'] ?? 0), 2),
+                'job_qty' => (int)($row['job_qty'] ?? 0),
+                'job_revenue' => round((float)($row['job_revenue'] ?? 0), 2),
+                'share_pct' => round((float)($row['share_pct'] ?? 0), 1),
+            ];
+        }, $rows),
+        'meta' => [
+            'total_revenue' => round((float)($meta['total_revenue'] ?? 0), 2),
+            'total_units' => (int)($meta['total_units'] ?? 0),
+            'total_categories' => (int)($meta['total_categories'] ?? 0),
+            'store_revenue' => round((float)($meta['store_revenue'] ?? 0), 2),
+            'store_units' => (int)($meta['store_units'] ?? 0),
+            'job_revenue' => round((float)($meta['job_revenue'] ?? 0), 2),
+            'job_units' => (int)($meta['job_units'] ?? 0),
+            'mapped_job_rows' => (int)($meta['mapped_job_rows'] ?? 0),
+            'unmapped_job_rows' => (int)($meta['unmapped_job_rows'] ?? 0),
+            'mapped_job_units' => (int)($meta['mapped_job_units'] ?? 0),
+            'unmapped_job_units' => (int)($meta['unmapped_job_units'] ?? 0),
+        ],
+    ];
+};
+
 // ── 8. Order status ───────────────────────────────────────────────────────────
 $status_data = [];
 if (!$gaBranchEmpty) {
@@ -1948,31 +2044,9 @@ $dashData = [
         ];
     }, $rev_donut),
     'categoryDashboard' => [
-        'rows' => array_map(function($row) {
-            return [
-                'category' => (string)($row['category'] ?? ''),
-                'qty' => (int)($row['qty'] ?? 0),
-                'revenue' => round((float)($row['revenue'] ?? 0), 2),
-                'store_qty' => (int)($row['store_qty'] ?? 0),
-                'store_revenue' => round((float)($row['store_revenue'] ?? 0), 2),
-                'job_qty' => (int)($row['job_qty'] ?? 0),
-                'job_revenue' => round((float)($row['job_revenue'] ?? 0), 2),
-                'share_pct' => round((float)($row['share_pct'] ?? 0), 1),
-            ];
-        }, $category_dashboard_rows),
-        'meta' => [
-            'total_revenue' => round((float)($category_dashboard_meta['total_revenue'] ?? 0), 2),
-            'total_units' => (int)($category_dashboard_meta['total_units'] ?? 0),
-            'total_categories' => (int)($category_dashboard_meta['total_categories'] ?? 0),
-            'store_revenue' => round((float)($category_dashboard_meta['store_revenue'] ?? 0), 2),
-            'store_units' => (int)($category_dashboard_meta['store_units'] ?? 0),
-            'job_revenue' => round((float)($category_dashboard_meta['job_revenue'] ?? 0), 2),
-            'job_units' => (int)($category_dashboard_meta['job_units'] ?? 0),
-            'mapped_job_rows' => (int)($category_dashboard_meta['mapped_job_rows'] ?? 0),
-            'unmapped_job_rows' => (int)($category_dashboard_meta['unmapped_job_rows'] ?? 0),
-            'mapped_job_units' => (int)($category_dashboard_meta['mapped_job_units'] ?? 0),
-            'unmapped_job_units' => (int)($category_dashboard_meta['unmapped_job_units'] ?? 0),
-        ],
+        'combined' => $encode_category_dataset($category_dashboard_rows, $category_dashboard_meta),
+        'products' => $encode_category_dataset($category_products_rows, $category_products_meta),
+        'custom' => $encode_category_dataset($category_custom_rows, $category_custom_meta),
     ],
     'orderStatus' => array_map(function($s) {
         return [
@@ -2318,22 +2392,127 @@ $dashData = [
             <?php
             $category_palette = ['#00232b', '#0F4C5C', '#3A86A8', '#2B6CB0', '#276749', '#2C5282', '#234E52', '#1A365D', '#F39C12', '#6B7C85'];
             $category_top = $category_dashboard_rows[0] ?? null;
+            $category_products_top = $category_products_rows[0] ?? null;
+            $category_custom_top = $category_custom_rows[0] ?? null;
             $category_total_revenue = (float)($category_dashboard_meta['total_revenue'] ?? 0);
             $category_store_share = $category_total_revenue > 0
                 ? (int)round(((float)($category_dashboard_meta['store_revenue'] ?? 0) / $category_total_revenue) * 100)
                 : 0;
             $category_job_share = $category_total_revenue > 0 ? max(0, 100 - $category_store_share) : 0;
             ?>
+            <div class="ana-grid print-hide" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:stretch;">
+                <div class="ana-card" id="pf-category-products-card">
+                    <div class="ana-hd" style="align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                        <div style="min-width:0;">
+                            <h3 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-4m-4 0H6a2 2 0 00-2 2v10a2 2 0 002 2h5m3-8l4 4m0 0l-4 4m4-4H9"/></svg>
+                                <span>Product Categories</span>
+                                <span style="margin-left:8px;padding:3px 8px;background:#EBF8FF;color:#2C5282;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Products only</span>
+                            </h3>
+                            <div style="font-size:11px;color:#6b7280;margin-top:8px;">Paid store orders grouped by each product's category.</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;" class="no-print">
+                            <?php if (!empty($category_products_top)): ?>
+                            <span class="top-location-pill">Top: <?php echo htmlspecialchars((string)$category_products_top['category']); ?></span>
+                            <?php endif; ?>
+                            <span style="font-size:11px;color:#6b7280;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:6px 10px;">
+                                ₱<?php echo number_format((float)($category_products_meta['total_revenue'] ?? 0), 0); ?> • <?php echo number_format((int)($category_products_meta['total_units'] ?? 0)); ?> units
+                            </span>
+                        </div>
+                    </div>
+                    <div class="ana-bd">
+                        <?php if (!empty($category_products_rows)): ?>
+                        <div class="ch-box" style="min-height:320px;"><div id="ch-category-products"></div></div>
+                        <div style="display:grid;gap:10px;margin-top:14px;">
+                            <?php foreach (array_slice($category_products_rows, 0, 4) as $idx => $row): ?>
+                            <?php $row_color = $category_palette[$idx % count($category_palette)] ?? '#94a3b8'; ?>
+                            <div style="padding:10px 0;border-top:1px solid #eef2f7;">
+                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                    <div style="min-width:0;">
+                                        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars((string)$row['category']); ?></div>
+                                        <div style="font-size:11px;color:#64748b;margin-top:4px;"><?php echo number_format((int)($row['qty'] ?? 0)); ?> units • <?php echo number_format((float)($row['share_pct'] ?? 0), 1); ?>% of product revenue</div>
+                                    </div>
+                                    <div style="font-size:13px;font-weight:800;color:#059669;white-space:nowrap;">₱<?php echo number_format((float)($row['revenue'] ?? 0), 0); ?></div>
+                                </div>
+                                <div style="margin-top:8px;height:7px;background:#edf2f7;border-radius:999px;overflow:hidden;">
+                                    <div style="height:100%;width:<?php echo max(4, min(100, (float)($row['share_pct'] ?? 0))); ?>%;background:<?php echo htmlspecialchars($row_color, ENT_QUOTES, 'UTF-8'); ?>;"></div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php else: ?>
+                        <div class="ch-empty">
+                            <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V7a2 2 0 00-2-2h-4m-4 0H6a2 2 0 00-2 2v10a2 2 0 002 2h5m3-8l4 4m0 0l-4 4m4-4H9"/></svg>
+                            No product category sales in this period
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="ana-card" id="pf-category-custom-card">
+                    <div class="ana-hd" style="align-items:flex-start;gap:10px;flex-wrap:wrap;">
+                        <div style="min-width:0;">
+                            <h3 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Customization Categories</span>
+                                <span style="margin-left:8px;padding:3px 8px;background:#F7FAFC;color:#4A5568;border:1px solid #E2E8F0;border-radius:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Job orders only</span>
+                            </h3>
+                            <div style="font-size:11px;color:#6b7280;margin-top:8px;">Paid or completed job orders grouped by normalized service category.</div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;" class="no-print">
+                            <?php if (!empty($category_custom_top)): ?>
+                            <span class="top-location-pill">Top: <?php echo htmlspecialchars((string)$category_custom_top['category']); ?></span>
+                            <?php endif; ?>
+                            <span style="font-size:11px;color:#6b7280;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:6px 10px;">
+                                ₱<?php echo number_format((float)($category_custom_meta['total_revenue'] ?? 0), 0); ?> • <?php echo number_format((int)($category_custom_meta['total_units'] ?? 0)); ?> units
+                            </span>
+                            <?php if ((int)($category_custom_meta['unmapped_job_rows'] ?? 0) > 0): ?>
+                            <span style="font-size:11px;color:#b45309;background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;padding:6px 10px;">
+                                <?php echo number_format((int)($category_custom_meta['unmapped_job_rows'] ?? 0)); ?> unmapped rows
+                            </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="ana-bd">
+                        <?php if (!empty($category_custom_rows)): ?>
+                        <div class="ch-box" style="min-height:320px;"><div id="ch-category-custom"></div></div>
+                        <div style="display:grid;gap:10px;margin-top:14px;">
+                            <?php foreach (array_slice($category_custom_rows, 0, 4) as $idx => $row): ?>
+                            <?php $row_color = $row['category'] === 'Unmapped Services' ? '#F39C12' : ($category_palette[$idx % count($category_palette)] ?? '#94a3b8'); ?>
+                            <div style="padding:10px 0;border-top:1px solid #eef2f7;">
+                                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                                    <div style="min-width:0;">
+                                        <div style="font-size:13px;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo htmlspecialchars((string)$row['category']); ?></div>
+                                        <div style="font-size:11px;color:#64748b;margin-top:4px;"><?php echo number_format((int)($row['qty'] ?? 0)); ?> units • <?php echo number_format((float)($row['share_pct'] ?? 0), 1); ?>% of customization revenue</div>
+                                    </div>
+                                    <div style="font-size:13px;font-weight:800;color:#059669;white-space:nowrap;">₱<?php echo number_format((float)($row['revenue'] ?? 0), 0); ?></div>
+                                </div>
+                                <div style="margin-top:8px;height:7px;background:#edf2f7;border-radius:999px;overflow:hidden;">
+                                    <div style="height:100%;width:<?php echo max(4, min(100, (float)($row['share_pct'] ?? 0))); ?>%;background:<?php echo htmlspecialchars($row_color, ENT_QUOTES, 'UTF-8'); ?>;"></div>
+                                </div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php else: ?>
+                        <div class="ch-empty">
+                            <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            No customization category sales in this period
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
             <div class="ana-card print-hide" id="pf-category-dashboard-card">
                 <div class="ana-hd" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
                     <div style="min-width:0;">
                         <h3 style="margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
-                            <span>Category Dashboard</span>
-                            <span style="margin-left:8px;padding:3px 8px;background:#EBF8FF;color:#2C5282;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Filter Applied</span>
+                            <span>Combined Category Dashboard</span>
+                            <span style="margin-left:8px;padding:3px 8px;background:#EBF8FF;color:#2C5282;border-radius:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;">Merged view</span>
                         </h3>
                         <div style="font-size:11px;color:#6b7280;margin-top:8px;max-width:900px;">
-                            Based on paid store orders plus paid/completed job orders for the selected report period.
+                            Products and customization categories merged into one category view for the selected report period.
                             <?php if ((int)($category_dashboard_meta['unmapped_job_rows'] ?? 0) > 0): ?>
                             <span style="color:#b45309;font-weight:700;">
                                 <?php echo number_format((int)$category_dashboard_meta['unmapped_job_rows']); ?> job records could not be matched to a configured service category and are grouped under Unmapped Services.
