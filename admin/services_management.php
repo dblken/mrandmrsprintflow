@@ -262,6 +262,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
             db_execute("UPDATE services SET status = ?, updated_at = NOW() WHERE service_id = ?", 'si', [$new_status, $service_id]);
             $success = 'Service ' . strtolower($new_status) . ' successfully!';
         }
+    } elseif (isset($_POST['delete_all_archived_services'])) {
+        $deleted = db_execute("DELETE FROM services WHERE status = 'Archived'");
+        if ($deleted === false) {
+            global $conn;
+            $error = 'Failed to delete archived services.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+        } else {
+            $success = 'All archived services were deleted permanently.';
+        }
     }
 }
 
@@ -286,6 +294,10 @@ if (isset($_GET['get_archived'])) {
             $html .= csrf_field();
             $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
             $html .= '<button type="submit" name="restore_service" class="btn-action teal">Restore</button></form>';
+            $html .= '<form method="POST" class="inline service-status-form" data-pf-skip-guard style="display:inline-block;" data-action="Delete Permanently" data-service-name="' . htmlspecialchars($s['name'], ENT_QUOTES) . '" onsubmit="showServiceStatusModal(event, this);return false;">';
+            $html .= csrf_field();
+            $html .= '<input type="hidden" name="service_id" value="' . (int)$s['service_id'] . '">';
+            $html .= '<button type="submit" name="delete_service" class="btn-action red">Delete</button></form>';
             $html .= '</td></tr>';
         }
     }
@@ -832,7 +844,11 @@ $category_options = ['Tarpaulin', 'T-Shirt', 'Stickers', 'Sintraboard Standees',
                 <p style="text-align:center;color:#9ca3af;">Loading…</p>
             </div>
         </div>
-        <div style="padding:16px 24px;border-top:1px solid #e5e7eb;text-align:right;">
+        <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <form method="POST" class="service-status-form" data-pf-skip-guard data-action="Delete All Archived" data-service-name="all archived services" onsubmit="showServiceStatusModal(event, this);return false;" style="margin:0;">
+                <?php echo csrf_field(); ?>
+                <button type="submit" name="delete_all_archived_services" class="btn-action red">Delete All Archived</button>
+            </form>
             <button type="button" class="btn-secondary" onclick="window.closeArchiveModal()">Close</button>
         </div>
     </div>

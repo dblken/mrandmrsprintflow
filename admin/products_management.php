@@ -85,6 +85,44 @@ function printflow_get_or_create_deleted_product_placeholder_id(): int {
     return (int)($placeholder[0]['product_id'] ?? 0);
 }
 
+function printflow_product_fk_dependents(): array {
+    $rows = db_query(
+        "SELECT TABLE_NAME, COLUMN_NAME
+         FROM information_schema.KEY_COLUMN_USAGE
+         WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+           AND REFERENCED_TABLE_NAME = 'products'
+           AND REFERENCED_COLUMN_NAME = 'product_id'"
+    ) ?: [];
+
+    $dependents = [];
+    foreach ($rows as $row) {
+        $table = (string)($row['TABLE_NAME'] ?? '');
+        $column = (string)($row['COLUMN_NAME'] ?? '');
+        if ($table === '' || $column === '') continue;
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $table)) continue;
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $column)) continue;
+        if ($table === 'products') continue;
+        $dependents[$table] = $column;
+    }
+
+    // Fallback for environments where metadata access is restricted
+    if (empty($dependents)) {
+        $fallback = [
+            'order_items' => 'product_id',
+            'pos_items' => 'product_id',
+            'customer_cart' => 'product_id',
+            'product_branch_stock' => 'product_id',
+        ];
+        foreach ($fallback as $table => $column) {
+            if (printflow_table_exists($table)) {
+                $dependents[$table] = $column;
+            }
+        }
+    }
+
+    return $dependents;
+}
+
 if (isset($_SESSION['pf_products_flash_success'])) {
     $success = (string)$_SESSION['pf_products_flash_success'];
     unset($_SESSION['pf_products_flash_success']);
@@ -531,76 +569,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && verify_csrf_token($_POST['csrf_toke
     if ($status === '') {
         $error = 'Product not found.';
     } elseif ($status === 'Archived') {
-        $orderRefCount = 0;
-        $posRefCount = 0;
-        if (printflow_table_exists('order_items')) {
-            $orderRefCountRows = db_query("SELECT COUNT(*) AS total FROM order_items WHERE product_id = ?", 'i', [$product_id]) ?: [];
-            $orderRefCount = (int)($orderRefCountRows[0]['total'] ?? 0);
-        }
-        if (printflow_table_exists('pos_items')) {
-            $posRefCountRows = db_query("SELECT COUNT(*) AS total FROM pos_items WHERE product_id = ?", 'i', [$product_id]) ?: [];
-            $posRefCount = (int)($posRefCountRows[0]['total'] ?? 0);
-        }
-        $hasLinkedReferences = ($orderRefCount + $posRefCount) > 0;
-
-        if ($hasLinkedReferences) {
-            $placeholderId = printflow_get_or_create_deleted_product_placeholder_id();
-            if ($placeholderId <= 0) {
-                $error = 'Failed to prepare deletion placeholder. Please try again.';
-            } elseif ($placeholderId === $product_id) {
-                $error = 'This system placeholder cannot be deleted while it is in use.';
-            } else {
-                global $conn;
-                $conn->begin_transaction();
-                try {
-                    if (printflow_table_exists('order_items')) {
-                        $relinkedOrders = db_execute("UPDATE order_items SET product_id = ? WHERE product_id = ?", 'ii', [$placeholderId, $product_id]);
-                        if ($relinkedOrders === false) {
-                            throw new RuntimeException('Failed to relink order items.');
-                        }
-                    }
-                    if (printflow_table_exists('pos_items')) {
-                        $relinkedPos = db_execute("UPDATE pos_items SET product_id = ? WHERE product_id = ?", 'ii', [$placeholderId, $product_id]);
-                        if ($relinkedPos === false) {
-                            throw new RuntimeException('Failed to relink POS items.');
-                        }
-                    }
-                    if (printflow_table_exists('product_branch_stock')) {
-                        $removedBranchStock = db_execute("DELETE FROM product_branch_stock WHERE product_id = ?", 'i', [$product_id]);
-                        if ($removedBranchStock === false) {
-                            throw new RuntimeException('Failed to remove branch stock rows.');
-                        }
-                    }
-                    $deleted = db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
-                    if ($deleted === false) {
-                        throw new RuntimeException('Failed to delete product.');
-                    }
-                    $stillExists = db_query("SELECT product_id FROM products WHERE product_id = ? LIMIT 1", 'i', [$product_id]) ?: [];
-                    if (!empty($stillExists)) {
-                        throw new RuntimeException('Delete did not complete.');
-                    }
-                    $conn->commit();
-                    $success = 'Product deleted permanently. Linked records were reassigned to a protected system placeholder.';
-                } catch (Throwable $e) {
-                    $conn->rollback();
-                    $error = 'Failed to delete product.' . (!empty($e->getMessage()) ? ' ' . $e->getMessage() : '');
-                }
-            }
+        $placeholderId = printflow_get_or_create_deleted_product_placeholder_id();
+        if ($placeholderId <= 0) {
+            $error = 'Failed to prepare deletion placeholder. Please try again.';
+        } elseif ($placeholderId === $product_id) {
+            $error = 'This system placeholder cannot be deleted while it is in use.';
         } else {
-            if (printflow_table_exists('product_branch_stock')) {
-                db_execute("DELETE FROM product_branch_stock WHERE product_id = ?", 'i', [$product_id]);
-            }
-            $deleted = db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
-            if ($deleted !== false) {
-                $stillExists = db_query("SELECT product_id FROM products WHERE product_id = ? LIMIT 1", 'i', [$product_id]) ?: [];
-                if (empty($stillExists)) {
-                    $success = 'Product deleted permanently!';
-                } else {
-                    $error = 'Delete did not complete. Please try again.';
+            global $conn;
+            $conn->begin_transaction();
+            try {
+                $dependents = printflow_product_fk_dependents();
+                $relinkedAny = false;
+
+                foreach ($dependents as $table => $column) {
+                    $tableEsc = "`{$table}`";
+                    $colEsc = "`{$column}`";
+
+                    // Keep history tables by re-pointing to the protected placeholder.
+                    if (in_array($table, ['order_items', 'pos_items'], true)) {
+                        $moved = db_execute("UPDATE {$tableEsc} SET {$colEsc} = ? WHERE {$colEsc} = ?", 'ii', [$placeholderId, $product_id]);
+                        if ($moved === false) {
+                            throw new RuntimeException("Failed to relink {$table} references.");
+                        }
+                        $relinkedAny = true;
+                        continue;
+                    }
+
+                    // Non-history references can be safely removed.
+                    $removed = db_execute("DELETE FROM {$tableEsc} WHERE {$colEsc} = ?", 'i', [$product_id]);
+                    if ($removed === false) {
+                        // If delete fails (table policy), fallback to relink.
+                        $fallbackMove = db_execute("UPDATE {$tableEsc} SET {$colEsc} = ? WHERE {$colEsc} = ?", 'ii', [$placeholderId, $product_id]);
+                        if ($fallbackMove === false) {
+                            throw new RuntimeException("Failed to clear {$table} references.");
+                        }
+                        $relinkedAny = true;
+                    }
                 }
-            } else {
-                global $conn;
-                $error = 'Failed to delete product.' . (!empty($conn->error) ? ' ' . $conn->error : '');
+
+                $deleted = db_execute("DELETE FROM products WHERE product_id = ?", 'i', [$product_id]);
+                if ($deleted === false) {
+                    throw new RuntimeException('Failed to delete product record.');
+                }
+
+                $stillExists = db_query("SELECT product_id FROM products WHERE product_id = ? LIMIT 1", 'i', [$product_id]) ?: [];
+                if (!empty($stillExists)) {
+                    throw new RuntimeException('Delete did not complete.');
+                }
+
+                $conn->commit();
+                $success = $relinkedAny
+                    ? 'Product deleted permanently. Linked records were reassigned to a protected system placeholder.'
+                    : 'Product deleted permanently!';
+            } catch (Throwable $e) {
+                $conn->rollback();
+                $error = 'Failed to delete product.' . (!empty($e->getMessage()) ? ' ' . $e->getMessage() : '');
             }
         }
     } else {
