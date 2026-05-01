@@ -2378,7 +2378,9 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
     if ($total_pages <= 1) return '';
 
     $current_page = (int)$current_page;
-    $window = 3; // Increased from 2 to show more numbers
+    $script_name = str_replace('\\', '/', (string)($_SERVER['PHP_SELF'] ?? $_SERVER['SCRIPT_NAME'] ?? ''));
+    $is_admin_context = strpos($script_name, '/admin/') !== false || preg_match('#(^|/)admin(?:/|$)#', $script_name);
+    $window = $is_admin_context ? 2 : 3;
     $pages = [];
     
     // Always include first page
@@ -2450,6 +2452,27 @@ function render_pagination($current_page, $total_pages, $extra_params = [], $pag
     }
 
     $html .= '</div>';
+
+    if ($is_admin_context) {
+        $html = str_replace(
+            [
+                'display:flex; align-items:center; justify-content:center; gap:8px; margin-top:24px; padding:20px 0; border-top:1px solid #f1f5f9; width:100%;',
+                'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 10px;border-radius:10px;border:1px solid #e2e8f0;background:#ffffff;color:#475569 !important;text-decoration:none !important;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);box-shadow: 0 1px 2px rgba(0,0,0,0.05);',
+                'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;padding:0 10px;border-radius:10px;border:1px solid #06A1A1;background:linear-gradient(135deg, #06A1A1 0%, #047676 100%);color:#ffffff !important;text-decoration:none !important;font-size:13px;font-weight:700;cursor:default;box-shadow:0 4px 12px rgba(6,161,161,0.25);',
+                ' onmouseover="if(this.style.background!==\'linear-gradient(135deg, #06A1A1 0%, #047676 100%)\'){this.style.borderColor=\'#06A1A1\';this.style.color=\'#06A1A1\';this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 4px 6px rgba(0,0,0,0.05)\';}" onmouseout="if(this.style.background!==\'linear-gradient(135deg, #06A1A1 0%, #047676 100%)\'){this.style.borderColor=\'#e2e8f0\';this.style.color=\'#475569\';this.style.transform=\'none\';this.style.boxShadow=\'0 1px 2px rgba(0,0,0,0.05)\';}"',
+                'display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:36px;font-size:14px;color:#94a3b8;font-weight:700;letter-spacing:1px;',
+            ],
+            [
+                'display:flex; align-items:center; justify-content:center; gap:6px; margin-top:24px; padding:16px 0; border-top:1px solid #f1f5f9; width:100%;',
+                'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#374151 !important;text-decoration:none !important;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;',
+                'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #06A1A1;background:#06A1A1;color:#ffffff !important;text-decoration:none !important;font-size:13px;font-weight:600;cursor:default;box-shadow:0 2px 4px rgba(6,161,161,0.2);',
+                ' onmouseover="this.style.borderColor=\'#06A1A1\';this.style.color=\'#06A1A1\'" onmouseout="this.style.borderColor=\'#e5e7eb\';this.style.color=\'#374151\'"',
+                'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;',
+            ],
+            $html
+        );
+    }
+
     return $html;
 }
 

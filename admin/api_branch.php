@@ -124,9 +124,9 @@ try {
         // Pagination (JS-triggered, same style as main page)
         $pagination = '';
         if ($total_pages > 1) {
-            $base_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #e5e7eb;background:white;color:#374151;text-decoration:none;font-size:13px;font-weight:500;cursor:pointer;';
-            $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:6px;border:1px solid #0d9488;background:#0d9488;color:white;text-decoration:none;font-size:13px;font-weight:600;cursor:pointer;';
-            $pagination = '<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-top:20px;padding-top:16px;border-top:1px solid #f3f4f6;">';
+            $base_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#374151;text-decoration:none;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;';
+            $active_btn = 'display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #06A1A1;background:#06A1A1;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600;cursor:default;box-shadow:0 2px 4px rgba(6,161,161,0.2);';
+            $pagination = '<div class="pagination-container" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:24px;padding:16px 0;border-top:1px solid #f1f5f9;width:100%;">';
             if ($page > 1) {
                 $pagination .= '<a href="#" data-archive-page="' . ($page - 1) . '" style="' . $base_btn . '"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></a>';
             }

@@ -1339,7 +1339,10 @@ if (isset($_GET['ajax'])) {
                 return '?' + params.toString();
             }
 
-            async function fetchUpdatedTable(page = 1) {
+            async function fetchUpdatedTable(pageOrOverrides = 1) {
+                const page = (typeof pageOrOverrides === 'object' && pageOrOverrides !== null)
+                    ? parseInt(pageOrOverrides.page || 1, 10)
+                    : parseInt(pageOrOverrides || 1, 10);
                 const url = buildFilterURL(page) + '&ajax=1';
                 try {
                     const r = await fetch(url);

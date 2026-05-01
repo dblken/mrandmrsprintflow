@@ -909,7 +909,10 @@ function buildFilterURL(page = 1) {
     return '?' + params.toString();
 }
 
-function fetchUpdatedTable(page = 1) {
+function fetchUpdatedTable(pageOrOverrides = 1) {
+    const page = (typeof pageOrOverrides === 'object' && pageOrOverrides !== null)
+        ? parseInt(pageOrOverrides.page || 1, 10)
+        : parseInt(pageOrOverrides || 1, 10);
     fetch(buildFilterURL(page) + '&ajax=1')
         .then(r => r.json())
         .then(data => {

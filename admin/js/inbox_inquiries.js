@@ -110,10 +110,37 @@
             paginationEl.innerHTML = '';
             return;
         }
-        let html = '<div class="inbox-pagination">';
-        if (page > 1) html += `<button type="button" data-page="${page - 1}">Previous</button>`;
-        html += ` <span>Page ${page} of ${totalPages}</span> `;
-        if (page < totalPages) html += `<button type="button" data-page="${page + 1}">Next</button>`;
+        const baseBtn = 'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #e5e7eb;background:#ffffff;color:#374151;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.2s;';
+        const activeBtn = 'all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 8px;border-radius:8px;border:1px solid #06A1A1;background:#06A1A1;color:#ffffff;font-size:13px;font-weight:600;cursor:default;box-shadow:0 2px 4px rgba(6,161,161,0.2);';
+        const hoverIn = "this.style.borderColor='#06A1A1';this.style.color='#06A1A1'";
+        const hoverOut = "this.style.borderColor='#e5e7eb';this.style.color='#374151'";
+        const pages = Array.from(new Set([1, Math.max(1, page - 2), page - 1, page, page + 1, Math.min(totalPages, page + 2), totalPages]))
+            .filter(p => p >= 1 && p <= totalPages)
+            .sort((a, b) => a - b);
+
+        let html = '<div class="pagination-container" style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:24px;padding:16px 0;border-top:1px solid #f1f5f9;width:100%;">';
+        if (page > 1) {
+            html += `<button type="button" data-page="${page - 1}" style="${baseBtn}" onmouseover="${hoverIn}" onmouseout="${hoverOut}" aria-label="Previous page">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </button>`;
+        }
+        let prev = null;
+        pages.forEach(p => {
+            if (prev !== null && p - prev > 1) {
+                html += '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;font-size:13px;color:#9ca3af;letter-spacing:1px;">...</span>';
+            }
+            if (p === page) {
+                html += `<span class="pagination-link is-active" aria-current="page" style="${activeBtn}">${p}</span>`;
+            } else {
+                html += `<button type="button" data-page="${p}" style="${baseBtn}" onmouseover="${hoverIn}" onmouseout="${hoverOut}">${p}</button>`;
+            }
+            prev = p;
+        });
+        if (page < totalPages) {
+            html += `<button type="button" data-page="${page + 1}" style="${baseBtn}" onmouseover="${hoverIn}" onmouseout="${hoverOut}" aria-label="Next page">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="stroke-width:2.5;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </button>`;
+        }
         html += '</div>';
         paginationEl.innerHTML = html;
         paginationEl.querySelectorAll('button').forEach(btn => {
