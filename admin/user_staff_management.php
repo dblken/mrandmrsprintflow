@@ -23,6 +23,24 @@ $current_user = get_logged_in_user();
 $error = '';
 $success = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_archived_user']) && verify_csrf_token($_POST['csrf_token'] ?? '')) {
+    $restore_user_id = (int)($_POST['user_id'] ?? 0);
+    if ($restore_user_id > 0) {
+        $restored = db_execute(
+            "UPDATE users SET status = 'Deactivated', updated_at = NOW() WHERE user_id = ? AND status = 'Archived'",
+            'i',
+            [$restore_user_id]
+        );
+        if ($restored) {
+            $success = 'Archived account restored successfully.';
+        } else {
+            $error = 'Failed to restore archived account.';
+        }
+    } else {
+        $error = 'Invalid archived account.';
+    }
+}
+
 // Realtime email check (same rules as create_staff: users + customers table)
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['check_email'])) {
     header('Content-Type: application/json; charset=utf-8');
@@ -336,7 +354,7 @@ if (isset($_GET['ajax'])) {
                     <button type="button" class="btn-action blue" style="margin-right:4px;" onclick="window._viewUser && _viewUser(<?php echo $user['user_id']; ?>)">View</button>
                     <button type="button" class="btn-action teal" style="margin-right:4px;" onclick="window._editUser && _editUser(<?php echo $user['user_id']; ?>)">Edit</button>
                     <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
-                    <button type="button" class="btn-action red" onclick="window._archiveUser && _archiveUser(<?php echo $user['user_id']; ?>)">Archive</button>
+                    <button type="button" class="btn-action gray" onclick="window._archiveUser && _archiveUser(<?php echo $user['user_id']; ?>)">Archive</button>
                     <?php endif; ?>
                 </td>
             </tr>
@@ -353,6 +371,58 @@ if (isset($_GET['ajax'])) {
     echo render_pagination($page, $total_pages, $pp);
     $pagination_html = ob_get_clean();
     echo json_encode(['success'=>true,'table'=>$table_html,'pagination'=>$pagination_html,'count'=>number_format($total_users),'badge'=>count(array_filter([$search,$role_filter,$status_filter,$_GET['date_from']??'',$_GET['date_to']??''], function($v) { return $v !== null && $v !== ''; }))]);
+    exit;
+}
+
+if (isset($_GET['get_archived'])) {
+    header('Content-Type: application/json');
+    $archived_users = db_query(
+        "SELECT u.*, b.branch_name
+         FROM users u
+         LEFT JOIN branches b ON u.branch_id = b.id
+         WHERE u.status = 'Archived'
+         ORDER BY COALESCE(u.updated_at, u.created_at) DESC, u.user_id DESC"
+    ) ?: [];
+
+    ob_start();
+    ?>
+    <table class="w-full text-sm users-table">
+        <thead>
+            <tr class="border-b-2">
+                <th class="text-left py-3">ID</th>
+                <th class="text-left py-3">Name</th>
+                <th class="text-left py-3">Email</th>
+                <th class="text-left py-3">Role</th>
+                <th class="text-left py-3">Branch</th>
+                <th class="text-right py-3">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if (empty($archived_users)): ?>
+            <tr><td colspan="6" class="py-8 text-center text-gray-500">No archived team accounts found.</td></tr>
+        <?php else: ?>
+            <?php foreach ($archived_users as $archived_user): ?>
+                <tr class="border-b">
+                    <td class="py-3"><?php echo (int)$archived_user['user_id']; ?></td>
+                    <td class="py-3 font-medium"><?php echo htmlspecialchars(trim(($archived_user['first_name'] ?? '') . ' ' . ($archived_user['last_name'] ?? ''))); ?></td>
+                    <td class="py-3" style="text-transform:lowercase;"><?php echo htmlspecialchars(strtolower((string)($archived_user['email'] ?? ''))); ?></td>
+                    <td class="py-3"><?php echo htmlspecialchars((string)($archived_user['role'] ?? '—')); ?></td>
+                    <td class="py-3"><?php echo ($archived_user['role'] ?? '') === 'Admin' ? '<span class="text-gray-500 italic">All Branches</span>' : htmlspecialchars($archived_user['branch_name'] ?? 'Unassigned'); ?></td>
+                    <td class="py-3 text-right">
+                        <form method="POST" style="display:inline-block;">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="user_id" value="<?php echo (int)$archived_user['user_id']; ?>">
+                            <button type="submit" name="restore_archived_user" class="btn-action teal">Restore</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <?php
+
+    echo json_encode(['success' => true, 'html' => ob_get_clean()]);
     exit;
 }
 ?>
@@ -393,6 +463,8 @@ if (isset($_GET['ajax'])) {
         .btn-action.teal:hover { background:#0d9488; color:white; }
         .btn-action.red { color:#dc2626; border-color:#dc2626; }
         .btn-action.red:hover { background:#dc2626; color:white; }
+        .btn-action.gray { color:#6b7280; border-color:#6b7280; }
+        .btn-action.gray:hover { background:#6b7280; color:white; }
 
         /* ===== VIEW MODAL - CUSTOMIZATION STYLE ===== */
         .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9900; align-items:center; justify-content:center; padding:16px; }
@@ -432,6 +504,8 @@ if (isset($_GET['ajax'])) {
         .mf-btn-outline.teal:hover { background:#0d9488; color:white; }
         .mf-btn-outline.red { color:#dc2626; border-color:#dc2626; }
         .mf-btn-outline.red:hover { background:#dc2626; color:white; }
+        .mf-btn-outline.gray { color:#6b7280; border-color:#6b7280; }
+        .mf-btn-outline.gray:hover { background:#6b7280; color:white; }
         .mf-btn-outline:disabled { opacity:.5; cursor:not-allowed; }
         .mf-alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
         .mf-alert.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
@@ -736,6 +810,12 @@ if (isset($_GET['ajax'])) {
                         <button type="button" id="btn-open-user-modal" class="toolbar-btn-primary" style="height:38px;">
                             Add Team Member
                         </button>
+                        <button type="button" class="toolbar-btn" onclick="window.openArchiveModal()" style="height:38px;border-color:#6b7280;color:#6b7280;display:flex;align-items:center;gap:6px;">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+                            </svg>
+                            Archived
+                        </button>
 
                         <!-- Sort Button -->
                         <div style="position:relative;">
@@ -906,7 +986,7 @@ if (isset($_GET['ajax'])) {
                                         <button type="button" @click="viewUser(<?php echo $user['user_id']; ?>)" class="btn-action blue" style="margin-right:4px;">View</button>
                                         <button type="button" @click="editUser(<?php echo $user['user_id']; ?>)" class="btn-action teal" style="margin-right:4px;">Edit</button>
                                         <?php if (($user['status'] ?? '') === 'Deactivated'): ?>
-                                        <button type="button" @click="showArchiveConfirm(<?php echo $user['user_id']; ?>)" class="btn-action red">Archive</button>
+                                        <button type="button" @click="showArchiveConfirm(<?php echo $user['user_id']; ?>)" class="btn-action gray">Archive</button>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1044,7 +1124,7 @@ if (isset($_GET['ajax'])) {
                 <button type="button" @click="showDeactivateConfirm(viewModal.user.user_id)" class="mf-btn-outline teal">Deactivate Account</button>
             </template>
             <template x-if="viewModal.user?.status === 'Deactivated'">
-                <button type="button" @click="showArchiveConfirm(viewModal.user.user_id)" class="mf-btn-outline red">Archive Account</button>
+                <button type="button" @click="showArchiveConfirm(viewModal.user.user_id)" class="mf-btn-outline gray">Archive Account</button>
             </template>
             <button type="button" @click="viewModal.isOpen = false; editUser(viewModal.user?.user_id)" class="mf-btn-outline teal">Edit</button>
         </div>
@@ -1238,7 +1318,7 @@ if (isset($_GET['ajax'])) {
             <p style="margin:0 0 20px 0; color:#374151;">Archive this deactivated account? It will be removed from the active team list but kept in the system.</p>
             <div class="mf-footer" style="border:none; padding:0;">
                 <button type="button" @click="archiveConfirm.isOpen = false" class="mf-btn-outline blue">Cancel</button>
-                <button type="button" @click="confirmArchiveUser()" class="mf-btn-outline red" :disabled="archiveConfirm.saving" x-text="archiveConfirm.saving ? 'Archiving...' : 'Archive'"></button>
+                <button type="button" @click="confirmArchiveUser()" class="mf-btn-outline gray" :disabled="archiveConfirm.saving" x-text="archiveConfirm.saving ? 'Archiving...' : 'Archive'"></button>
             </div>
         </div>
     </div>
@@ -1371,6 +1451,34 @@ if (isset($_GET['ajax'])) {
                 <button type="submit" class="modal-btn modal-btn-submit">Add Member</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Archived Accounts Modal -->
+<div id="archive-storage-overlay" role="dialog" aria-modal="true" aria-labelledby="archive-storage-title" onclick="if (event.target === this) window.closeArchiveModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10090;align-items:center;justify-content:center;padding:16px;pointer-events:auto;">
+    <div id="archive-storage-modal" onclick="event.stopPropagation()" style="background:white;border-radius:16px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 25px 50px rgba(0,0,0,0.25);pointer-events:auto;">
+        <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <h3 id="archive-storage-title" style="font-size:18px;font-weight:700;color:#1f2937;margin:0;">Archived Team Accounts</h3>
+                <p style="font-size:12px;color:#6b7280;margin:0;">Archived team members are stored here until restored.</p>
+            </div>
+            <button type="button" onclick="window.closeArchiveModal()" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px;line-height:1;">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body" style="padding:0;overflow-y:auto;flex:1;">
+            <div id="archived-users-container" style="min-height:200px;padding:24px;">
+                <div style="padding:60px;text-align:center;color:#9ca3af;">
+                    <div class="spinner" style="margin:0 auto 12px;"></div>
+                    <p>Loading archived team accounts...</p>
+                </div>
+            </div>
+            <div style="padding:16px 24px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;">
+                <button type="button" class="btn-secondary" onclick="window.closeArchiveModal()">Close</button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1680,6 +1788,46 @@ if (typeof Turbo !== 'undefined') {
     document.addEventListener('turbo:load', printflowInitUserStaffModal);
     document.addEventListener('turbo:render', printflowInitUserStaffModal);
 }
+</script>
+
+<script>
+window.openArchiveModal = function () {
+    var overlay = document.getElementById('archive-storage-overlay');
+    var container = document.getElementById('archived-users-container');
+    if (!overlay || !container) return;
+
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    container.innerHTML = `
+        <div style="padding:60px;text-align:center;color:#9ca3af;">
+            <div class="spinner" style="margin:0 auto 12px;"></div>
+            <p>Loading archived team accounts...</p>
+        </div>
+    `;
+
+    fetch('user_staff_management.php?get_archived=1', {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin'
+    })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data && data.success) {
+                container.innerHTML = data.html || '<p style="padding:24px;text-align:center;color:#9ca3af;">No archived team accounts found.</p>';
+            } else {
+                container.innerHTML = '<p style="padding:24px;text-align:center;color:#dc2626;">Failed to load archived team accounts.</p>';
+            }
+        })
+        .catch(function () {
+            container.innerHTML = '<p style="padding:24px;text-align:center;color:#dc2626;">Failed to load archived team accounts.</p>';
+        });
+};
+
+window.closeArchiveModal = function () {
+    var overlay = document.getElementById('archive-storage-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+};
 </script>
 
 <script>
