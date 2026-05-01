@@ -293,6 +293,50 @@ function pf_seed_pick_replacement_product(array $item, array $products): ?array 
     return $products[array_rand($products)];
 }
 
+function pf_seed_table_exists(string $table): bool {
+    $r = db_query(
+        "SELECT COUNT(*) AS c FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?",
+        's',
+        [$table]
+    );
+    return !empty($r) && (int)($r[0]['c'] ?? 0) > 0;
+}
+
+function pf_seed_column_exists(string $table, string $column): bool {
+    $r = db_query(
+        "SELECT COUNT(*) AS c
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+        'ss',
+        [$table, $column]
+    );
+    return !empty($r) && (int)($r[0]['c'] ?? 0) > 0;
+}
+
+function pf_seed_ids_csv(array $ids): string {
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids), fn($id) => $id > 0)));
+    return implode(',', $ids);
+}
+
+function pf_seed_count_where_in(string $table, string $column, array $ids): int {
+    $csv = pf_seed_ids_csv($ids);
+    if ($csv === '' || !pf_seed_table_exists($table) || !pf_seed_column_exists($table, $column)) return 0;
+    $r = db_query("SELECT COUNT(*) AS c FROM `{$table}` WHERE `{$column}` IN ({$csv})");
+    return (int)($r[0]['c'] ?? 0);
+}
+
+function pf_seed_backup_and_delete_where_in(mysqli $conn, string $table, string $column, array $ids, string $backupPrefix): int {
+    $csv = pf_seed_ids_csv($ids);
+    if ($csv === '' || !pf_seed_table_exists($table) || !pf_seed_column_exists($table, $column)) return 0;
+
+    $count = pf_seed_count_where_in($table, $column, $ids);
+    if ($count <= 0) return 0;
+
+    $conn->query("CREATE TABLE IF NOT EXISTS `{$backupPrefix}_{$table}` AS SELECT * FROM `{$table}` WHERE `{$column}` IN ({$csv})");
+    $conn->query("DELETE FROM `{$table}` WHERE `{$column}` IN ({$csv})");
+    return $count;
+}
+
 /** Random datetime within a given year/month, skewing toward weekdays */
 function pf_seed_rand_date(int $year, int $month, ?string $after = null): string {
     $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $month, $year);
@@ -1121,6 +1165,200 @@ function pf_seed_repair_deleted_execute(): array {
     ];
 }
 
+function pf_seed_deleted_transaction_ids(): array {
+    $placeholders = pf_seed_placeholder_products();
+    $placeholderIds = array_map('intval', array_column($placeholders, 'product_id'));
+    if (empty($placeholderIds)) {
+        return [
+            'placeholder_ids' => [],
+            'order_ids' => [],
+            'order_item_ids' => [],
+            'pos_transaction_ids' => [],
+            'pos_item_ids' => [],
+        ];
+    }
+
+    $idList = implode(',', $placeholderIds);
+    $orderRows = db_query("
+        SELECT DISTINCT order_id
+        FROM order_items
+        WHERE product_id IN ({$idList}) AND order_id IS NOT NULL
+    ") ?: [];
+    $itemRows = db_query("
+        SELECT order_item_id
+        FROM order_items
+        WHERE product_id IN ({$idList})
+    ") ?: [];
+
+    $posTransactionIds = [];
+    $posItemIds = [];
+    if (pf_seed_table_exists('pos_items') && pf_seed_column_exists('pos_items', 'product_id')) {
+        $posItemPk = pf_seed_column_exists('pos_items', 'id') ? 'id' : (pf_seed_column_exists('pos_items', 'pos_item_id') ? 'pos_item_id' : '');
+        $posTxnCol = pf_seed_column_exists('pos_items', 'transaction_id') ? 'transaction_id' : (pf_seed_column_exists('pos_items', 'pos_transaction_id') ? 'pos_transaction_id' : '');
+        $selectCols = [];
+        if ($posItemPk !== '') $selectCols[] = "`{$posItemPk}` AS item_id";
+        if ($posTxnCol !== '') $selectCols[] = "`{$posTxnCol}` AS txn_id";
+        if (empty($selectCols)) $selectCols[] = 'product_id';
+
+        $posItemRows = db_query("SELECT " . implode(', ', $selectCols) . " FROM pos_items WHERE product_id IN ({$idList})") ?: [];
+        foreach ($posItemRows as $row) {
+            $posItemIds[] = (int)($row['item_id'] ?? 0);
+            $posTransactionIds[] = (int)($row['txn_id'] ?? 0);
+        }
+    }
+
+    return [
+        'placeholder_ids' => $placeholderIds,
+        'order_ids' => array_values(array_unique(array_map('intval', array_column($orderRows, 'order_id')))),
+        'order_item_ids' => array_values(array_unique(array_map('intval', array_column($itemRows, 'order_item_id')))),
+        'pos_transaction_ids' => array_values(array_unique(array_filter($posTransactionIds))),
+        'pos_item_ids' => array_values(array_unique(array_filter($posItemIds))),
+    ];
+}
+
+function pf_seed_delete_deleted_transactions_preview(): array {
+    $ids = pf_seed_deleted_transaction_ids();
+    $orderIds = $ids['order_ids'];
+    $orderItemIds = $ids['order_item_ids'];
+    $posTransactionIds = $ids['pos_transaction_ids'];
+
+    $samples = [];
+    $csv = pf_seed_ids_csv($orderIds);
+    if ($csv !== '') {
+        $samples = db_query(
+            "SELECT o.order_id, o.order_date, o.total_amount, o.status, o.payment_status,
+                    CONCAT(c.first_name, ' ', c.last_name) AS customer_name
+             FROM orders o
+             LEFT JOIN customers c ON c.customer_id = o.customer_id
+             WHERE o.order_id IN ({$csv})
+             ORDER BY o.order_date DESC
+             LIMIT 10"
+        ) ?: [];
+    }
+
+    return [
+        'placeholder_count' => count($ids['placeholder_ids']),
+        'order_count' => count($orderIds),
+        'order_item_count' => count($orderItemIds),
+        'customization_count' => pf_seed_count_where_in('customizations', 'order_id', $orderIds),
+        'job_order_count' => pf_seed_count_where_in('job_orders', 'order_id', $orderIds) + pf_seed_count_where_in('job_orders', 'order_item_id', $orderItemIds),
+        'status_history_count' => pf_seed_count_where_in('order_status_history', 'order_id', $orderIds),
+        'pos_transaction_count' => count($posTransactionIds),
+        'pos_item_count' => count($ids['pos_item_ids']),
+        'samples' => $samples,
+    ];
+}
+
+function pf_seed_delete_deleted_transactions_execute(): array {
+    global $conn;
+
+    $ids = pf_seed_deleted_transaction_ids();
+    $orderIds = $ids['order_ids'];
+    $orderItemIds = $ids['order_item_ids'];
+    $posTransactionIds = $ids['pos_transaction_ids'];
+    $posItemIds = $ids['pos_item_ids'];
+
+    if (empty($orderIds) && empty($posTransactionIds)) {
+        return ['ok' => true, 'deleted_orders' => 0, 'deleted_pos_transactions' => 0, 'message' => 'No transactions with deleted products found.'];
+    }
+
+    $ts = date('YmdHis');
+    $backup = "backup_delete_deleted_product_txn_{$ts}";
+    $deleted = [];
+
+    $conn->begin_transaction();
+    try {
+        // Delete children that hang off order_messages/reviews before their parents.
+        $messageIds = [];
+        if (pf_seed_table_exists('order_messages') && pf_seed_column_exists('order_messages', 'message_id')) {
+            $msgCsv = pf_seed_ids_csv($orderIds);
+            if ($msgCsv !== '') {
+                $rows = db_query("SELECT message_id FROM order_messages WHERE order_id IN ({$msgCsv})") ?: [];
+                $messageIds = array_values(array_unique(array_map('intval', array_column($rows, 'message_id'))));
+            }
+        }
+        $deleted['message_reactions'] = pf_seed_backup_and_delete_where_in($conn, 'message_reactions', 'message_id', $messageIds, $backup);
+
+        $reviewIds = [];
+        if (pf_seed_table_exists('reviews') && pf_seed_column_exists('reviews', 'order_id')) {
+            $revCsv = pf_seed_ids_csv($orderIds);
+            if ($revCsv !== '') {
+                $rows = db_query("SELECT review_id FROM reviews WHERE order_id IN ({$revCsv})") ?: [];
+                $reviewIds = array_values(array_unique(array_map('intval', array_column($rows, 'review_id'))));
+            }
+        }
+        foreach (['review_images', 'review_replies', 'review_helpful'] as $table) {
+            $deleted[$table] = pf_seed_backup_and_delete_where_in($conn, $table, 'review_id', $reviewIds, $backup);
+        }
+        $deleted['reviews'] = pf_seed_backup_and_delete_where_in($conn, 'reviews', 'review_id', $reviewIds, $backup);
+        $deleted['ratings'] = pf_seed_backup_and_delete_where_in($conn, 'ratings', 'order_id', $orderIds, $backup);
+
+        // Delete children that reference order_id first.
+        foreach ([
+            ['order_tarp_details', 'order_id'],
+            ['order_designs', 'order_id'],
+            ['order_messages', 'order_id'],
+            ['order_notes', 'order_id'],
+            ['order_status_history', 'order_id'],
+            ['service_order_details', 'order_id'],
+            ['service_order_files', 'order_id'],
+            ['service_orders', 'id'], // not linked to orders in this schema; skipped effectively unless ids match service ids
+            ['customizations', 'order_id'],
+            ['job_order_files', 'job_order_id'],
+            ['job_order_ink_usage', 'job_order_id'],
+            ['job_order_materials', 'job_order_id'],
+        ] as [$table, $column]) {
+            // job_order_* children need job ids, not order ids; handled after collecting linked jobs.
+            if (str_starts_with($table, 'job_order_')) continue;
+            if ($table === 'service_orders') continue;
+            $deleted[$table] = ($deleted[$table] ?? 0) + pf_seed_backup_and_delete_where_in($conn, $table, $column, $orderIds, $backup);
+        }
+
+        // Collect and delete job orders related to those orders/items.
+        $jobIds = [];
+        if (pf_seed_table_exists('job_orders')) {
+            $clauses = [];
+            if (pf_seed_ids_csv($orderIds) !== '' && pf_seed_column_exists('job_orders', 'order_id')) $clauses[] = 'order_id IN (' . pf_seed_ids_csv($orderIds) . ')';
+            if (pf_seed_ids_csv($orderItemIds) !== '' && pf_seed_column_exists('job_orders', 'order_item_id')) $clauses[] = 'order_item_id IN (' . pf_seed_ids_csv($orderItemIds) . ')';
+            if (!empty($clauses)) {
+                $jobRows = db_query('SELECT id FROM job_orders WHERE ' . implode(' OR ', $clauses)) ?: [];
+                $jobIds = array_values(array_unique(array_map('intval', array_column($jobRows, 'id'))));
+            }
+        }
+        foreach (['job_order_files', 'job_order_ink_usage', 'job_order_materials'] as $table) {
+            $deleted[$table] = ($deleted[$table] ?? 0) + pf_seed_backup_and_delete_where_in($conn, $table, 'job_order_id', $jobIds, $backup);
+        }
+        $deleted['job_orders'] = pf_seed_backup_and_delete_where_in($conn, 'job_orders', 'id', $jobIds, $backup);
+
+        // Delete order items, then parent orders.
+        $deleted['order_items'] = pf_seed_backup_and_delete_where_in($conn, 'order_items', 'order_id', $orderIds, $backup);
+        $deleted['orders'] = pf_seed_backup_and_delete_where_in($conn, 'orders', 'order_id', $orderIds, $backup);
+
+        // POS transactions linked to placeholder product.
+        $posItemPk = pf_seed_column_exists('pos_items', 'id') ? 'id' : (pf_seed_column_exists('pos_items', 'pos_item_id') ? 'pos_item_id' : '');
+        $posTxnPk = pf_seed_column_exists('pos_transactions', 'id') ? 'id' : (pf_seed_column_exists('pos_transactions', 'transaction_id') ? 'transaction_id' : (pf_seed_column_exists('pos_transactions', 'pos_transaction_id') ? 'pos_transaction_id' : ''));
+        if ($posItemPk !== '') {
+            $deleted['pos_items'] = pf_seed_backup_and_delete_where_in($conn, 'pos_items', $posItemPk, $posItemIds, $backup);
+        }
+        if ($posTxnPk !== '') {
+            $deleted['pos_transactions'] = pf_seed_backup_and_delete_where_in($conn, 'pos_transactions', $posTxnPk, $posTransactionIds, $backup);
+        }
+
+        $conn->commit();
+    } catch (\Throwable $e) {
+        $conn->rollback();
+        return ['ok' => false, 'error' => $e->getMessage()];
+    }
+
+    return [
+        'ok' => true,
+        'deleted_orders' => count($orderIds),
+        'deleted_order_items' => $deleted['order_items'] ?? 0,
+        'deleted_pos_transactions' => count($posTransactionIds),
+        'deleted' => $deleted,
+    ];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST HANDLER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1185,6 +1423,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($r['ok'] && function_exists('log_activity')) {
                 log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
                     'Repaired Deleted Product References', 'Reassigned SYS-DELETED-PRODUCT order items to active products.');
+            }
+            echo json_encode($r);
+            break;
+
+        case 'delete_deleted_txn_preview':
+            echo json_encode(['ok' => true, 'data' => pf_seed_delete_deleted_transactions_preview()]);
+            break;
+
+        case 'delete_deleted_txn_execute':
+            if (($_POST['confirm'] ?? '') !== '1') {
+                echo json_encode(['ok' => false, 'error' => 'Confirmation required.']);
+                break;
+            }
+            $r = pf_seed_delete_deleted_transactions_execute();
+            if ($r['ok'] && function_exists('log_activity')) {
+                log_activity((int)($GLOBALS['current_user']['user_id'] ?? 0),
+                    'Deleted Transactions With Deleted Products', 'Deleted transactions linked to SYS-DELETED-PRODUCT placeholders.');
             }
             echo json_encode($r);
             break;
@@ -1758,6 +2013,97 @@ $current_page = 'seed_transactions';
                 </button>
             </div>
         </template>
+
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;">
+            <div class="part-header" style="border-color:#fed7d7;background:#fff5f5;">
+                <div class="part-icon">🗑️</div>
+                <div>
+                    <h3 style="color:#c53030;">Delete Transactions With Deleted Items</h3>
+                    <p>If you prefer not to repair them, this deletes only the full transactions that contain SYS-DELETED-PRODUCT items. A backup table is created first.</p>
+                </div>
+            </div>
+
+            <template x-if="del.state === 'idle'">
+                <div>
+                    <button class="btn-preview" @click="deletePreview()" :disabled="del.loading">
+                        <template x-if="del.loading"><span class="spinner"></span></template>
+                        <template x-if="!del.loading"><i class="fas fa-eye"></i></template>
+                        <span x-text="del.loading ? ' Checking…' : ' Preview Transactions To Delete'"></span>
+                    </button>
+                    <div x-show="del.error" x-text="del.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+                </div>
+            </template>
+
+            <template x-if="del.state === 'preview'">
+                <div>
+                    <div class="stat-row">
+                        <div class="stat-box"><div class="val" x-text="del.data.order_count.toLocaleString()"></div><div class="lbl">Orders</div></div>
+                        <div class="stat-box"><div class="val" x-text="del.data.order_item_count.toLocaleString()"></div><div class="lbl">Order Items</div></div>
+                        <div class="stat-box"><div class="val" x-text="del.data.job_order_count.toLocaleString()"></div><div class="lbl">Job Orders</div></div>
+                        <div class="stat-box"><div class="val" x-text="del.data.pos_transaction_count.toLocaleString()"></div><div class="lbl">POS Txns</div></div>
+                    </div>
+
+                    <table class="preview-table" x-show="del.data.samples.length > 0">
+                        <thead>
+                            <tr><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th>Amount</th></tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="row in del.data.samples" :key="row.order_id">
+                                <tr>
+                                    <td x-text="'#' + row.order_id"></td>
+                                    <td x-text="row.customer_name || 'Walk-in Customer'"></td>
+                                    <td x-text="row.order_date"></td>
+                                    <td x-text="row.status"></td>
+                                    <td x-text="'₱' + parseFloat(row.total_amount || 0).toFixed(2)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+                    <div class="info-card" x-show="del.data.order_count === 0 && del.data.pos_transaction_count === 0">
+                        <i class="fas fa-check-circle"></i> No transactions with deleted products were found.
+                    </div>
+
+                    <div class="confirm-box" x-show="del.data.order_count > 0 || del.data.pos_transaction_count > 0" style="border-color:#e53e3e;background:#fff5f5;">
+                        <label style="color:#c53030;">
+                            <input type="checkbox" x-model="del.confirmed">
+                            I understand this will delete the affected transactions, not the products/services/users.
+                        </label>
+                    </div>
+
+                    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+                        <button class="btn-cancel" @click="del.state='idle'">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button class="btn-execute" style="background:#e53e3e;" @click="deleteExecute()"
+                                :disabled="!del.confirmed || del.loading || (del.data.order_count === 0 && del.data.pos_transaction_count === 0)">
+                            <template x-if="del.loading"><span class="spinner"></span></template>
+                            <template x-if="!del.loading"><i class="fas fa-trash"></i></template>
+                            <span x-text="del.loading ? 'Deleting…' : 'Delete Affected Transactions'"></span>
+                        </button>
+                    </div>
+                    <div x-show="del.error" x-text="del.error" style="color:#c53030;margin-top:12px;font-weight:600;"></div>
+                </div>
+            </template>
+
+            <template x-if="del.state === 'done'">
+                <div>
+                    <div class="success-banner" x-show="del.result && del.result.ok">
+                        <h4><i class="fas fa-circle-check"></i> Affected transactions deleted</h4>
+                        <p>
+                            Deleted <strong x-text="del.result ? del.result.deleted_orders.toLocaleString() : 0"></strong> orders and
+                            <strong x-text="del.result ? del.result.deleted_order_items.toLocaleString() : 0"></strong> order items linked to deleted products.
+                        </p>
+                    </div>
+                    <div class="error-banner" x-show="del.result && !del.result.ok">
+                        <p x-text="del.result ? del.result.error : ''"></p>
+                    </div>
+                    <button class="btn-cancel" @click="del.state='idle'; del.confirmed=false; del.result=null">
+                        <i class="fas fa-rotate-left"></i> Check Again
+                    </button>
+                </div>
+            </template>
+        </div>
     </div>
 
 </div><!-- /seed-wrap -->
@@ -1769,6 +2115,7 @@ function seedApp() {
         p1: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         p2: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
         repair: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
+        del: { state: 'idle', loading: false, data: null, confirmed: false, result: null, error: '' },
 
         switchTab(t) {
             this.tab = t;
@@ -1889,6 +2236,45 @@ function seedApp() {
                 this.repair.state = 'done';
             } finally {
                 this.repair.loading = false;
+            }
+        },
+
+        async deletePreview() {
+            this.del.loading = true; this.del.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'delete_deleted_txn_preview');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                if (!json.ok) throw new Error(json.error || 'Preview failed.');
+                this.del.data = json.data;
+                this.del.state = 'preview';
+            } catch (e) {
+                this.del.error = e.message;
+            } finally {
+                this.del.loading = false;
+            }
+        },
+
+        async deleteExecute() {
+            if (!this.del.confirmed) return;
+            this.del.loading = true; this.del.error = '';
+            try {
+                const fd = new FormData();
+                fd.append('csrf_token', <?= json_encode($csrf_token) ?>);
+                fd.append('action', 'delete_deleted_txn_execute');
+                fd.append('confirm', '1');
+                const res  = await fetch(location.href, { method: 'POST', body: fd });
+                const json = await res.json();
+                this.del.result = json;
+                this.del.state = 'done';
+            } catch (e) {
+                this.del.error = e.message;
+                this.del.result = { ok: false, error: e.message };
+                this.del.state = 'done';
+            } finally {
+                this.del.loading = false;
             }
         },
     };
